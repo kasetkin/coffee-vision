@@ -246,14 +246,17 @@
 
   <h2>8. P6 &mdash; release B <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P5; the owner's go-ahead to merge, push and deploy</span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-16: release <code>20261116T1722Z-e459f9f</code>, live and verified</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P5 done; the owner's go-ahead given 2026-11-16</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy.</span></li>
-    <li><span class="box"></span><span>Release with <code>--verify</code>.</span></li>
-    <li><span class="box"></span><span>Checks, on the live site: the darktable PQ and HLG exports each get an answer,
-      the same country as the sRGB export. Part 1's acceptance items in the ticket ticked.</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: the go-ahead to merge, push and deploy. <span class="tag">given
+      2026-11-16, on both hosts</span></span></li>
+    <li><span class="box done"></span><span>Release with <code>--verify</code>. <span class="tag">every check ok, the four
+      examples their answers</span></span></li>
+    <li><span class="box done"></span><span>Checks, on the live site: the darktable PQ and HLG exports each get an answer,
+      the same country as the sRGB export. Part 1's acceptance items in the ticket ticked. <span class="tag">all Brazil;
+      Activity 2026-11-16</span></span></li>
   </ol>
 
   <h2>9. P7 &mdash; the gain-map reader, not wired in</h2>
@@ -354,8 +357,8 @@
     <li><span class="box done"></span><span>P2 and P5: the store's outputs byte-identical after the re-run; the exports
       within tolerance. <span class="tag">but the four D34 records (P2's Adobe RGB JPEG XL and q50 linear HEIC, P5's
       darktable PQ and HLG)</span></span></li>
-    <li><span class="box"></span><span>P3 and P6: the live site answers the darktable files. <span class="tag">P3's
-      done 2026-11-15; P6's to come</span></span></li>
+    <li><span class="box done"></span><span>P3 and P6: the live site answers the darktable files. <span class="tag">P3's
+      done 2026-11-15, P6's 2026-11-16</span></span></li>
     <li><span class="box"></span><span>P4: the operator and tolerance chosen by the owner, in the ticket.</span></li>
     <li><span class="box done"></span><span>P7: ISO against vendor on 208 files; the setting off changes nothing.</span></li>
     <li><span class="box"></span><span>P8 to P10: each report in <code>analysis/ml29/</code>, per camera.</span></li>
@@ -524,6 +527,15 @@
       <code>gain_map.py</code> out of the stages' dependencies): all 41 canonicalize and segcrop stages,
       <code>seg_ml19_predict</code> and <code>merge_segpool</code>, every output byte-identical to <code>4a8f6a2</code>'s
       lock. <code>scripts/check.sh --full</code> green: 1,245 tests, 3 skipped. P5 and P7 done.</div>
+    <div><div class="when">2026-11-16</div>P6 done: release B, <code>20261116T1722Z-e459f9f</code> with the live model
+      <code>dino3b16_segxl0v7r_country_aug8_ml27_s42</code>, deployed on both hosts at the owner's word and verified
+      (<code>--verify</code>: every check ok, the four examples their answers). <code>main</code> fast-forwarded to
+      <code>e459f9f</code> (21 commits) and pushed; the deploy's own check skipped, <code>scripts/check.sh --full</code>
+      having passed on <code>20d7dbe</code>, whose only successor changes a ticket. Photo answers were down from
+      17:26 UTC for the smoke and the flip. On the live site, through the domain with the probe marker
+      (<code>tmp/ml29_p6/live_check.py</code>): the darktable sRGB, PQ and HLG JPEG XLs, the float JPEG XL and a Fold8
+      Ultra DNG (ML-31) each answered Brazil. The front's log: canonicalized in 2.9 s (sRGB), 13.9 (PQ), 13.1 (HLG),
+      13.9 (float, the tone map's path) and 7.8 s (the DNG, 12 MP), within ML-19 D22's 40 s.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

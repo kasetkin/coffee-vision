@@ -13,7 +13,7 @@
     <code>dataset/</code> changed yet; D1 open.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review done (all 20 accepted); the store re-run twice, unchanged but the new photos; <code>scripts/check.sh --full</code> green; every acceptance item met; pushed to git and DVC 2026-11-16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review done (all 20 accepted); the store re-run twice, unchanged but the new photos; <code>scripts/check.sh --full</code> green; every acceptance item met; pushed to git and DVC 2026-11-16; merged and live in ML-29's release B 2026-11-16; closed 2026-11-16</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -23,8 +23,9 @@
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the crop review)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-16</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">None until a release. With D1 (a), a
-      Fold8 Ultra DNG upload, refused today ("unreadable RAW file"), would be read after the next release.</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">With D1 (a), a Fold8 Ultra DNG upload, refused
+      before ("unreadable RAW file"), is read since ML-29's release B (2026-11-16, <code>20261116T1722Z-e459f9f</code>),
+      checked on the live site.</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1 for the DNGs; the JPEGs need nothing</span></span></div>
   </div>
 
@@ -210,6 +211,8 @@
       <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>: 86 files in 25 minutes. Checked on the
       remote object by object (<code>docs/agents/dvc.md</code>): all 4,377 the targets and their listings name are
       there.</div>
+    <div><div class="when">2026-11-16</div>Live in ML-29's release B (<code>20261116T1722Z-e459f9f</code>): a Fold8 Ultra
+      DNG (<code>20261115_175010</code>) through the live site answers Brazil, canonicalized by the front in 7.8 s.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),

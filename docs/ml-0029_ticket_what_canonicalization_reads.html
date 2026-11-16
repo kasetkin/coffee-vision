@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -351,9 +351,11 @@
   <h2>7. Scope and acceptance</h2>
   <p><strong>Part 1: read correctly.</strong></p>
   <ul class="checks">
-    <li><span class="box"></span><span>Each of the owner's 22 darktable exports is read, and its canonical photo lands
+    <li><span class="box done"></span><span>Each of the owner's 22 darktable exports is read, and its canonical photo lands
       within a stated tolerance of the 8-bit sRGB export's; the three files misread today (linear Rec.2020 AVIF and
-      HEIC, Display P3 HEIC) are among them.</span></li>
+      HEIC, Display P3 HEIC) are among them. <span class="tag">all 22 read; within D27's and D35's tolerances but the
+      four D34 records outside (the Adobe RGB JPEG XL and q50 linear HEIC, darktable's PQ and HLG), the files made
+      here in their place; the three once misread within</span></span></li>
     <li><span class="box done"></span><span>Files with the declarations darktable's unexported profiles would carry (linear
       Rec709, Rec709, PQ P3, HLG P3, linear ProPhoto), and PQ and HLG as AVIF and HEIC, are made here from the exports
       in hand (D25), read from their bytes and added to the table as made here.</span></li>
@@ -424,6 +426,11 @@
     <div><div class="when">2026-11-15</div>The owner decided D36: a JPEG XL's extra channel beside the picture
       (depth, thermal, a selection mask, an optional one) is skipped and the colour read; black, a spot colour, CFA
       or a second alpha refuses the photo, naming the channel. With P5, so the store re-run covers both.</div>
+    <div><div class="when">2026-11-16</div>Release B live (P6): <code>20261116T1722Z-e459f9f</code>, the live model
+      unchanged; <code>--verify</code> passed on both hosts. On the live site the darktable PQ and HLG JPEG XLs answer
+      Brazil as the sRGB export does, and so do the float JPEG XL (now tone-mapped) and a Fold8 Ultra DNG (ML-31).
+      The front canonicalized them in 13.9, 13.1, 13.9 and 7.8 s (the sRGB export 2.9 s). Part 1 is done; Part 2 is
+      at P8.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
