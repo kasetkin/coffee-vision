@@ -13,7 +13,7 @@
     <code>dataset/</code> changed yet; D1 open.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review next; not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review done (all 20 accepted); the store re-run once more for the review's DNG fix; not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -139,7 +139,7 @@
     <li><span class="box done"></span><span>The 20 files analysed: formats, metadata, gain maps, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>The JPEGs and the DNGs (D1) stripped, every check passing, with their manifest rows.</span></li>
     <li><span class="box done"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
-    <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split (done 2026-11-16); the owner's crop review.</span></li>
+    <li><span class="box done"></span><span>The segmenter dataset with the new photos, each twin pair in one split (done 2026-11-16); the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
   </ul>
 
@@ -195,6 +195,11 @@
       photos keep their bytes. <code>docs/inference_path.html</code> names the reader and D36. Left: the
       <code>linear_dng.parse</code> call for a <code>.dng</code> repeated in four places, and the strip's pixel check
       parsing a DNG twice.</div>
+    <div><div class="when">2026-11-16</div>The owner's crop review
+      (<code>labels/ml2/review/ml31_new_crops_2026-11-15.decisions.jsonl</code>, 20 items, each on the mask the
+      items recorded): all 20 accepted, the whole-frame masks and the one at 3.6% (<code>20261115_174114</code>)
+      among them. <code>analysis/ml3/mask_review.py</code> reads the review; <code>exclude</code> writes
+      <code>labels/ml3/pool_exclude.csv</code> unchanged (55 rows), so the pool keeps the 20 (1,763 crops).</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),
