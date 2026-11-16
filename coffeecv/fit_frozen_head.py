@@ -26,16 +26,18 @@ numbers.
   labels and provenance when the split is embedded, and the training views' embeddings in chunks of
   VIEW_CHUNK_BATCHES whole batches (so a resumed run batches the same views together), go to
   <out>/features/<fingerprint>/ (`FeatureStore`). The same command run again after a reboot loads what its
-  fingerprint matches (`feature_fingerprint`: seed, --smoke, threads, config, backbone, crops' version in dvc.lock,
-  the files a fit reads; not the git commit) and embeds the rest; it fits what an uninterrupted run fits. The
-  files go once the seed's run directory is written, and a run first deletes every other run's under its --out
-  (a --smoke run's out is <out>/smoke/, so it never touches a real run's). A real run archived a seed before the
+  fingerprint matches (`feature_fingerprint`: seed, --smoke, threads, config, backbone, crops' version in dvc.lock
+  or a --pool's files, the files a fit reads; not the git commit) and embeds the rest; it fits what an uninterrupted
+  run fits. The files go once the seed's run directory is written, and a run first deletes every other run's under
+  its --out (a --smoke run's out is <out>/smoke/, so it never touches a real run's). A real run archived a seed before the
   reboot: rerun the remaining seeds with --start-exp moved on, as the ids already taken are refused.
 - **Seeds only vary the patch draw** (the head is convex). Each seed is archived; the one to ship is
   chosen on val macro-F1, never test, and shipping is a separate, explicit step.
 
     python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 270
     python -m coffeecv.fit_frozen_head --smoke --allow-dirty          # tiny budgets, nothing archived
+    python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 289 --pool outputs/ml29_p10/segcropped/pool \
+        --label ml29gm      # a scratch pool in place of data/segcropped/pool (ML-29 P10)
     python -m coffeecv.fit_frozen_head --ship 271 --name dino3b16_segxl0v3_country_aug8_s123 --seed-exps 270 271 272
 
 Every fit reads the segmenter's crops (dataset.CAPTURES) with crop_method "segment", so patches are placed
@@ -103,17 +105,19 @@ def log(msg: str) -> None:
     print(f"[fit_frozen_head {datetime.now().strftime('%H:%M:%S')}] {msg}", flush=True)
 
 
-def frozen_config(backbone: str, seed: int, smoke: bool) -> RunConfig:
-    """params.yaml's sampling geometry and head_augment, the pool (dataset.CAPTURES), and the fields that
-    describe a frozen backbone with a convex head set to what actually runs (as the screen records its folds).
-    Refuses a ResNet-era augmentation knob set in params.yaml (RESNET_ERA_KNOBS). Until ML-8, allrigs_config."""
+def frozen_config(backbone: str, seed: int, smoke: bool, pool: str | None = None) -> RunConfig:
+    """params.yaml's sampling geometry and head_augment, the pool (dataset.CAPTURES, or `pool`: --pool's scratch
+    pool, ML-29 P10), and the fields that describe a frozen backbone with a convex head set to what actually runs (as
+    the screen records its folds). Refuses a ResNet-era augmentation knob set in params.yaml (RESNET_ERA_KNOBS).
+    Until ML-8, allrigs_config."""
     base = RunConfig.from_params_yaml()
     on = [f"{k}={getattr(base, k)}" for k, off in RESNET_ERA_KNOBS.items() if getattr(base, k) != off]
     if on:
         raise ValueError(f"params.yaml sets {', '.join(on)}: ResNet-era augmentation the frozen head fit never "
                          "applies (its augmentation is head_augment, ticket ML-8 D4). Set it back to "
                          f"{RESNET_ERA_KNOBS} for a frozen fit.")
-    cfg = replace(base, seed=seed, train_capture_dirs=tuple(CAPTURES), crop_method="segment", model_name=backbone)
+    dirs = (pool,) if pool is not None else tuple(CAPTURES)
+    cfg = replace(base, seed=seed, train_capture_dirs=dirs, crop_method="segment", model_name=backbone)
     return replace(cfg, **SMOKE_BUDGET) if smoke else cfg
 
 
@@ -254,17 +258,32 @@ def transform_shifts(patches: list[np.ndarray], X: np.ndarray, bb: FrozenBackbon
 # ---------------------------------------------------------------- saved features, for a resume (ML-13 D8, P3)
 
 def crops_version(cfg: RunConfig) -> dict:
-    """dvc.lock's hash of each crop directory the fit reads (merge_segpool's output, for the pool)."""
+    """dvc.lock's hash of each crop directory the fit reads (merge_segpool's output, for the pool); for one dvc.lock
+    does not know (--pool's scratch pool, ML-29 P10), the hash of its files."""
     lock = yaml.safe_load((REPO_ROOT / "dvc.lock").read_text())
     outs = {o["path"]: o.get("md5") for st in lock["stages"].values() for o in st.get("outs") or []}
-    return {d: outs.get(d) for d in cfg.train_capture_dirs}
+    return {d: outs[d] if d in outs else f"files sha256 {_files_sha256(REPO_ROOT / d)}"
+            for d in cfg.train_capture_dirs}
+
+
+def _files_sha256(path: Path) -> str:
+    """tree_sha256, read once per run for an unchanged directory: a scratch pool is 12 GB, and the fingerprint is
+    taken twice a seed. Keyed on every file's path, size and mtime, so a changed file is read again."""
+    stats = tuple((str(f), f.stat().st_size, f.stat().st_mtime_ns) for f in sorted(path.rglob("*")) if f.is_file())
+    key = (str(path), hashlib.sha256(repr(stats).encode()).hexdigest())
+    if key not in _FILES_SHA256:
+        _FILES_SHA256[key] = tree_sha256(path)
+    return _FILES_SHA256[key]
+
+
+_FILES_SHA256: dict[tuple[str, str], str] = {}
 
 
 def feature_fingerprint(bb: FrozenBackbone, readout: str, cfg: RunConfig, aug: HeadAugment | None,
                         smoke: bool) -> dict:
     """What a seed's embeddings depend on, so saved ones are loaded only by the run that would compute them: the
     seed, --smoke, the threads and the batching, the run's config and head_augment, the backbone and its weights,
-    the library versions, the crops' version in dvc.lock, and the files a fit reads (FEATURE_INPUTS and the classes
+    the library versions, the crops' version (`crops_version`), and the files a fit reads (FEATURE_INPUTS and the classes
     file). Not the git commit: a commit of docs during a run would throw away its hours. One flat dict, so a
     mismatch names its keys."""
     import timm
@@ -412,8 +431,8 @@ def fit_arm(X_train: np.ndarray, y_train: np.ndarray, w: np.ndarray | None, X: d
 
 
 def fit_one_seed(bb: FrozenBackbone, readout: str, seed: int, C: float, C_rule: str,
-                 out: Path, smoke: bool) -> Path:
-    cfg = frozen_config(bb.name, seed, smoke)
+                 out: Path, smoke: bool, pool: str | None = None) -> Path:
+    cfg = frozen_config(bb.name, seed, smoke, pool)
     aug = HeadAugment.from_config(cfg)
     assert_input_size(bb, cfg.patch_resize)
     set_seed(seed)
@@ -668,6 +687,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--name", help="with --ship: the models/<name>.pt to create")
     p.add_argument("--seed-exps", type=int, nargs="+",
                    help="with --ship: every seed's experiment of the shipped fit, for the card's mean and range")
+    p.add_argument("--pool", help="fit on this scratch pool (repo-relative, named 'pool') in place of "
+                                  f"{CAPTURES[0]}: a comparison's crops outside DVC (ML-29 P10)")
+    p.add_argument("--label", help="with --pool: appended to the runs' names and notes")
     p.add_argument("--arm", type=Arm, choices=list(Arm),
                    help="with --ship: which of an augmented run's two heads (default: the run's head, augmented)")
     args = p.parse_args(argv)
@@ -677,6 +699,16 @@ def main(argv: list[str] | None = None) -> int:
             raise SystemExit("--ship needs --name")
         ship(args.ship, args.name, args.seed_exps, args.arm)
         return 0
+    if args.pool is not None:
+        # The split keys on the capture dir's basename (dataset.CapturePhoto), so only a pool named as the tracked
+        # one draws the tracked pool's split: the paired arms then differ in their crops alone.
+        if Path(args.pool).name != Path(CAPTURES[0]).name:
+            raise SystemExit(f"--pool {args.pool}: must be named {Path(CAPTURES[0]).name!r}, as {CAPTURES[0]} is, "
+                             "or its photos split otherwise")
+        if not (REPO_ROOT / args.pool).is_dir():
+            raise SystemExit(f"--pool {args.pool}: no directory there")
+        if not args.label:
+            raise SystemExit("--pool needs --label, which names its runs")
     if not args.smoke and args.start_exp is None:
         raise SystemExit("--start-exp is required for a real run (the ids must not collide with another machine's)")
     if not args.allow_dirty:
@@ -700,12 +732,12 @@ def main(argv: list[str] | None = None) -> int:
     out = Path(args.out) / ("smoke" if args.smoke else "")
     keep = []
     for seed in args.seeds:
-        cfg = frozen_config(bb.name, seed, args.smoke)
+        cfg = frozen_config(bb.name, seed, args.smoke, args.pool)
         keep.append(feature_fingerprint(bb, args.readout, cfg, HeadAugment.from_config(cfg), args.smoke))
     clear_feature_leftovers(out, keep)
     for i, seed in enumerate(args.seeds):
         t = time.perf_counter()
-        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out, args.smoke)
+        run_dir = fit_one_seed(bb, args.readout, seed, C, C_rule, out, args.smoke, args.pool)
         log(f"s{seed}: done in {(time.perf_counter() - t) / 60:.1f} min")
         if args.smoke:
             continue
@@ -715,12 +747,14 @@ def main(argv: list[str] | None = None) -> int:
         cfg["dino"]["run_dir"] = str(run_dir.resolve().relative_to(REPO_ROOT))
         cfg_path.write_text(json.dumps(cfg, indent=2))
         views = (cfg.get("head_augment") or {}).get("views", 0)
-        archive(str(exp), run_slug(args.backbone, args.readout, views, seed),
+        pooled = (f"the scratch pool {args.pool} ({args.label}) in place of {CAPTURES[0]}, its photos and split the "
+                  "same" if args.pool else f"one pool of every session ({CAPTURES[0]}, ticket ML-8 D2)")
+        archive(str(exp), run_slug(args.backbone, args.readout, views, seed) + (f"_{args.label}" if args.pool else ""),
                 f"plan §9.1 shipping fit: frozen {args.backbone}, readout {args.readout}, "
                 f"L2 logistic-regression head at fixed C={C:g}, no TTA; "
                 + (f"fitted on {views} augmented views per training patch beside it at equal total sample weight "
                    "(ticket ML-8 D4, ADR 0025; the unaugmented arm in metrics.json arms); " if views else "")
-                + "one pool of every session (data/segcropped/pool, ticket ML-8 D2), crop_method segment; "
+                + f"{pooled}, crop_method segment; "
                 "country classes (ticket ML-3, dataset/classes.txt); in-distribution metrics only",
                 src_dir=run_dir)
     return 0
