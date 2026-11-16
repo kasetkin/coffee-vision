@@ -1,0 +1,163 @@
+<title>The owner's photos of 2026-11-15: 20 Fold8 Ultra files, five of them DNGs LibRaw cannot open</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-31 · coffee-vision · new photos, DNG 1.7 with JPEG XL</div>
+  <h1>The owner's 20 photos of 2026-11-15 stripped and in the dataset, and what to do with five DNGs no decoder here reads</h1>
+  <p class="lede">The owner added 20 files from a Galaxy Z Fold8 Ultra to class 013: 15 JPEGs and 5 DNGs, each DNG with
+    a JPEG of the same name. The JPEGs are ordinary and ready for the usual intake. The DNGs are DNG 1.7 with a
+    JPEG XL-compressed, already demosaiced (LinearRaw) image, which LibRaw 0.22.1 refuses: the strip, the duplicate
+    check, canonicalization and the live site cannot read them. Written 2026-11-16 from the files; nothing in
+    <code>dataset/</code> changed yet; D1 open.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed, not stripped; D1 open</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">dataset/random_date_raccoon (class 013) and its .dvc, labels/ml3/strip_manifest.csv,
+      labels/ml5/seg_dataset.yaml, labels/ml5/split_units.yaml, dvc.yaml (canonicalize, segcrop, seg_ml19_predict);
+      for D1 (a): coffeecv/canonical.py, coffeecv/photo_io.py</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the crop review)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-16</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until a release. With D1 (a), a
+      Fold8 Ultra DNG upload, refused today ("unreadable RAW file"), would be read after the next release.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">D1 for the DNGs; the JPEGs need nothing</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-15.</strong> "Check new photos in the dataset, like
+      dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261115_175038_Galaxy_Z_Fold8_Ultra_Brazil.dng; they can
+      bring new information from Samsung RAW files." Then: "new photos needs usual processing like private info
+      stripping."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>20 new files in <code>dataset/random_date_raccoon/class_013__Brazil_SulDeMinas</code> (493 photos there before,
+    513 now), all from a Galaxy Z Fold8 Ultra, taken 2026-11-15: 15 JPEGs and 5 DNGs. The phone is not new to the
+    dataset (class 013 has Fold8 Ultra photos from October). No new class.</p>
+  <p>The work: decide the DNGs (D1), then the usual intake of <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a>:
+    the twins renamed, the strip with its manifest rows, DVC, the incremental stages (ADR 0037), the segmenter dataset,
+    the owner's crop review. ML-29's store re-run (its P5) waits for this folder: its three stages that read it
+    (<code>canonicalize@random_date_raccoon</code>, <code>segcrop@random_date_raccoon</code>,
+    <code>seg_ml19_predict</code>) were not run.</p>
+
+  <h2>2. Background</h2>
+  <p><strong>The JPEGs.</strong> All 15 have a Display P3-gamut ICC profile with the sRGB curve, as the earlier Samsung
+    photos do, and EXIF orientation. Sizes: 4000×3000 (8), 4080×3060 (4), 5352×4016, 5712×4284, and one 200 MP
+    16320×12240 (which libultrahdr's 8192 limit does not reach; canonicalization caps it at 50 MP, ML-19 D27). Ten carry
+    a gain map in both forms, ISO 21496-1 and Ultra HDR, 1000×750, one channel, map max 2.3 stops (as the 50 earlier
+    Samsung files); five carry none. Each ends in Samsung's SEF trailer: <code>Image_UTC_Data</code>,
+    <code>MCC_Data</code> (the network's country), <code>Camera_Scene_Info</code>, <code>Color_Display_P3</code>,
+    <code>Photo_HDR_Info</code>, <code>Camera_Capture_Mode_Info</code>.</p>
+  <p><strong>What the strip removes</strong> (<code>strip_metadata --dry-run</code>, 2026-11-15): from the 15 JPEGs,
+    GPS (60 tags), Samsung's maker notes (158) and an unknown maker note (60), the embedded thumbnail (IFD1), and the
+    SEF trailer, as for every Samsung batch; every check passes on a copy. The 5 DNGs fail: the strip's pixel check
+    decodes through rawpy, which cannot open them, and a photo whose pixels cannot be compared is never stripped.</p>
+  <p><strong>The duplicate check</strong> (<code>find_duplicates</code>, threshold 0.97, the 15 JPEGs against class
+    013's other 131 readable photos): no copy; the nearest is 0.62. The DNGs could not be checked; each is the twin of
+    the JPEG of its name (D1).</p>
+  <p><strong>The DNGs.</strong> One read in full (<code>20261115_175038</code>, 25 MB; the others 24 to 41 MB): DNG
+    1.7 (backward version 1.1); the main image 4080×3060, three channels, 16-bit, PhotometricInterpretation
+    LinearRaw (demosaiced, the merged picture of Samsung's processing, not sensor data), compression 52546, JPEG XL;
+    orientation 6; profile "Embedded Galaxy RAW"; two illuminants (D50 and standard light A) with colour and forward
+    matrices; <code>AsShotNeutral</code>; <code>BaselineExposure</code> +3.5: the data sits 3.5 stops below the
+    picture, the highlights kept; an <code>OpcodeList2</code> of flat <code>GainMap</code> opcodes (gain 1.0: lens
+    shading already applied); a ProfileGainTableMap, the local tone map ML-29 D18 leaves unapplied. LibRaw 0.22.1
+    (rawpy 0.27.1) answers <code>LibRawFileUnsupportedError</code> for all five.</p>
+  <p><strong>They can be read.</strong> imagecodecs decodes the JPEG XL main image. Developed by hand (camera white
+    balance, the forward matrix to XYZ, Rec.2020; <code>tmp/ml29_new_photos/develop.py</code>,
+    <code>crops/</code>): with LibRaw's auto-bright, as canonicalization develops every other RAW (ML-19), it is
+    brighter than Samsung's JPEG; at +3.5 EV it is close to it; with the ProfileGainTableMap as well, darker.</p>
+  <p><strong>Twins.</strong> Each DNG has a JPEG of the same stem; segcrop writes <code>&lt;stem&gt;__cropped.jxl</code>,
+    so the second crop of a pair would overwrite the first (ML-25 R2). ML-28 D5 renamed the developed twin:
+    <code>20261115_174805_…</code> → <code>20261115_174805-jpg_…</code>.</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>20 files in the folder, not in DVC, not stripped (GPS and the SEF trailer in them).</li>
+        <li>A Fold8 Ultra DNG is refused by every decoder here, and on the live site.</li>
+        <li>ML-29's three stages reading this folder wait.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The 15 JPEGs stripped, in DVC, in the store and the segmenter dataset; the crops reviewed.</li>
+        <li>The DNGs as D1 decides: read and in the dataset, or held outside it.</li>
+        <li>ML-29's store re-run complete.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The class list.</strong> All 20 are class 013, which exists.</li>
+    <li><strong>How every other RAW is developed.</strong> D1 (a) adds a path for one DNG kind; rawpy keeps the rest.</li>
+    <li><strong>The strip's rules</strong> (ML-3 D13, ADR 0013): the same deny list, the same checks.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A hand-written development differs from LibRaw's for the same kind of
+          file.</strong></td>
+        <td>LibRaw cannot read these, so there is nothing to equal; the risk is a brightness or colour unlike the
+          dataset's other RAWs. Mitigation for D1 (a): follow LibRaw's steps for a LinearRaw DNG (white balance, the
+          DNG colour matrices, auto-bright), and report the crops against the JPEG twins for the owner.</td></tr>
+      <tr><td class="id">R2</td><td><strong>A DNG held outside the dataset keeps its GPS on disk.</strong></td>
+        <td>Held in <code>tmp/</code> (gitignored, never in DVC): nothing is published; stripped when a decoder reads
+          it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The five DNGs no decoder here reads?</td>
+        <td>(a) a reader for JPEG XL LinearRaw DNGs, written test first and used by canonicalization, the strip and the
+          duplicate check; the DNGs held in <code>tmp/</code> meanwhile, the JPEGs taken in now (recommended: it also
+          fixes the site for this phone) (b) held in <code>tmp/</code> until LibRaw reads them (c) left out of the
+          dataset; their JPEG twins stay</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>The twins, with (a) or (b)?</td>
+        <td>As ML-28 D1 and D5: both files kept, the JPEG renamed <code>&lt;time&gt;-jpg_…</code></td>
+        <td>Open; follows ML-28 unless the owner says otherwise.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The 20 files analysed: formats, metadata, gain maps, the strip's dry run, the duplicate check.</span></li>
+    <li><span class="box"></span><span>The JPEGs (and the DNGs, by D1) stripped, every check passing, with their manifest rows.</span></li>
+    <li><span class="box"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
+    <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split; the owner's crop review.</span></li>
+    <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The DNG's ProfileGainTableMap and its +3.5 EV baseline as a rendering of the photo: ML-29 D18 leaves the local
+      tone map unapplied for every DNG.</li>
+    <li>Raising libultrahdr's size limit: it is a check in ML-29, not a decoder.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-16</div>Ticket written from the files, the strip's dry run, the duplicate check and
+      a scratch reading of one DNG (<code>tmp/ml29_new_photos/</code>, <code>tmp/ml31_intake/</code>), at
+      <code>fb2d4f5</code>. Nothing in <code>dataset/</code> changed. D1 open.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a> (D18; its P5 re-run waits for this folder),
+    <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>, Adobe's DNG specification 1.7.</footer>
+</main>
