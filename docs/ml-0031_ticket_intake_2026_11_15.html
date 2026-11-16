@@ -139,7 +139,7 @@
     <li><span class="box done"></span><span>The 20 files analysed: formats, metadata, gain maps, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>The JPEGs and the DNGs (D1) stripped, every check passing, with their manifest rows.</span></li>
     <li><span class="box"></span><span>The folder in DVC; its stages and <code>seg_ml19_predict</code> re-run, only the new photos' outputs added.</span></li>
-    <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split; the owner's crop review.</span></li>
+    <li><span class="box"></span><span>The segmenter dataset with the new photos, each twin pair in one split (done 2026-11-16); the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
   </ul>
 
@@ -173,6 +173,10 @@
       trailer left, the RAW preview kept (2026-10-05). The duplicate check: each DNG a copy of its own JPEG twin only
       (0.993&ndash;0.996; D2 keeps both), and each pair canonicalizes upright alike. The folder dvc-added again: 513
       files.</div>
+    <div><div class="when">2026-11-16</div>The store re-run started (every canonicalize and segcrop stage, once, for
+      this ticket and ML-29's P5 and P7). The segmenter dataset built: 20 added (1,815 photos), each twin pair in one
+      group and one split on its own (one clock: no split unit needed); <code>test_seg_dataset</code>'s pinned pool
+      count 861.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),
