@@ -51,6 +51,7 @@ import numpy as np
 from PIL import Image
 
 from coffeecv import colour_declaration as cd
+from coffeecv import linear_dng
 from coffeecv import tone_map as tm
 from coffeecv.jxl_encode import encode_rec2020
 from coffeecv.jxl_header import Header, HeaderError, read_header
@@ -94,6 +95,8 @@ class Settings:
     quality: int
     keep_max_pixels: int
     cap_pixels: int
+    gain_maps: bool = False  # ML-29 P7: a photo's gain map applied and tone-mapped back (D10 b1); off in both settings
+    #                          until the experiment (D12) and the owner adopt it (D15)
 
     def __post_init__(self):
         if self.colour not in ("float", "integer"):
@@ -357,10 +360,46 @@ def applied_orientation(data: bytes, name: str = "") -> int:
 def decode(data: bytes, name: str = "", max_pixels: int | None = None, settings: Settings = STORE_SETTINGS) -> Source:
     """An original's main image at its decoder's depth, capped by `settings` and upright (D20, D27, D28, D36), opened
     with its accepted format's decoder and no other (ADR 0034): a file in none, or one its decoder cannot read, is
-    Unreadable. A photo over `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded."""
+    Unreadable. A photo over `max_pixels` (the front's ceiling, D38) raises TooLarge before its pixels are decoded.
+    With settings.gain_maps, a photo's gain map is applied (_with_gain_map)."""
+    source = _decode(data, name, max_pixels, settings)
+    return _with_gain_map(data, name, source) if settings.gain_maps else source
+
+
+def _with_gain_map(data: bytes, name: str, source: Source) -> Source:
+    """ML-29 P7 (D10 b1), behind Settings.gain_maps: the main image's light in linear Rec.2020, the file's gain map
+    (coffeecv.gain_map, D14's order) turned as the main image was and applied at full weight, then tone-mapped back
+    into standard range by the encode (D33). A photo without a map, or with transparency, is left as decoded. The map
+    is applied in linear Rec.2020, which is its own maths for a one-channel map with equal offsets (every dataset
+    photo's); a three-channel map's maths would be in its base or alternate primaries, a difference left unmeasured."""
+    from coffeecv import gain_map                 # the experiment's only: the front never imports it (D15)
+    g = gain_map.read(data)
+    channels = 1 if source.pixels.ndim == 2 else source.pixels.shape[2]
+    if g is None or channels in (2, 4):
+        return source
+    h, w = source.pixels.shape[:2]
+    light = np.empty((h, w, 3), np.float32)
+    for y in range(0, h, STRIP_ROWS):
+        _, f = _light(source.pixels[y:y + STRIP_ROWS], source.full, source.linearize, 1 if channels == 1 else 3)
+        light[y:y + STRIP_ROWS] = ic.cms_transform(f, source.profile or SRGB, LINEAR_REC2020, intent=RELATIVE,
+                                                   outdtype=np.float32)
+    turned = np.ascontiguousarray(orient(g.pixels, applied_orientation(data, name)))
+    out = gain_map.apply(light, gain_map.GainMap(g.form, g.metadata, turned))
+    return Source(out, 1.0, LINEAR_REC2020, f"{source.decoder}+{g.form}", tone_map=True)
+
+
+def _decode(data: bytes, name: str, max_pixels: int | None, settings: Settings) -> Source:
     fmt = accepted_format(data, name)
     try:
         if fmt.is_raw:
+            dng = linear_dng.parse(data) if fmt.id == "dng" else None
+            if dng is not None:                  # a JPEG XL LinearRaw DNG, which LibRaw cannot open (ML-31 D1)
+                _check_size(dng.width, dng.height, max_pixels)
+                try:
+                    rgb = orient(linear_dng.develop(dng), dng.orientation)
+                except (ValueError, RuntimeError) as exc:
+                    raise Unreadable(f"unreadable DNG ({exc})") from exc
+                return Source(_cap(rgb, settings), 65535.0, LINEAR_REC2020, "dngjxl16")
             import rawpy
             try:
                 with rawpy.imread(io.BytesIO(data)) as raw:

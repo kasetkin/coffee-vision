@@ -82,6 +82,7 @@ import pillow_heif
 import rawpy
 from PIL import Image
 
+from coffeecv import linear_dng
 from coffeecv.config import REPO_ROOT
 from coffeecv.photo_io import DATASET_MAX_PIXELS, RAW_EXTENSIONS, load_rgb_image
 from coffeecv.repo_files import sha256_file
@@ -328,7 +329,10 @@ def pixel_digest(path: Path) -> str:
     h = hashlib.sha256()
     _digest(h, load_rgb_image(path))               # what training and serving decode
     ext = path.suffix.lower()
-    if ext in RAW_EXTENSIONS:
+    dng = linear_dng.parse(path.read_bytes()) if ext == ".dng" else None
+    if dng is not None:                            # a JPEG XL LinearRaw DNG, which LibRaw cannot open (ML-31 D1)
+        _digest(h, linear_dng.samples(dng))
+    elif ext in RAW_EXTENSIONS:
         with rawpy.imread(str(path)) as raw:
             _digest(h, raw.raw_image_visible)
     elif ext == ".jxl":
@@ -499,7 +503,10 @@ def estimate_decode_bytes(path: Path) -> int:
     """About the memory pixel_digest needs for `path`, from its dimensions in the file's header: nothing is
     decoded. Raises what opening the file raises."""
     ext = path.suffix.lower()
-    if ext in RAW_EXTENSIONS:
+    dng = linear_dng.parse(path.read_bytes()) if ext == ".dng" else None
+    if dng is not None:
+        pixels = dng.width * dng.height
+    elif ext in RAW_EXTENSIONS:
         with rawpy.imread(str(path)) as raw:
             pixels = raw.sizes.width * raw.sizes.height
     elif ext in HEIF_EXTENSIONS:

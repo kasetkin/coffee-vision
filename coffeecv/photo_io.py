@@ -11,7 +11,7 @@ import pillow_jxl  # noqa: F401 -- import alone registers JPEG XL with Pillow
 import rawpy
 from PIL import Image
 
-from coffeecv import canonical
+from coffeecv import canonical, linear_dng
 
 pillow_heif.register_heif_opener()
 # AVIF and JPEG XL (pillow_avif/pillow_jxl above) need no explicit register_opener()
@@ -40,6 +40,16 @@ def load_rgb_image(path: Path) -> np.ndarray:
         if canonical.is_canonical(data):
             return canonical.load_canonical(data)
     if path.suffix.lower() in RAW_EXTENSIONS:
+        dng = linear_dng.parse(Path(path).read_bytes()) if path.suffix.lower() == ".dng" else None
+        if dng is not None:
+            # A JPEG XL LinearRaw DNG, which LibRaw cannot open (ticket ML-31 D1): developed as LibRaw would, then
+            # LibRaw's default output here, sRGB primaries and BT.709's curve (dcraw's gamma 0.45, slope 4.5), 8-bit.
+            try:
+                linear = linear_dng.develop(dng, "srgb").astype(np.float32) / 65535
+            except (ValueError, RuntimeError) as exc:
+                raise OSError(f"unreadable RAW file ({exc})") from exc
+            curve = np.where(linear < 0.018, 4.5 * linear, 1.099 * linear ** 0.45 - 0.099)
+            return np.ascontiguousarray(canonical.orient(np.rint(curve * 255).astype(np.uint8), dng.orientation))
         try:
             with rawpy.imread(str(path)) as raw:
                 # output_bps=8: the rest of the pipeline (PIL.Image.fromarray in

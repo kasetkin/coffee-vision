@@ -56,6 +56,8 @@ FRONT_CODE = [
     "coffeecv/data/accepted_formats.csv",   # ticket OPS-18 D13: the accepted formats, which canonical reads
     "coffeecv/timeline_schema.py",   # ticket OPS-3 P3: what POST /timeline accepts
     "coffeecv/tone_map.py",   # ticket ML-29 P5: an HDR photo's light into the standard range (D33)
+    "coffeecv/linear_dng.py",   # ticket ML-31 D1: a JPEG XL LinearRaw DNG, which LibRaw cannot open
+    "coffeecv/gain_map.py",   # ticket ML-29 P7: imported by canonical only with Settings.gain_maps, off (D15)
 ]
 # What webapp/app.py imports, found with an import trace and checked by tests/test_release_manifest.py. Since
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
@@ -63,7 +65,7 @@ FRONT_CODE = [
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "bean_scale", "canonical", "class_list", "colour_declaration", "config", "crop_tray", "geometry", "infer",
     "jxl_encode",
-    "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans", "tone_map")] + [
+    "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans", "tone_map", "linear_dng")] + [
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13).
     "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"]
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them

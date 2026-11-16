@@ -8,6 +8,7 @@ itself. ISO 21496-1 payloads are written here with struct, from the standard's f
 """
 from __future__ import annotations
 
+import dataclasses
 import io
 import struct
 import unittest
@@ -276,3 +277,52 @@ class Containers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Setting(unittest.TestCase):
+    """canonical.Settings.gain_maps (P7): off in the store's and the front's settings, so nothing changes; on, a photo
+    with a map is the map's rendition, brought back to standard range by the tone map (D10 b1, D33)."""
+
+    def setUp(self):
+        self.main = np.full((48, 64, 3), 100, np.uint8)
+        self.gain = np.full((24, 32), 255, np.uint8)
+        self.xmp = b'<x hdrgm:Version="1.0" hdrgm:GainMapMax="1" hdrgm:HDRCapacityMax="1" hdrgm:OffsetSDR="0" ' \
+                   b'hdrgm:OffsetHDR="0"/>'
+        self.on = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=True)
+
+    def test_off_in_both_settings(self):
+        self.assertFalse(cn.STORE_SETTINGS.gain_maps or cn.FRONT_SETTINGS.gain_maps)
+
+    def test_off_a_photo_with_a_map_is_its_main_image(self):
+        data = ultra_hdr(self.main, self.gain, self.xmp)
+        self.assertEqual(cn.canonicalize(data, "x.jpg"), cn.canonicalize(jpeg(self.main), "x.jpg"))
+
+    def test_on_a_photo_without_a_map_keeps_its_bytes(self):
+        data = jpeg(self.main)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
+                         cn.canonicalize_with(data, "x.jpg", cn.STORE_SETTINGS).canonical)
+
+    def test_on_a_flat_map_brightens_the_photo(self):
+        """A map of one stop everywhere doubles the light; nothing is above white after it (100 of 255 is 0.13), so
+        the tone map leaves it: the canonical photo is the main image's light times two."""
+        data = ultra_hdr(self.main, self.gain, self.xmp)
+        src = cn.decode(data, "x.jpg", settings=self.on)
+        base = srgb_decode(np.float32(100 / 255))
+        np.testing.assert_allclose(src.pixels, base * 2, rtol=0.02)
+        self.assertEqual((src.full, src.profile, src.tone_map), (1.0, cn.LINEAR_REC2020, True))
+        brighter = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", self.on).canonical).astype(int)
+        plain = cn.load_canonical(cn.canonicalize(data, "x.jpg")).astype(int)
+        self.assertGreater(brighter.mean() - plain.mean(), 30)
+
+    def test_on_the_map_turns_with_the_main_image(self):
+        main = self.main.copy()
+        main[:, 32:] = 200
+        gain = np.zeros((24, 32), np.uint8)
+        gain[:, 16:] = 255                                        # the bright half boosted
+        data = ultra_hdr(main, gain, self.xmp, orientation=6)
+        src = cn.decode(data, "x.jpg", settings=self.on)
+        plain = cn.decode(data, "x.jpg")
+        ratio = src.pixels[..., 0] / srgb_decode(plain.pixels[..., 0].astype(np.float32) / 255)
+        bright = plain.pixels[..., 0] > 160
+        self.assertGreater(np.median(ratio[bright]), 1.8)
+        self.assertLess(np.median(ratio[~bright]), 1.2)

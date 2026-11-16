@@ -46,6 +46,8 @@ stages:
         - coffeecv/canonical.py
         - coffeecv/colour_declaration.py
         - coffeecv/tone_map.py
+        - coffeecv/linear_dng.py
+        - coffeecv/gain_map.py
         - coffeecv/canonicalize_folder.py
         - coffeecv/jxl_encode.py
         - coffeecv/jxl_header.py
@@ -100,6 +102,8 @@ stages:
         - coffeecv/canonical.py
         - coffeecv/colour_declaration.py
         - coffeecv/tone_map.py
+        - coffeecv/linear_dng.py
+        - coffeecv/gain_map.py
         - coffeecv/crop_io.py
         - coffeecv/segcrop_session.py
         - coffeecv/segment_beans.py
@@ -556,6 +560,8 @@ stages:
         - coffeecv/canonical.py
         - coffeecv/colour_declaration.py
         - coffeecv/tone_map.py
+        - coffeecv/linear_dng.py
+        - coffeecv/gain_map.py
         - coffeecv/canonical_store.py
         # Ticket ML-26: what a canonical photo's bytes depend on besides its original (the canonicalize stages' deps),
         # so that a photo's mask may be kept by its original's sha256 (coffeecv.incremental).
