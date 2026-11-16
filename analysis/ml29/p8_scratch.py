@@ -24,7 +24,8 @@ change from today's canonical photos, per camera (D13), for the owner.
 - check: the plan's two checks: the scratch store holds every photo the scan counts (none failed, none missing,
   each with its map read), and a sample of photos without a map canonicalize with the setting on to today's bytes.
   Three iPhone 13 HEICs are counted apart: their Apple map's headroom was in the maker notes, which the strip
-  removes, so no map is read and they stay as today.
+  removes, so no map is read and they stay as today. And (D38) every map applied must have one channel: the setting
+  applies maps in linear Rec.2020, exact for a one-channel map, not for a three-channel one, which fails the check.
 
 Everything written is under OUT (outputs/, gitignored: the owner's photos' pixels).
 """
@@ -110,14 +111,18 @@ def canonicalize_one(job: tuple[Path, Path, int]) -> dict:
         source = cn.decode(data, original.name, settings=GAIN_MAP_SETTINGS)
         made = cn.encode(source, settings=GAIN_MAP_SETTINGS, numthreads=threads)
     except Exception as exc:                      # recorded and tried again next run; `check` fails on it
-        return {"path": str(original), "decoder": "", "bytes": 0, "seconds": 0.0,
+        return {"path": str(original), "decoder": "", "bytes": 0, "seconds": 0.0, "map_channels": 0,
                 "error": f"{type(exc).__name__}: {exc}"}
+    channels = 0
+    if "+" in source.decoder:                     # D38: which maps the linear Rec.2020 maths is exact for
+        from coffeecv import gain_map
+        channels = gain_map.read(data).pixels.shape[2]
     target.parent.mkdir(parents=True, exist_ok=True)
     tmp = target.with_name(target.name + ".tmp")
     tmp.write_bytes(made)
     tmp.replace(target)
     return {"path": str(original), "decoder": source.decoder, "bytes": len(made),
-            "seconds": round(time.perf_counter() - t, 2), "error": ""}
+            "seconds": round(time.perf_counter() - t, 2), "map_channels": channels, "error": ""}
 
 
 def read_log(log: Path) -> dict[str, dict]:
@@ -129,6 +134,14 @@ def read_log(log: Path) -> dict[str, dict]:
 
 def done_paths(log: Path) -> set[str]:
     return {p for p, d in read_log(log).items() if not d["error"]}
+
+
+def map_channel_problems(log: dict[str, dict]) -> dict[str, list[str]]:
+    """ML-29 D38: the photos done whose map has more than one channel (applied in linear Rec.2020, not in the space
+    ISO 21496-1 names for it), and those logged before the count was."""
+    done = {p: d for p, d in log.items() if not d["error"] and "+" in d["decoder"]}
+    return {"three channels": sorted(p for p, d in done.items() if d.get("map_channels", 1) > 1),
+            "not counted": sorted(p for p, d in done.items() if "map_channels" not in d)}
 
 
 def run_canonicalize(a: argparse.Namespace) -> None:
@@ -380,6 +393,12 @@ def run_check(a: argparse.Namespace) -> None:
         print(f"   {p}: {log[p]['error'] or log[p]['decoder']}")
     for p in headless:
         print(f"   no headroom: {p}")
+    channels = map_channel_problems({p: log[p] for p in (r["file"] for r in chosen) if p in log})
+    print(f"   D38: {len(channels['three channels'])} maps of three channels (linear Rec.2020 not their maths), "
+          f"{len(channels['not counted'])} logged before the count")
+    for kind, paths in channels.items():
+        for p in paths[:20]:
+            print(f"   {kind}: {p}")
     rng = random.Random(SEED)
     by = collections.defaultdict(list)
     for r in rows:
@@ -396,7 +415,8 @@ def run_check(a: argparse.Namespace) -> None:
           f"on, {len(sample) - len(differ)} the same bytes as today's canonical photo")
     for p in differ:
         print(f"   DIFFERS {p}")
-    good = not (failed or missing or unread or differ) and len(ok) == len(chosen)
+    good = not (failed or missing or unread or differ or channels["three channels"] or channels["not counted"]) \
+        and len(ok) == len(chosen)
     print("PASS" if good else "FAIL")
     sys.exit(0 if good else 1)
 

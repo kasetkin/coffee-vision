@@ -300,7 +300,7 @@
     <li><span class="box"></span><span>A review page of side-by-side crops for the owner, a sample per camera and the
       largest changes.</span></li>
     <li><span class="box"></span><span>Checks: the photo counts match <code>scan_dataset.py</code>'s; a photo with no
-      gain map canonicalizes to today's bytes with the setting on.</span></li>
+      gain map canonicalizes to today's bytes with the setting on; every map applied has one channel (D38).</span></li>
   </ol>
 
   <h2>11. P9 &mdash; step 2: today's models on the scratch photos <span class="pill sm open">stop</span></h2>
@@ -347,7 +347,9 @@
       (<code>docs/agents/experiments.md</code>, "Changing the segmenter" where it applies); the front's time and
       memory for a gain-map photo measured against its budget (R6); ADR 0033 amended (the main image "only" becomes
       the main image with its gain map applied), and a new ADR for the decision, which carries D37 (the maps are
-      this repo's own code, libultrahdr the check: where to look first).</span></li>
+      this repo's own code, libultrahdr the check: where to look first). Before it, D38's condition: a three-channel
+      map applied in the space ISO 21496-1 names for it (the base image's or the alternate's primaries), or left
+      unapplied, with a test.</span></li>
     <li><span class="box"></span><span>Stop for the owner: the go-ahead to release store, front and model together
       (D15).</span></li>
   </ol>
@@ -525,6 +527,9 @@
       Apple map has no headroom in the file (it was in the maker notes the strip removes): they stay as today, and
       <code>check</code> counts them apart. About 22 s a 12 MP photo; up to 3 GB for a 50 MP one, so the full run
       (about 2 hours at 4 jobs) follows the store re-run. Details: <code>analysis/ml29/README.md</code>, P8.</div>
+    <div><div class="when">2026-11-16</div>D38 (the owner): a map applied in linear Rec.2020 is exact for a one-channel
+      map, every dataset photo's. <code>p8_scratch.py</code> logs each applied map's channels and <code>check</code>
+      fails on a three-channel one (test first); P11's adoption box carries the three-channel condition.</div>
     <div><div class="when">2026-11-16</div>The store re-run on <code>73b75f1</code> (the review's DNG fix,
       <code>gain_map.py</code> out of the stages' dependencies): all 41 canonicalize and segcrop stages,
       <code>seg_ml19_predict</code> and <code>merge_segpool</code>, every output byte-identical to <code>4a8f6a2</code>'s

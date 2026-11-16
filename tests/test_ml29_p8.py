@@ -74,6 +74,7 @@ class Canonicalize(unittest.TestCase):
         self.assertNotEqual(made, today)
         brighter = cn.load_canonical(made).astype(int) - cn.load_canonical(today)
         self.assertGreater(brighter[:, -8:].mean(), 5)              # the boosted half comes out brighter
+        self.assertEqual(done["map_channels"], 3)       # libultrahdr's map of a colour photo: D38's case, counted
 
     def test_a_photo_without_a_map_keeps_todays_bytes(self):
         original = self.root / "y.png"
@@ -81,6 +82,7 @@ class Canonicalize(unittest.TestCase):
         target = self.root / "scratch" / "y.png.jxl"
         done = p8.canonicalize_one((original, target, 1))
         self.assertNotIn("+", done["decoder"])
+        self.assertEqual(done["map_channels"], 0)
         self.assertEqual(target.read_bytes(), cn.encode(cn.decode(original.read_bytes(), "y.png"), numthreads=1))
 
     def test_an_unreadable_photo_is_an_error_not_a_crash(self):
@@ -97,6 +99,16 @@ class Canonicalize(unittest.TestCase):
             f.write(json.dumps({"path": "a.jpg", "error": ""}) + "\n")
             f.write(json.dumps({"path": "b.jpg", "error": "unreadable"}) + "\n")
         self.assertEqual(p8.done_paths(log), {"a.jpg"})              # an error is tried again
+
+
+class ThreeChannelMaps(unittest.TestCase):
+    def test_a_map_of_more_than_one_channel_is_named(self):
+        """ML-29 D38: a three-channel map applied in linear Rec.2020 is not the map's own maths, so check names it."""
+        log = {"a.jpg": {"error": "", "decoder": "jpeg+Ultra HDR", "map_channels": 1},
+               "b.jpg": {"error": "", "decoder": "jpeg+ISO 21496-1", "map_channels": 3},
+               "c.jpg": {"error": "", "decoder": "jpeg", "map_channels": 0},
+               "d.jpg": {"error": "", "decoder": "jpeg+Ultra HDR"}}           # logged before the count: unknown
+        self.assertEqual(p8.map_channel_problems(log), {"three channels": ["b.jpg"], "not counted": ["d.jpg"]})
 
 
 class Change(unittest.TestCase):

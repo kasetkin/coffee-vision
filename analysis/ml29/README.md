@@ -349,5 +349,7 @@ LittleCMS's float transforms, the tone map's peak and the map applied, all the s
 here. 1,687 photos: about 5 hours at 2 jobs, about 2 at 4 with the machine to itself; a 50 MP photo takes about
 3 GB, so the run waits for the store re-run's memory. Three iPhone 13 HEICs carry an Apple map in its older form,
 whose headroom is in Apple's maker notes: the strip removes maker notes (ML-3 D13), so no map is read and they stay
-as today; `check` counts them apart. The toy photos changed by +15 to +37 levels on average (brighter), the bean
+as today; `check` counts them apart. Since D38 `canonicalize` logs each applied map's channels and `check` fails on a three-channel
+map: the setting applies maps in linear Rec.2020, exact for a one-channel map only (every dataset photo's, 1e-7
+relative against 11% for a three-channel one). The toy photos changed by +15 to +37 levels on average (brighter), the bean
 region by +16 to +25; the crops, opened at full size, show an even brightening without artefacts.

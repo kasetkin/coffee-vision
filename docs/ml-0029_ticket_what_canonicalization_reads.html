@@ -355,6 +355,18 @@
           know where to look first". So: <code>gain_map.py</code>'s docstring opens with where to look first (the
           libultrahdr comparison, then the functions in order); a canonical photo made with a map names the map in
           its decoder; P11's ADR, if adopted, carries this decision.</td></tr>
+      <tr><td class="id">D38</td><td>In which colour space is a gain map applied? The setting applies every map to the
+          light in linear Rec.2020. ISO 21496-1 names the base image's primaries (<code>use_base_colour_space</code>)
+          or else the alternate image's; Ultra HDR and Apple the base's.</td>
+        <td>(a) linear Rec.2020 for a one-channel map, where the space makes no difference, and a three-channel map
+          applied in the space ISO names, or not applied, before adoption (b) research it in a ticket of its own</td>
+        <td>(a), 2026-11-16: "okay, record it like you said". A one-channel map with one offset on every channel
+          scales red, green and blue alike, and a change of primaries with the same white (D65) commutes with that:
+          the result is the same in any of them (measured: 1e-7 relative, against 11% for a three-channel map). Every
+          dataset gain map is one-channel with equal offsets (1,580 JPEGs by the scan, Apple's HEICs read). P8's
+          <code>check</code> counts the maps' channels and fails on a three-channel one; P11's adoption first applies
+          a three-channel map in ISO's space or leaves it unapplied (Adobe's tools write them, so a visitor could
+          upload one).</td></tr>
     </tbody>
   </table></div>
 
@@ -443,6 +455,9 @@
       at P8.</div>
     <div><div class="when">2026-11-16</div>The owner decided D37: the gain maps stay this repo's own code, libultrahdr
       the check, made noticeable where a problem would be looked for.</div>
+    <div><div class="when">2026-11-16</div>The owner decided D38: linear Rec.2020 stays the space a map is applied in,
+      exact for the one-channel maps every dataset photo carries; a three-channel map is P8's check's failure and
+      P11's condition.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
