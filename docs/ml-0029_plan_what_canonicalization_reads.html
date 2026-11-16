@@ -256,7 +256,7 @@
 
   <h2>9. P7 &mdash; the gain-map reader, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the reader and its tests; the setting waits for P5's store re-run, which reads <code>canonical.py</code></span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-16: the reader (<code>33f73b5</code>) and the setting, off (<code>e79f5d4</code>); the store re-run with it to check</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>A new module, <code>coffeecv/gain_map.py</code>: a file's bytes in, its gain map and what it means out (the map,
@@ -269,7 +269,7 @@
       if it gives the unclipped linear result. <em>Departure, for the owner:</em> libultrahdr gives the unclipped
       result and agrees, but stays the check, not the reader: it refuses Adobe's per-channel <code>hdrgm</code>, reads
       no HEIF or AVIF and stops at 8192 &times; 8192; imagecodecs exposes no libavif gain-map call.</span></li>
-    <li><span class="box"></span><span>Both directions: a map up from a standard-range main image (every dataset
+    <li><span class="box done"></span><span>Both directions: a map up from a standard-range main image (every dataset
       photo), and a map down from an HDR main image (the public sample), each ending in the same canonical photo
       form (D10).</span></li>
     <li><span class="box done"></span><span>Tests, test first, on files made in code with <code>ultrahdr_encode</code> and
@@ -480,6 +480,15 @@
       <code>seg_ml19_predict</code> (all of <code>data/canonical</code>) wait for the photos' intake, ML-31.
       <code>scripts/check.sh --full</code>: 1,204 tests, 22 failing, all on those photos (not yet in the segmenter
       dataset or the folder's <code>.dvc</code>) and the three stages' lock entries; none on code.</div>
+    <div><div class="when">2026-11-16</div>P7's setting, test first (<code>e79f5d4</code>, with ML-31's DNG reader,
+      so the store re-runs once): <code>Settings.gain_maps</code>, off in the store's and the front's settings. On, a
+      photo's map (D14's order) is turned as its main image was, applied in linear Rec.2020 and tone-mapped back by
+      the encode; a photo without a map, or with transparency, is left as decoded. Linear Rec.2020 is the map's own
+      maths for a one-channel map with equal offsets, every dataset photo's; a three-channel map's difference is left
+      unmeasured. <code>gain_map.py</code> is imported only with the setting on, and ships in the front's release for
+      that import. Five tests: off, a photo with a map is its main image; on, a photo without one keeps its bytes, a
+      flat map brightens it, the map turns with it. The store re-run on this code (ML-31) is the check that the
+      store's bytes do not move.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
