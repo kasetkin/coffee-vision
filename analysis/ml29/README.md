@@ -269,3 +269,54 @@ After the review (2026-11-15): a float JPEG XL keeps the profile its declaration
 sRGB), and the tone map's two transforms run only when the picture's peak is above white, so a float picture with
 nothing above white converts to the bytes P2 gave it; transparent light is weighted by its alpha in the peak; +inf is
 read as PQ's top. `hdr_pin.py` and the float export's tolerance unchanged after these (6.99; 39.9, held; 0.07; 0.9).
+
+## P7: the gain-map reader, not wired in (`gain_map_check.py`)
+
+    python analysis/ml29/gain_map_check.py [--per-brand 20] [--sections 123]
+
+`coffeecv/gain_map.py` reads a photo's gain map in D14's order (ISO 21496-1 in a HEIF's or AVIF's `tmap` item or a
+JPEG gain map's APP2, then Ultra HDR's `hdrgm` XMP, then Apple's auxiliary image) and applies it at full weight, up
+from a standard-range main image or down from an HDR one, by ISO 21496-1's formula as libavif 1.4 applies it (Apple's
+own formula for Apple's map). Light is relative to standard-range white, 1.0 at 203 cd/m², as the tone map reads it.
+Nothing calls it yet. Its checks (2026-11-15/16), with the store re-run using four cores beside them:
+
+**R5, ISO 21496-1 against the vendor's map** on the 208 dataset photos carrying both, the rendition each asks for at
+the map's size from the main image shrunk to it, in stops where the main image is above 1% of white:
+
+| Camera | Photos | Mean difference (median photo; worst) | p99 (median; worst) | Boost, ISO; vendor |
+|---|---|---|---|---|
+| Samsung (Ultra HDR JPEG) | 50 | 0.000; 0.000 | 0.000; 0.000 | 0.89; 0.89 |
+| Apple (HEIC) | 158 | 0.017; 0.094 | 0.043; 0.102 | 0.41; 0.42 |
+
+Samsung writes the same numbers twice. Apple's ISO item and its own formula (`HDRGainMapHeadroom`) differ by under a
+tenth of a stop in the worst photo: the ISO reader is right on both containers, and D14's order changes little.
+
+**libultrahdr against this module** (imagecodecs' `ultrahdr_decode`, linear, white 1.0), 20 Ultra HDR JPEGs per
+brand at full size, where the main image is above 5% of white:
+
+| Camera | Form read | Mean, stops (median; worst) | p99 (median; worst) | libultrahdr's brightest |
+|---|---|---|---|---|
+| Google | Ultra HDR | 0.0061; 0.0069 | 0.030; 0.040 | 1.85 |
+| GM1911 (OnePlus 7 Pro) | Ultra HDR | 0.0075; 0.0077 | 0.042; 0.044 | 1.36 |
+| Samsung | ISO 21496-1 | 0.0140; 0.0179 | 0.115; 0.150 | 4.32 |
+
+No bias in any brightness band (Samsung's first photo: mean +0.0005 or less in each), and libultrahdr's brightest
+pixel and 99.9th-percentile gain are this module's: libultrahdr gives the unclipped linear result too. The p99 is the
+map's upsampling (a quarter-size map, stretched bilinearly here, sampled by libultrahdr its own way). Two Samsung
+photos, 16320×12240 (Fold8 Ultra, 200 MP), are beyond this libultrahdr's 8192×8192 and were skipped.
+
+Why this module and not libultrahdr: libultrahdr refuses Adobe's per-channel `hdrgm` form ("could not find attribute
+hdrgm:GainMapMax", the public JPEG sample), does not read HEIF or AVIF, stops at 8192×8192, and decodes the main image
+again; it stays the check. libavif's gain-map API is not exposed by imagecodecs.
+
+**The public samples** (libavif's test files, D29: in `tmp/`, not committed):
+
+| File | Map | Against | Mean, stops | Mean absolute | p99 |
+|---|---|---|---|---|---|
+| `seine_sdr_gainmap_srgb.avif` | ISO, up, 3 channels | Photoshop's PQ rendition (`seine_hdr_srgb.avif`) | +0.004 | 0.093 | 0.64 |
+| `seine_hdr_gainmap_srgb.avif` | ISO, down, 3 channels | the standard-range image | +0.000 | 0.101 | 0.72 |
+| `seine_sdr_gainmap_srgb.jpg` | Ultra HDR, per-channel `rdf:Seq` | the AVIF made from it, up | | 0.016 | |
+
+The two AVIFs carry the same map (to one level), but the PQ one is not that map applied: its light reaches 3.73, the
+map's headroom is 1.3 stops (2.46). They are renditions made apart, which is what the 0.09 to 0.10 stops are, and
+the same up and down; the median ratio up is 1.002. The JPEG, which libultrahdr refuses, reads as its AVIF does.

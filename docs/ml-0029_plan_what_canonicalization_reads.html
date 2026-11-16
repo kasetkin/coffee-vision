@@ -256,21 +256,23 @@
 
   <h2>9. P7 &mdash; the gain-map reader, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-15: the reader and its tests; the setting waits for P5's store re-run, which reads <code>canonical.py</code></span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>A new module, <code>coffeecv/gain_map.py</code>: a file's bytes in, its gain map and what it means out (the map,
     its parameters, which way it leads), or none. Applying it gives linear light above white, which P4's operator
     brings back. It sits behind a setting that is off, so the store and the front do not change.</p>
   <ol class="tasks">
-    <li><span class="box"></span><span>The readers, ISO 21496-1 first (D14): the ISO form in a JPEG, in a HEIC's
+    <li><span class="box done"></span><span>The readers, ISO 21496-1 first (D14): the ISO form in a JPEG, in a HEIC's
       <code>tmap</code> item and in an AVIF; then Ultra HDR's <code>hdrgm</code>; then Apple's auxiliary image with its
       headroom. For each, the bundled library (libultrahdr, libavif) is tried before our own arithmetic, and kept only
-      if it gives the unclipped linear result.</span></li>
+      if it gives the unclipped linear result. <em>Departure, for the owner:</em> libultrahdr gives the unclipped
+      result and agrees, but stays the check, not the reader: it refuses Adobe's per-channel <code>hdrgm</code>, reads
+      no HEIF or AVIF and stops at 8192 &times; 8192; imagecodecs exposes no libavif gain-map call.</span></li>
     <li><span class="box"></span><span>Both directions: a map up from a standard-range main image (every dataset
       photo), and a map down from an HDR main image (the public sample), each ending in the same canonical photo
       form (D10).</span></li>
-    <li><span class="box"></span><span>Tests, test first, on files made in code with <code>ultrahdr_encode</code> and
+    <li><span class="box done"></span><span>Tests, test first, on files made in code with <code>ultrahdr_encode</code> and
       on synthetic maps: a flat map is a pure brightness change; a zero map changes nothing; orientation follows the
       main image.</span></li>
     <li><span class="box"></span><span>Checks: on the 208 dataset files that carry both forms, the ISO result against
@@ -461,6 +463,15 @@
       Tests, test first, on files made through libjxl: each skipped channel gives the same canonical bytes as the
       photo without it, with and without alpha, RGB and grey. No dataset photo has an extra channel. The store
       re-run, stopped in its segcrop stages, restarts once on this code.</div>
+    <div><div class="when">2026-11-16</div>P7's reader: <code>coffeecv/gain_map.py</code>, called by nothing yet.
+      ISO 21496-1 in a <code>tmap</code> item (HEIC, AVIF) or a JPEG gain map's APP2, then Ultra HDR's
+      <code>hdrgm</code> (attribute and per-channel forms), then Apple's auxiliary image; applied at full weight up
+      from standard range or down from HDR, by ISO 21496-1's formula as libavif applies it. 23 tests, on files made by
+      libultrahdr and by the tests' own Ultra HDR writer. Checks (<code>analysis/ml29/README.md</code>, P7): R5 on
+      the 208 photos with both forms, Samsung identical, Apple 0.017 stops apart (median photo; worst 0.094);
+      libultrahdr within 0.006 to 0.014 stops on 60 Ultra HDR JPEGs, unbiased and unclipped; the public samples
+      read, the map down included. Left: the setting in <code>canonical.py</code> and its check that the store's bytes
+      do not move, after the store's stages settle (ML-31's new photos).</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
