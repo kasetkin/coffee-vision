@@ -13,7 +13,7 @@
     <code>dataset/</code> changed yet; D1 open.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review done (all 20 accepted); the store re-run twice, unchanged but the new photos; <code>scripts/check.sh --full</code> green; every acceptance item met; the push waits for the owner</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-16; the files analysed; D1 and D2 decided 2026-11-16; the DNG reader written, every file stripped and in DVC, the store re-run (only the new photos added); the owner's crop review done (all 20 accepted); the store re-run twice, unchanged but the new photos; <code>scripts/check.sh --full</code> green; every acceptance item met; pushed to git and DVC 2026-11-16</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -204,6 +204,12 @@
       byte-identical to <code>4a8f6a2</code>'s, the five DNGs' canonical photos included. <code>scripts/check.sh
       --full</code> green: 1,245 tests, 3 skipped. Not pushed: git and the DVC remote (the folder's 20 photos and the
       changed outputs) wait for the owner.</div>
+    <div><div class="when">2026-11-16</div>At the owner's word, pushed: the branch to git (new on the remote), and
+      to DVC by explicit targets, <code>dataset/random_date_raccoon.dvc</code> and the outputs of
+      <code>canonicalize@random_date_raccoon</code>, <code>segcrop@random_date_raccoon</code>,
+      <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>: 86 files in 25 minutes. Checked on the
+      remote object by object (<code>docs/agents/dvc.md</code>): all 4,377 the targets and their listings name are
+      there.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),
