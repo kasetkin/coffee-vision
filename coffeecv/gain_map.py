@@ -1,6 +1,7 @@
 """A photo's gain map, read from its bytes, and applied to its main image's linear light (ML-29 P7; D10, D14).
 
-Not wired in: canonicalization ignores gain maps (ML-29 D3, D10) until the experiment adopts them (D12, D15).
+Behind canonical.Settings.gain_maps, off in the store's and the front's settings: canonicalization ignores gain maps
+(ML-29 D3, D10) until the experiment adopts them (D12, D15).
 
 The readers, in D14's order, ISO 21496-1 first:
 - ISO 21496-1: the metadata in a HEIF's or AVIF's `tmap` item (whose `dimg` references are the main image, then the
@@ -32,7 +33,7 @@ import imagecodecs as ic
 import numpy as np
 from PIL import Image
 
-from coffeecv.colour_declaration import _boxes, primary_bit_depth
+from coffeecv.colour_declaration import CURVE_DECODERS, _boxes, primary_bit_depth
 
 ISO_URN = b"urn:iso:std:iso:ts:21496:-1\0"
 XMP_URN = b"http://ns.adobe.com/xap/1.0/\0"
@@ -92,7 +93,7 @@ def apply(base: np.ndarray, gain_map: GainMap) -> np.ndarray:
     h, w = base.shape[:2]
     stretched = _stretched(gain_map.pixels, h, w)
     if m.apple_headroom is not None:
-        np.copyto(stretched, _srgb_decode(stretched))
+        CURVE_DECODERS["sRGB"](stretched)
         return (base * (1 + (m.apple_headroom - 1) * stretched)).astype(np.float32)
     weight = -1.0 if m.leads_down else 1.0
     if m.base_headroom == m.alternate_headroom:    # libavif's rule: the spec leaves it undefined, the map is not used
@@ -174,7 +175,7 @@ def parse_hdrgm(xmp: bytes) -> Metadata | None:
 # ----- JPEG: the MPF's second image -----
 
 def _jpeg_segments(d: bytes, start: int = 0):
-    """A JPEG's marker segments before its scan, as (marker, body)."""
+    """A JPEG's marker segments before its scan, as (marker, body, where the body starts)."""
     p = start + 2
     while p + 4 <= len(d) and d[p] == 0xFF:
         marker = d[p + 1]
@@ -311,6 +312,8 @@ def _map_item(d: bytes, items: dict, item: int) -> np.ndarray | None:
     """A HEIF's or AVIF's map item decoded: an AVIF's through a copy whose pitm names it, a HEIC's through
     pillow-heif's auxiliary images (libheif will not take a pitm that names one)."""
     if b"avif" in d[8:32] or b"avis" in d[8:32]:
+        if "pitm_at" not in items:                 # no primary item to repoint: a broken file
+            return None
         at, wide = items["pitm_at"]
         copy = d[:at] + item.to_bytes(wide, "big") + d[at + wide:]
         pixels = ic.avif_decode(copy)
@@ -360,7 +363,3 @@ def _stretched(pixels: np.ndarray, h: int, w: int) -> np.ndarray:
     return np.dstack([np.asarray(Image.fromarray(np.ascontiguousarray(pixels[..., c])).resize((w, h),
                                                                                              Image.BILINEAR))
                       for c in range(pixels.shape[2])])
-
-
-def _srgb_decode(u: np.ndarray) -> np.ndarray:
-    return np.where(u > 0.04045, ((u + 0.055) / 1.055) ** 2.4, u / 12.92).astype(np.float32)

@@ -262,6 +262,11 @@ class Containers(unittest.TestCase):
     def test_an_avif_without_a_tmap_has_none(self):
         self.assertIsNone(gm.read(ic.avif_encode(np.full((16, 16, 3), 128, np.uint8))))
 
+    def test_an_avif_map_without_a_pitm_box_is_no_map(self):
+        """A broken AVIF (no primary item to repoint) has no map to decode, rather than an error."""
+        avif = b"\0\0\0\x1cftypavif\0\0\0\0avifmif1miaf" + b"\0" * 16
+        self.assertIsNone(gm._map_item(avif, {"types": {}}, 2))
+
     @real_data
     def test_an_iphone_heic_reads_its_tmap_turned_like_its_main_image(self):
         """The dataset's iPhone HEICs carry Apple's map and an ISO 21496-1 tmap item (D14: the ISO one is read)."""

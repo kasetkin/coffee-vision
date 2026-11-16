@@ -6,7 +6,8 @@ imagecodecs decodes. Every other RAW stays LibRaw's: `parse` claims only this ki
 
 `develop` follows LibRaw's steps for a linear DNG as canonicalization asks LibRaw for them (canonical.decode:
 use_camera_wb, Rec.2020 output, linear, 16-bit, auto-bright on), from dcraw's code, which LibRaw keeps:
-  1. black level subtracted and the white level scaled to 1 (BlackLevel per sample and its repeat pattern);
+  1. black level subtracted and the white level scaled to 1 (BlackLevel per sample and its repeat pattern); if the
+     brightest sample lies between 75% of white and white, it is white (LibRaw's adjust_maximum_thr, default 0.75);
   2. the camera's white balance, 1 / AsShotNeutral, scaled so its smallest multiplier is 1, then clipped at 1
      (LibRaw's highlight mode 0);
   3. the colour matrix: XYZ -> camera of the D65 illuminant if the file has one (else ColorMatrix2, else 1), times
@@ -15,8 +16,8 @@ use_camera_wb, Rec.2020 output, linear, 16-bit, auto-bright on), from dcraw's co
   4. auto-bright: the 16-bit output's histogram in 8192 bins, per channel the value above which 1% of the pixels
      lie, the largest of them made white (dcraw's auto_bright_thr 0.01), linear, clipped.
 Not applied, as LibRaw does not apply them either: the opcode lists (the Fold8 Ultra's GainMap opcodes are flat),
-the ProfileGainTableMap and BaselineExposure (ML-29 D18). The result can be no closer to LibRaw's than its steps:
-LibRaw has nothing to compare it with (ML-31 R1).
+the ProfileGainTableMap and BaselineExposure (ML-29 D18). LibRaw cannot develop the photo itself (ML-31 R1), but it
+develops the same DNG stored uncompressed: the tests compare the two, within 8 of 65535.
 """
 from __future__ import annotations
 
@@ -27,6 +28,7 @@ import imagecodecs as ic
 import numpy as np
 
 JPEG_XL, LINEAR_RAW, D65 = 52546, 34892, 21
+ADJUST_MAXIMUM = 0.75                  # LibRaw's adjust_maximum_thr default
 # XYZ (D65) of linear Rec.2020 and of linear sRGB (BT.709) primaries: the output spaces asked for.
 XYZ_FROM = {"rec2020": np.array([[0.636958, 0.144617, 0.168881], [0.262700, 0.677998, 0.059302],
                                  [0.000000, 0.028073, 1.060985]]),
@@ -107,12 +109,18 @@ def samples(dng: LinearDng) -> np.ndarray:
 
 
 def _stored(dng: LinearDng) -> np.ndarray:
-    """The stored samples, black subtracted and divided by white - black, float32 (h, w, 3)."""
+    """The stored samples, black subtracted and divided by white - black, float32 (h, w, 3). As LibRaw's
+    adjust_maximum_thr (0.75, its default, which canonicalization keeps): if the brightest sample, black
+    subtracted, lies between 75% of the white level and it, that sample is white."""
     out = samples(dng).astype(np.float32)
     r, c = dng.black.shape[:2]
     black = np.tile(dng.black, (-(-dng.height // r), -(-dng.width // c), 1))[:dng.height, :dng.width]
     out -= black
-    out /= (dng.white - dng.black.mean(axis=(0, 1))).astype(np.float32)
+    white = (dng.white - dng.black.mean(axis=(0, 1))).astype(np.float32)
+    brightest = float(out.max())
+    if ADJUST_MAXIMUM * white.max() < brightest < white.max():
+        white = np.full(3, brightest, np.float32)
+    out /= white
     np.maximum(out, 0, out=out)
     return out
 

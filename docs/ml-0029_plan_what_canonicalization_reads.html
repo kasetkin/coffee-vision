@@ -495,6 +495,16 @@
       but <code>random_date_raccoon</code>'s, whose listings differ only by ML-31's 20 new photos and the counts in
       its reports: the setting off moves nothing, and P5's three waiting stages are done. Left for P5's and P7's
       checks: <code>scripts/check.sh --full</code>.</div>
+    <div><div class="when">2026-11-16</div>P5's D36 and P7 reviewed (standards and spec, since <code>88f9eab</code>,
+      with ML-31). Fixed: <code>gain_map.py</code> left the stages' dependencies, as the store never imports it with
+      the setting off, so P8's to P10's edits do not make the store stale (a comment in <code>dvc.yaml</code> says
+      so: back in if P11 turns it on); an AVIF without a <code>pitm</code> box is no map rather than a KeyError (test
+      first); the sRGB decoding for Apple's map is <code>colour_declaration</code>'s; the module's docstring and
+      the README no longer call it unwired. ML-31's DNG fix and the dependency change re-run the store once more.
+      Left, for the owner: the ISO reader's own arithmetic in place of libultrahdr (the departure in P7's first box);
+      the map applied in linear Rec.2020 whatever its <code>use_base_colour_space</code> says, the same for every
+      dataset photo's one-channel map, unmeasured for a three-channel one; <code>gain_map.py</code> in the front's
+      release, inert, as the release manifest's import check asks.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

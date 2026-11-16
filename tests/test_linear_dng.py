@@ -8,6 +8,7 @@ per strip or tile, so the reader is not checked against itself.
 """
 from __future__ import annotations
 
+import io
 import struct
 import tempfile
 import unittest
@@ -162,6 +163,27 @@ class Develop(unittest.TestCase):
     def test_tiles_read_as_the_strip_does(self):
         a = ramp(40, 60)
         np.testing.assert_array_equal(ld.develop(ld.parse(dng(a, tile=32))), ld.develop(ld.parse(dng(a))))
+
+    def test_it_develops_as_libraw_develops_the_uncompressed_twin(self):
+        """The same DNG stored uncompressed is LibRaw's (rawpy, canonicalization's call): `develop` gives its bytes
+        within a few levels, for another camera's matrix, a white balance, black and white levels, and data whose
+        brightest sample is below white (LibRaw's adjust_maximum_thr, 0.75)."""
+        import rawpy
+        rng = np.random.default_rng(0)
+        noise = rng.integers(1000, 60000, (64, 96, 3), dtype=np.uint16)
+        camera = np.array([[0.9, 0.3, -0.2], [-0.4, 1.3, 0.1], [0.05, -0.15, 0.95]]) @ XYZ_TO_REC2020_CAMERA
+        cases = {"Rec.2020 camera": {}, "another camera": {"colour_matrix": camera},
+                 "white balance": {"colour_matrix": camera, "neutral": (0.5, 1.0, 0.7)},
+                 "black and white": {"colour_matrix": camera, "neutral": (0.5, 1.0, 0.7), "black": 512,
+                                     "white": 60000},
+                 "dark data": {"colour_matrix": camera}}          # its brightest below 75% of white: white kept
+        for name, kw in cases.items():
+            pixels = noise // 2 if name == "dark data" else noise
+            with self.subTest(name), rawpy.imread(io.BytesIO(dng(pixels, compression=1, **kw))) as raw:
+                theirs = raw.postprocess(output_bps=16, use_camera_wb=True, output_color=rawpy.ColorSpace.Rec2020,
+                                         gamma=(1, 1))
+                ours = ld.develop(ld.parse(dng(pixels, **kw)))
+                self.assertLessEqual(np.abs(ours.astype(int) - theirs).max(), 8)
 
     def test_an_unsupported_layout_is_refused(self):
         with self.assertRaises(ValueError):

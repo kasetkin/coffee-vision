@@ -288,7 +288,7 @@
     <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-11-15 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped)</span>
+    <span>as of 2026-11-16 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped, JPEG XL extra channels; ML-31: JPEG XL LinearRaw DNGs)</span>
   </div>
 
   <div class="callout">
@@ -311,7 +311,12 @@
     header enumeration, else a JPEG's R03, else sRGB; one it cannot convert is a 400 that names it. A profile built
     from a declaration takes the float colour path (ML-29 D26), and AVIF is decoded by libavif at its own depth (D9).
     An HDR photo (PQ or HLG) and a float JPEG XL are tone-mapped (D33, <code>coffeecv/tone_map.py</code>): their
-    light measured once for its peak, then BT.2408's roll-off above the knee in linear Rec.2020. It forwards the
+    light measured once for its peak, then BT.2408's roll-off above the knee in linear Rec.2020. A JPEG XL's depth,
+    thermal, selection-mask and optional extra channels are skipped, and black, spot colour and CFA ones are a 400 that
+    names them (D36). A DNG whose main image is JPEG XL-compressed LinearRaw (DNG 1.7, Samsung's Galaxy Z Fold8
+    Ultra), which LibRaw cannot open, is read and developed by <code>coffeecv/linear_dng.py</code> following LibRaw's
+    steps (ticket ML-31 D1); every other RAW stays LibRaw's. A photo's gain map is read only with
+    <code>Settings.gain_maps</code>, off on the front (ML-29 P7). It forwards the
     form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest

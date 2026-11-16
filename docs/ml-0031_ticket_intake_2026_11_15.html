@@ -185,6 +185,16 @@
       excluded, as before); nothing else changed but the reports and manifests that count them. The owner's crop
       review items: <code>outputs/intake_2026-11-15/review/items.csv</code>, 20 new, no fallback, each mask checked
       against the stage's hash; 11 masks cover the whole frame (area 0.9996&ndash;1.0) and one 3.6%. Not pushed.</div>
+    <div><div class="when">2026-11-16</div>Reviewed (standards and spec, since <code>88f9eab</code>), with ML-29's
+      P5 and P7. R1 checked after all: LibRaw cannot develop these DNGs, but it develops the same DNG stored
+      uncompressed, so a test now develops both. It found one step missing, LibRaw's <code>adjust_maximum_thr</code>
+      (0.75, canonicalization's default): a photo whose brightest sample lies between 75% of white and white has that
+      sample as white, about 9% brighter here before auto-bright, which a colour matrix's clipping does not undo.
+      Fixed test first; now within 8 of 65535 for another camera's matrix, a white balance, black and white levels.
+      None of the five Fold8 Ultra DNGs is touched (brightest 6&ndash;40% of white, or at it), so their canonical
+      photos keep their bytes. <code>docs/inference_path.html</code> names the reader and D36. Left: the
+      <code>linear_dng.parse</code> call for a <code>.dng</code> repeated in four places, and the strip's pixel check
+      parsing a DNG twice.</div>
   </div>
 
   <footer>Related: <a href="ml-0028_ticket_intake_2026_11_13.html">ML-28</a> (the last intake; D1, D5),

@@ -278,7 +278,7 @@ read as PQ's top. `hdr_pin.py` and the float export's tolerance unchanged after 
 JPEG gain map's APP2, then Ultra HDR's `hdrgm` XMP, then Apple's auxiliary image) and applies it at full weight, up
 from a standard-range main image or down from an HDR one, by ISO 21496-1's formula as libavif 1.4 applies it (Apple's
 own formula for Apple's map). Light is relative to standard-range white, 1.0 at 203 cd/m², as the tone map reads it.
-Nothing calls it yet. Its checks (2026-11-15/16), with the store re-run using four cores beside them:
+Only `canonical.decode` with `Settings.gain_maps` on calls it (off in the store's and the front's settings, `e79f5d4`). Its checks (2026-11-15/16), with the store re-run using four cores beside them:
 
 **R5, ISO 21496-1 against the vendor's map** on the 208 dataset photos carrying both, the rendition each asks for at
 the map's size from the main image shrunk to it, in stops where the main image is above 1% of white:
