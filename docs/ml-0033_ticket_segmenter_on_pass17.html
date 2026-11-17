@@ -1,0 +1,157 @@
+<title>Segmenter fine-tuned on pass17</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-33 · coffee-vision · segmenter</div>
+  <h1>The segmenter fine-tuned on pass17, the owner's labels of every positive new since pass16</h1>
+  <p class="lede">The owner corrected the live segmenter's masks of the photos added since its training, in labelling
+    session pass17 (2026-11-17). This ticket fine-tunes the next segmenter on those labels, and takes over ML-23's
+    question: why <code>xl0_v7r_s123</code> finds no beans in some photos, green beans among them. Written
+    2026-11-17; the labels are done, the fine-tune is not decided or planned.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-17; pass17 labelled and in DVC; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Model: the segmenter</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>labels/ml5/pass17.*</code>, <code>data/ml5_labels/pass17</code>, <code>coffeecv/seg_finetune.py</code>, <code>dvc.yaml</code>'s fine-tune, segcrop and <code>merge_segpool</code> stages, <code>params.yaml</code> (<code>seg_decoder</code>, <code>seg_min_area_frac</code>)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, every label verdict)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-17</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">None until a release: an adopted segmenter re-crops the pool, so the classifier is refitted and both ship together, as in ML-16</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">ML-29 P10</span> <span class="tag">its two training arms read <code>data/segcropped/pool</code> until about 2026-11-18 03:15 UTC; nothing may re-crop it before</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-17.</strong> "Some photos that I added since the last segmentation model
+      fine-tuning have not ideal masks." After correcting them in the review page: "For new masks fine-tuning create
+      new ticket. Probably, make ML-23 deprecated, new ticket will supersede it."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the live segmenter is <code>xl0_v7r_s123</code>, fine-tuned on pass16's 602 training and validation
+    positives (ML-16). The segmenter dataset has 888 now, and pass17 holds the owner's accepted label for every one.
+    After this ticket, a segmenter fine-tuned on pass17 is compared with <code>xl0_v7r_s123</code>, and, if the owner
+    adopts it, it re-crops the pool and ships with a refitted classifier. The parts: the recipe and the selection
+    rule (D2, D3), the fine-tune, the comparison including ML-23's empty masks, and the release.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><b>pass17</b> (2026-11-17; <code>python -m coffeecv.seg_review label --session pass17 --proposer
+      xl0_v7r_s123 --redraw xl0_v7r_s123 --carry pass16</code>): 888 positives accepted, 602 carried from pass16 and
+      286 new; of the new, 138 accepted at round 2, 131 at round 3, 15 at round 4, 2 at round 5, none at round 1:
+      the owner corrected every proposed mask. 468 negatives keep their empty labels. By source: pool 646 (all 286 new among them),
+      segmenter positives 234, internet positives 8 (<code>seg_review status --session pass17</code>).</li>
+    <li><b>The name</b>: <code>xl0_v7r_s123</code> was not in <code>segment_beans.NAMED_SEGMENTERS</code>, so the
+      review page refused it by name; named on 2026-11-17 (<code>42bdf63</code>), as each adopted segmenter is.</li>
+    <li><b>The recipe today</b> (ML-16, <code>dvc.yaml</code>): <code>seg_ml16_finetune</code> fine-tunes the
+      pretrained XL0 on pass16 at seed 42 (<code>xl0_v7_s42</code>); <code>seg_ml16_refine</code> refines it at seeds
+      123 and 7 with <code>--init models/seg/xl0_v7_s42.pt --lr 2e-5</code>. ML-16 D8 chose seed 123 on validation
+      scores, without a blind paired session on the test photos.</li>
+    <li><b>ML-23</b> (stub, 2026-11-08, superseded by this ticket): <code>xl0_v7r_s123</code> left 11 photos without
+      a mask in ML-16's re-crop against <code>xl0_v6_s42</code>'s 5, six green photos of
+      <code>2026-10-21__new_green</code> among them, all declined from the pool (ML-16 D10); the page's Vietnam
+      example lost its mask and left the page (ML-16 D12). <code>seg_min_area_frac</code> 0.028521 is XL0-v6's,
+      kept (ML-16 D9).</li>
+    <li><b>ML-29</b>: if its P11 adopts gain maps, the canonical photos of 1,687 gain-map photos change, by about 20
+      levels at the median (ML-29 P8); a segmenter trained before that reads today's (D1).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The live segmenter learned from pass16's 602 positives.</li>
+        <li>286 newer positives have only the owner's corrections of its masks.</li>
+        <li>Photos it leaves without a mask are classified on the whole frame (ML-23).</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A segmenter fine-tuned on pass17's 888, compared with <code>xl0_v7r_s123</code> by a rule the owner
+          set.</li>
+        <li>ML-23's photos measured: which of them the new one masks.</li>
+        <li>If adopted: the pool re-cropped, the classifier refitted, one release.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The live site, until a release.</strong> Nothing here ships without the owner's adoption.</li>
+    <li><strong>pass17's labels.</strong> The owner's verdicts are the data; this ticket reads them.</li>
+    <li><strong>ML-29's runs.</strong> Its P10 arms finish on today's crops before anything here re-crops.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A re-crop while ML-29 P10 trains spoils its comparison.</strong></td>
+        <td>Both arms read <code>data/segcropped/pool</code>, the gain-map arm through links. Blocked by ML-29
+          P10.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Chosen on validation alone, a segmenter can lose photos it masked
+        before.</strong></td>
+        <td>ML-23 is that: <code>xl0_v7r_s123</code> was chosen on validation scores (ML-16 D8). D3 asks for the
+          rule; the comparison counts empty masks on ML-23's photos either way.</td></tr>
+      <tr><td class="id">R3</td><td><strong>One machine for both.</strong></td>
+        <td>A fine-tune and ML-29's runs on the same CPU halve each other (2026-11-17's runs). Run one at a
+          time.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Fine-tune now, on today's canonical photos, or after ML-29 P11?</td>
+        <td>(a) Now, after ML-29 P10's runs. (b) After P11, on the canonical photos it settles.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>The recipe?</td>
+        <td>(a) ML-16's: seed 42 from the pretrained XL0, refined at 123 and 7. (b) Refine
+          <code>xl0_v7r_s123</code> on pass17 (<code>--init</code>). (c) Another.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>How is the new segmenter chosen against <code>xl0_v7r_s123</code>?</td>
+        <td>(a) Validation scores, as ML-16 D8. (b) A blind paired session on the test photos. (c) Both.</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td><code>seg_min_area_frac</code>?</td>
+        <td>(a) Keep 0.028521. (b) Re-derive by ML-2 D18's rule on the new model's test masks.</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>pass17: every training and validation positive's label accepted by the
+      owner; <code>data/ml5_labels/pass17</code> in DVC and on the remote.</span></li>
+    <li><span class="box"></span><span>D1 to D4 decided.</span></li>
+    <li><span class="box"></span><span>The fine-tune as recorded <code>dvc.yaml</code> stages.</span></li>
+    <li><span class="box"></span><span>The comparison by D3's rule, with the empty masks on ML-23's photos (the 11
+      of ML-16's re-crop and the Vietnam example).</span></li>
+    <li><span class="box"></span><span>If adopted: named in <code>NAMED_SEGMENTERS</code>, the pool re-cropped, the
+      classifier refitted and compared, one release.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>More labels: a photo added after pass17 waits for the next session.</li>
+    <li>Gain maps (ML-29).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-17</div>Ticket written at the owner's ask, from pass17's status, ML-16, ML-23 and
+      <code>dvc.yaml</code>. pass17 done by the owner: 888 positives, 286 new, every new one corrected.
+      <code>data/ml5_labels/pass17</code> added to DVC and pushed. ML-23 closed by the owner, superseded by this
+      ticket. Decisions open; not planned.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0023_ticket_segmenter_misses_green.html">ML-23</a> (superseded),
+    <a href="ml-0016_ticket_next_training_session.html">ML-16</a> (D8, D9, D10, D12),
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a> (P8, P10, P11),
+    <a href="agents/dvc.md">dvc.md</a>, <a href="status.md">status.md</a>.</footer>
+</main>
