@@ -12,7 +12,8 @@
   Every other file is a symbolic link to the tracked pool's, so the scratch pool costs only the swapped crops' room
   and holds the same photos under the same names: fit_frozen_head draws the same split, and the two arms differ only
   in the gain-map photos' pixels and masks. The pool is named `pool`, as the split keys on the capture dir's name.
-  Fails if a gain-map photo in the pool has no scratch crop. Writes OUT/pool_manifest.json: each swapped crop's
+  Fails if a gain-map photo of the pool's sessions has no scratch crop, or a scratch crop matches no crop of the
+  pool and is not on its exclude list. Writes OUT/pool_manifest.json: each swapped crop's
   sha256 and mask's, the D18 fallbacks that change, and the tree's hash as fit_frozen_head versions it.
 - compare: per seed and arm, the test (and val) patch accuracy and macro-F1 by camera, from each run's
   predictions files, the camera from the scan (analysis/ml29/scan_dataset.py); the paired delta per seed (gain maps
@@ -56,13 +57,19 @@ def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def class_key(class_dir: str) -> str:
+    """`class_013` of `class_013__Brazil_Decaff`: merge_rig names the pool's class dir after the first session that
+    holds the class, so a session naming it otherwise (class_013__Brazil_SulDeMinas) is matched by its id."""
+    return class_dir.split("__")[0]
+
+
 def scratch_index(scratch_root: Path, sessions: set[str]) -> dict[tuple[str, str], Path]:
-    """(class dir, crop name) -> the scratch crop, for the photos of the sessions the pool merges."""
+    """(class id, crop name) -> the scratch crop, for the photos of the sessions the pool merges."""
     out = {}
     for crop in sorted(scratch_root.glob(f"*/class_*/*{crop_io.CROP_SUFFIX}")):
         session = crop.relative_to(scratch_root).parts[0]
         if session in sessions:
-            key = (crop.parent.name, crop.name)
+            key = (class_key(crop.parent.name), crop.name)
             if key in out:
                 raise ValueError(f"two scratch crops for {key}: {out[key]} and {crop}")
             out[key] = crop
@@ -71,7 +78,8 @@ def scratch_index(scratch_root: Path, sessions: set[str]) -> dict[tuple[str, str
 
 def build_pool(tracked: Path, scratch: dict[tuple[str, str], Path], pool: Path) -> dict:
     """`pool`: `tracked` with the crops in `scratch` (and their masks) swapped in, every other file a symbolic link.
-    Returns the manifest. A scratch crop whose photo is not in the tracked pool (a declined photo) is not used."""
+    Returns the manifest. Crops match by class id and file name, as merge_rig merges them; a scratch crop whose
+    photo is not in the tracked pool (excluded from the merge) is not used."""
     if pool.name != tracked.name:
         raise ValueError(f"the scratch pool must be named {tracked.name!r}, as the split keys on it: {pool}")
     shutil.rmtree(pool, ignore_errors=True)
@@ -83,10 +91,10 @@ def build_pool(tracked: Path, scratch: dict[tuple[str, str], Path], pool: Path) 
         dst = pool / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         if f.name.endswith(crop_io.MASK_SUFFIX):
-            crop_key = (rel.parent.name, f.name[:-len(crop_io.MASK_SUFFIX)] + crop_io.CROP_SUFFIX)
+            crop_key = (class_key(rel.parent.name), f.name[:-len(crop_io.MASK_SUFFIX)] + crop_io.CROP_SUFFIX)
             if crop_key in scratch:
                 continue                      # the scratch crop brings its own mask, or none on a fallback
-        key = (rel.parent.name, f.name)
+        key = (class_key(rel.parent.name), f.name)
         if key in scratch:
             src = scratch[key]
             shutil.copyfile(src, dst)
@@ -100,7 +108,8 @@ def build_pool(tracked: Path, scratch: dict[tuple[str, str], Path], pool: Path) 
         else:
             os.symlink(os.path.relpath(f, dst.parent), dst)
             linked += 1
-    unused = sorted(f"{c}/{n}" for c, n in scratch if not (tracked / c / n).exists())
+    in_pool = {(class_key(f.parent.name), f.name) for f in tracked.glob(f"class_*/*{crop_io.CROP_SUFFIX}")}
+    unused = sorted(f"{c}/{n}" for c, n in scratch if (c, n) not in in_pool)
     return {"tracked": str(tracked.relative_to(REPO)), "pool": str(pool.relative_to(REPO)),
             "swapped": len(swapped), "linked_files": linked, "unused_scratch_crops": unused,
             "fallbacks_changed": [s["crop"] for s in swapped if s["fallback_today"] != s["fallback_scratch"]],
@@ -109,23 +118,30 @@ def build_pool(tracked: Path, scratch: dict[tuple[str, str], Path], pool: Path) 
 
 def run_build(a: argparse.Namespace) -> None:
     from coffeecv.repo_files import tree_sha256
-    sessions = p9.segcrop_sessions(REPO / "dvc.yaml")
+    merged = json.loads((TRACKED / "merge_manifest.json").read_text())
+    sessions = set(merged["sessions"])
+    excluded = sorted(f"{class_key(Path(e).parent.name)}/{crop_io.crop_name(Path(e).stem)}"
+                      for e in merged["excluded"])
     scratch = scratch_index(a.p9_out / "crops" / "scratch", sessions)
     wanted = [p for p in p9.photos(a.p8_out / "canonical.jsonl")
               if p.relative_to(p8.DATASET).parts[0] in sessions]
-    missing = [str(p) for p in wanted if (p.parent.name, crop_io.crop_name(p.stem)) not in scratch]
+    missing = [str(p) for p in wanted if (class_key(p.parent.name), crop_io.crop_name(p.stem)) not in scratch]
     if missing:
         raise SystemExit(f"{len(missing)} gain-map photos of the pool's sessions have no scratch crop yet "
                          f"(p9_models.py crop), e.g. {missing[:3]}")
     pool = a.out / "segcropped" / "pool"
     manifest = build_pool(TRACKED, scratch, pool)
+    stray = sorted(set(manifest["unused_scratch_crops"]) - set(excluded))
+    if stray:
+        raise SystemExit(f"{len(stray)} scratch crops of the pool's sessions match no crop in it and are not on its "
+                         f"exclude list, e.g. {stray[:3]}")
     manifest["tree_sha256"] = tree_sha256(pool)
     manifest["tracked_md5_in_dvc_lock"] = _lock_md5()
     text = json.dumps(manifest, indent=1) + "\n"
     (a.out / "pool_manifest.json").write_text(text)
     MANIFEST_COPY.write_text(text)
     print(f"{manifest['pool']}: {manifest['swapped']} crops swapped in, {manifest['linked_files']} files linked; "
-          f"{len(manifest['unused_scratch_crops'])} scratch crops not in the pool (declined photos); "
+          f"{len(manifest["unused_scratch_crops"])} scratch crops on the pool's exclude list; "
           f"{len(manifest['fallbacks_changed'])} D18 fallbacks changed; tree {manifest['tree_sha256'][:16]}")
 
 

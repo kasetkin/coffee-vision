@@ -56,8 +56,25 @@ class Build(unittest.TestCase):
         self.assertEqual((pool / "merge_manifest.json").read_text(), "{}")
         self.assertFalse((c / "D__cropped.jxl").exists())
         self.assertEqual((m["swapped"], m["linked_files"]), (2, 2))
-        self.assertEqual(m["unused_scratch_crops"], ["class_001__Ethiopia/D__cropped.jxl"])
+        self.assertEqual(m["unused_scratch_crops"], ["class_001/D__cropped.jxl"])
         self.assertEqual(m["fallbacks_changed"], ["class_001__Ethiopia/B__cropped.jxl"])
+
+    def test_a_session_naming_the_class_otherwise_is_matched_by_class_id(self):
+        # merge_rig names the pool's class dir after the first session holding the class; the others' photos go
+        # into it under their own file names (class_013__Brazil_SulDeMinas into class_013__Brazil_Decaff).
+        other = self.tmp / "scratch" / "sess2" / "class_001__Sidamo"
+        other.mkdir(parents=True)
+        (other / "C__cropped.jxl").write_bytes(b"scratch C")
+        (other / "C__beanmask.png").write_bytes(b"scratch mask C")
+        scratch = p10.scratch_index(self.tmp / "scratch", {"sess", "sess2"})
+        pool = self.tmp / "out" / "pool"
+        with mock.patch.object(p10, "REPO", self.tmp):
+            m = p10.build_pool(self.tracked, scratch, pool)
+        c = pool / "class_001__Ethiopia"
+        self.assertEqual((c / "C__cropped.jxl").read_bytes(), b"scratch C")
+        self.assertEqual((c / "C__beanmask.png").read_bytes(), b"scratch mask C")
+        self.assertEqual(m["swapped"], 3)
+        self.assertEqual(m["unused_scratch_crops"], ["class_001/D__cropped.jxl"])
 
     def test_a_pool_not_named_as_the_tracked_one_is_refused(self):
         with self.assertRaisesRegex(ValueError, "named 'pool'"):
