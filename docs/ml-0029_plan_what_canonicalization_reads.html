@@ -288,24 +288,24 @@
 
   <h2>10. P8 &mdash; step 1: the scratch store and the pixel report</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-16: the code ready and run on 7 photos (<code>analysis/ml29/p8_scratch.py</code>); the full run waits for the store re-run (memory)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-17: all 1,687 photos, <code>check</code> PASS; the median photo +20.1 levels</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P7</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The 1,731 gain-map photos canonicalized with the setting on into a scratch
+    <li><span class="box done"></span><span>The 1,731 gain-map photos canonicalized with the setting on into a scratch
       folder outside <code>data/canonical</code> and outside DVC; the real store untouched.</span></li>
-    <li><span class="box"></span><span>The report, per camera: the change from today's canonical photo in the bean
+    <li><span class="box done"></span><span>The report, per camera: the change from today's canonical photo in the bean
       region (the hand-checked masks of <code>data/seg_masks_ml19</code>) and outside it, in 8-bit levels as the
       models read them; how many photos change by less than a level.</span></li>
-    <li><span class="box"></span><span>A review page of side-by-side crops for the owner, a sample per camera and the
+    <li><span class="box done"></span><span>A review page of side-by-side crops for the owner, a sample per camera and the
       largest changes.</span></li>
-    <li><span class="box"></span><span>Checks: the photo counts match <code>scan_dataset.py</code>'s; a photo with no
+    <li><span class="box done"></span><span>Checks: the photo counts match <code>scan_dataset.py</code>'s; a photo with no
       gain map canonicalizes to today's bytes with the setting on; every map applied has one channel (D38).</span></li>
   </ol>
 
   <h2>11. P9 &mdash; step 2: today's models on the scratch photos <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-17: crops made; the answers running (<code>analysis/ml29/p9_models.py</code>)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P8</span></div>
   </div>
   <ol class="tasks">
@@ -320,8 +320,8 @@
 
   <h2>12. P10 &mdash; step 3: re-crop, retrain, compare <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P9 <span class="tag">and the owner's word to run it</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-17: both arms training (exp 286&ndash;288 baseline, 289&ndash;291 gain maps), the owner's word given 2026-11-16</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P9 <span class="tag">and the owner's word to run it (given 2026-11-16)</span></span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>The scratch photos re-cropped with the existing segmenter, beside
@@ -543,6 +543,21 @@
       (<code>tmp/ml29_p6/live_check.py</code>): the darktable sRGB, PQ and HLG JPEG XLs, the float JPEG XL and a Fold8
       Ultra DNG (ML-31) each answered Brazil. The front's log: canonicalized in 2.9 s (sRGB), 13.9 (PQ), 13.1 (HLG),
       13.9 (float, the tone map's path) and 7.8 s (the DNG, 12 MP), within ML-19 D22's 40 s.</div>
+    <div><div class="when">2026-11-17</div>P8 done. The full run: all 1,687 photos canonicalized with the setting on, none
+      failed; <code>check</code> PASS (the counts against the scan, 0 three-channel maps, 27 photos without a map the
+      same bytes as today). Every photo with a map read comes out brighter: the median photo +20.1 levels (Ultra HDR
+      +20.8, ISO 21496-1 +15.8), per camera from +3.6 (one iPhone 16 Pro) to +28.8 (iPhone 16 Pro Max); on the
+      test split's masked photos the beans +15.3 and the rest +14.0. The review page is
+      <code>outputs/ml29_p8/review/index.html</code>. The machine's memory ran out once (23:30, three jobs beside a
+      training run); every step resumed. Details: <code>analysis/ml29/README.md</code>, P8.</div>
+    <div><div class="when">2026-11-17</div>P10 started on the owner's word (2026-11-16: training allowed), before P9's
+      stop. Two departures from the plan. (1) The baseline is refitted, not the shipped model's runs: exp283&ndash;285
+      trained on the pool of 80c44ac (3,363 files), the pool is now 3,527 since ML-31, so the baseline is exp
+      286&ndash;288 on today's pool and the gain-map arm exp 289&ndash;291 on the same pool with the 1,255 gain-map
+      photos' crops swapped in (<code>analysis/ml29/p10_pool.py</code>; the rest of the pool linked, the same names, so
+      the same split; the swapped crops by hash in <code>p10_pool_manifest.json</code>). (2) Both arms run with
+      <code>--allow-dirty</code>: the only uncommitted files are another ticket's docs (ML-32) and the board;
+      <code>dvc status</code> clean. <code>fit_frozen_head --pool --label</code> fits on the scratch pool.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

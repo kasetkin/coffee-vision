@@ -353,3 +353,38 @@ as today; `check` counts them apart. Since D38 `canonicalize` logs each applied 
 map: the setting applies maps in linear Rec.2020, exact for a one-channel map only (every dataset photo's, 1e-7
 relative against 11% for a three-channel one). The toy photos changed by +15 to +37 levels on average (brighter), the bean
 region by +16 to +25; the crops, opened at full size, show an even brightening without artefacts.
+
+The full run (2026-11-16 to 2026-11-17, 3 jobs, then 1 for the report; the machine's memory ran out once, at 23:30 with
+three jobs beside a training run, and every step resumed): all 1,687 canonicalized, none failed, and `check` PASS:
+1,687 in the scratch store against the scan's 1,687; the three iPhone 13 HEICs without headroom, as expected; 0
+three-channel maps (D38); 27 photos without a map (2 per camera, 15 cameras) the same bytes as today with the setting
+on. Map forms: Ultra HDR 1,476 (median photo +20.8 levels), ISO 21496-1 208 (+15.8), the three Apple maps without
+headroom 0.
+
+`report` (`outputs/ml29_p8/report.csv`, `report.log`), per camera, the median photo's mean change in 8-bit levels:
+
+| Camera | Photos | Masks | Under a level | Whole photo | Bean region | Outside it (abs) |
+|---|---|---|---|---|---|---|
+| Apple iPhone 13 | 3 | 1 | 3 | +0.00 | +0.00 | 0.00 |
+| Apple iPhone 15 | 98 | 9 | 0 | +15.18 | +18.10 | 13.12 |
+| Apple iPhone 15 Pro | 4 | 1 | 0 | +11.56 | +11.03 | 18.68 |
+| Apple iPhone 15 Pro Max | 37 | 10 | 0 | +10.79 | +13.24 | 11.25 |
+| Apple iPhone 16 Pro | 1 | 0 | 0 | +3.60 | - | - |
+| Apple iPhone 16 Pro Max | 8 | 4 | 0 | +28.84 | +24.33 | 35.53 |
+| OnePlus 7 Pro (GM1911) | 522 | 70 | 1 | +17.32 | +15.46 | 14.07 |
+| Google Pixel 7 | 9 | 3 | 0 | +9.86 | +1.17 | 11.66 |
+| Google Pixel 9 Pro | 945 | 97 | 6 | +22.18 | +11.71 | 13.88 |
+| Samsung Galaxy Z Fold6 | 13 | 1 | 0 | +27.56 | +18.41 | 31.71 |
+| Samsung Galaxy Z Fold8 Ultra | 47 | 16 | 0 | +26.95 | +24.75 | 24.91 |
+
+Every photo with a map read is brighter, none darker; 10 change by under a level (the 3 iPhone 13s and 7 more). Over
+all 1,687 the median photo moves +20.1 levels, its 99th percentile pixel 43 levels; the largest, +52, is an OOD
+negative (a Pixel 9 Pro street scene with sky). On the 198 photos whose test-split mask leaves a region outside the
+beans, the bean region moves +15.3 levels at the median and the rest +14.0: the maps lift the beans about as much as
+the background, on 76 of the 198 more. The masks are the test split's only (252 photos), so the bean column is a
+sample, the Pixel 9 Pro's 97 of 945.
+
+The review page (`page`, `outputs/ml29_p8/review/index.html`): 12 largest changes and 40 sampled over 11 cameras,
+today's canonical photo beside the scratch one, whole and a full-resolution crop around the beans. The one pair
+looked at here (a Fold8 Ultra Brazil photo, `random_date_raccoon`) shows what the toy run's did: an even brightening,
+no banding, halos or clipping. The page is the owner's to look through.

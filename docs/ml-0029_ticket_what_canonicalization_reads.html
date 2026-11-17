@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P9 and P10 running</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -458,6 +458,10 @@
     <div><div class="when">2026-11-16</div>The owner decided D38: linear Rec.2020 stays the space a map is applied in,
       exact for the one-channel maps every dataset photo carries; a three-channel map is P8's check's failure and
       P11's condition.</div>
+    <div><div class="when">2026-11-17</div>P8 done: all 1,687 gain-map photos in the scratch store, the check passed;
+      every one with a map read is brighter, the median photo +20.1 levels. P9's answers and P10's two training arms
+      (a refitted baseline on today's pool, exp 286&ndash;288, and the gain-map arm, 289&ndash;291) running; the plan's
+      Activity has the departures.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
