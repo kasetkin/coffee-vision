@@ -49,6 +49,7 @@ class Build(unittest.TestCase):
         self.assertEqual((c / "A__cropped.jxl").read_bytes(), b"scratch A")
         self.assertEqual((c / "A__beanmask.png").read_bytes(), b"scratch mask A")
         self.assertFalse((c / "A__cropped.jxl").is_symlink())
+        self.assertTrue((c / "A__cropped.jxl").samefile(self.scratch[("class_001", "A__cropped.jxl")]))  # no copy
         self.assertEqual((c / "B__cropped.jxl").read_bytes(), b"scratch B")
         self.assertFalse((c / "B__beanmask.png").exists())
         self.assertTrue((c / "C__cropped.jxl").is_symlink())

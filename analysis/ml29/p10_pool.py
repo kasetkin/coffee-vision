@@ -9,12 +9,12 @@
 
 - build: data/segcropped/pool as it is, with each gain-map photo's crop and mask replaced by P9's scratch crop
   (outputs/ml29_p9/crops/scratch: the shipped segmenter on P8's scratch canonical photo, as the segcrop stage crops).
-  Every other file is a symbolic link to the tracked pool's, so the scratch pool costs only the swapped crops' room
-  and holds the same photos under the same names: fit_frozen_head draws the same split, and the two arms differ only
-  in the gain-map photos' pixels and masks. The pool is named `pool`, as the split keys on the capture dir's name.
-  Fails if a gain-map photo of the pool's sessions has no scratch crop, or a scratch crop matches no crop of the
-  pool and is not on its exclude list. Writes OUT/pool_manifest.json: each swapped crop's
-  sha256 and mask's, the D18 fallbacks that change, and the tree's hash as fit_frozen_head versions it.
+  The swapped crops are hard links to P9's, every other file a symbolic link to the tracked pool's, so the scratch
+  pool costs no room of its own and holds the same photos under the same names: fit_frozen_head draws the same
+  split, and the two arms differ only in the gain-map photos' pixels and masks. The pool is named `pool`, as the
+  split keys on the capture dir's name. Fails if a gain-map photo of the pool's sessions has no scratch crop, or a
+  scratch crop matches no crop of the pool and is not on its exclude list. Writes OUT/pool_manifest.json: each
+  swapped crop's sha256 and mask's, the D18 fallbacks that change, and the tree's hash as fit_frozen_head versions it.
 - compare: per seed and arm, the test (and val) patch accuracy and macro-F1 by camera, from each run's
   predictions files, the camera from the scan (analysis/ml29/scan_dataset.py); the paired delta per seed (gain maps
   minus baseline) and its range. Cameras with no gain map are the arms' control: their photos are the same crops.
@@ -97,10 +97,10 @@ def build_pool(tracked: Path, scratch: dict[tuple[str, str], Path], pool: Path) 
         key = (class_key(rel.parent.name), f.name)
         if key in scratch:
             src = scratch[key]
-            shutil.copyfile(src, dst)
+            os.link(src, dst)                 # a hard link: the same bytes, no second copy on a nearly full disk
             mask_src, mask_dst = crop_io.mask_path(src), crop_io.mask_path(dst)
             if mask_src.exists():
-                shutil.copyfile(mask_src, mask_dst)
+                os.link(mask_src, mask_dst)
             today_mask = crop_io.mask_path(f)
             swapped.append({"crop": rel.as_posix(), "sha256": sha256(dst), "today_sha256": sha256(f),
                             "mask_sha256": sha256(mask_dst) if mask_src.exists() else None,
