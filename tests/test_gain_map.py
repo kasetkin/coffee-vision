@@ -12,6 +12,7 @@ import dataclasses
 import io
 import struct
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import imagecodecs as ic
@@ -187,6 +188,13 @@ class Apply(unittest.TestCase):
         three = gm.GainMap("test", meta(gain_max=1.0), flat(1.0, channels=3))
         self.assertEqual([g.alike for g in (one, per, same, three)], [True, False, True, False])
 
+    def test_a_map_over_max_samples_is_not_read(self):
+        data = ultra_hdr(np.full((48, 64, 3), 100, np.uint8), np.full((24, 32, 3), 200, np.uint8),
+                         b'<x hdrgm:Version="1.0" hdrgm:GainMapMax="1" hdrgm:HDRCapacityMax="1"/>')
+        self.assertEqual(gm.read(data, max_samples=24 * 32 * 3).pixels.shape, (24, 32, 3))
+        self.assertIsNone(gm.read(data, max_samples=24 * 32 * 3 - 1))
+        self.assertIsNotNone(gm.read(data))                               # no ceiling unless given
+
     def test_apples_formula(self):
         m = gm.Metadata((0.0,), (0.0,), (1.0,), (0.0,), (0.0,), 0.0, 2.0, apple_headroom=4.0)
         for value in (0.0, 0.5, 1.0):
@@ -274,7 +282,7 @@ class Containers(unittest.TestCase):
     def test_an_avif_map_without_a_pitm_box_is_no_map(self):
         """A broken AVIF (no primary item to repoint) has no map to decode, rather than an error."""
         avif = b"\0\0\0\x1cftypavif\0\0\0\0avifmif1miaf" + b"\0" * 16
-        self.assertIsNone(gm._map_item(avif, {"types": {}}, 2))
+        self.assertIsNone(gm._map_item(avif, {"types": {}}, 2, None))
 
     @real_data
     def test_an_iphone_heic_reads_its_tmap_turned_like_its_main_image(self):
@@ -356,6 +364,42 @@ class Setting(unittest.TestCase):
         self.assertEqual(gm.read(data).pixels.shape[2], 3)
         self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
                          cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
+
+    def test_on_the_map_is_applied_strip_by_strip_as_on_the_whole_photo(self):
+        """P11 (R6): the front's memory; the canonical light, made and gained a strip of rows at a time, is the whole
+        photo's light through apply, sample for sample (the store's photos as P10's runs read them)."""
+        rng = np.random.default_rng(1)
+        h = cn.STRIP_ROWS * 2 + 37
+        main = rng.integers(0, 256, (h, 300, 3), dtype=np.uint8)
+        gain = rng.integers(0, 256, (h // 3, 100), dtype=np.uint8)
+        xmp = (b'<x hdrgm:Version="1.0" hdrgm:GainMapMin="-0.5" hdrgm:GainMapMax="2.5" hdrgm:Gamma="0.8" '
+               b'hdrgm:HDRCapacityMax="2.5" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.03125"/>')
+        data = ultra_hdr(main, gain, xmp, orientation=8)
+        off = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)
+        plain = cn.decode(data, "x.jpg", settings=off)
+        _, f = cn._light(plain.pixels, plain.full, plain.linearize, 3)          # the whole photo at once
+        light = ic.cms_transform(f, plain.profile or cn.SRGB, cn.LINEAR_REC2020, intent=cn.RELATIVE,
+                                 outdtype=np.float32)
+        g = gm.read(data)
+        turned = cn.orient(g.pixels, cn.applied_orientation(data, "x.jpg"))
+        whole = gm.apply(light, gm.GainMap(g.form, g.metadata, np.ascontiguousarray(turned)))
+        np.testing.assert_array_equal(cn.decode(data, "x.jpg", settings=self.on).pixels, whole)
+
+    def test_on_a_map_over_the_ceiling_is_left_unapplied(self):
+        """R6: a map is converted to float only up to MAP_MAX_SAMPLES (pixels times channels); over it, the photo is
+        its main image, as with a map that does not scale its channels alike."""
+        data = ultra_hdr(self.main, self.gain, self.xmp)                # a 24 x 32 one-channel map: 768 samples
+        with mock.patch.object(cn, "MAP_MAX_SAMPLES", 767):
+            over = cn.canonicalize_with(data, "x.jpg", self.on).canonical
+        with mock.patch.object(cn, "MAP_MAX_SAMPLES", 768):
+            at = cn.canonicalize_with(data, "x.jpg", self.on).canonical
+        self.assertEqual(over, cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
+        self.assertNotEqual(at, over)
+
+    def test_every_dataset_map_is_under_the_ceiling(self):
+        """The dataset's largest, 2026-11-18: 12.48 million samples (one channel), a 200 MP Galaxy Z Fold8 Ultra
+        photo's; the front's 60 MP ceiling with a quarter-size three-channel map is 45 million."""
+        self.assertGreaterEqual(cn.MAP_MAX_SAMPLES, 12_480_000)
 
     def test_on_the_map_turns_with_the_main_image(self):
         main = self.main.copy()

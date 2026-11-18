@@ -81,6 +81,11 @@ EFFORT = 7                               # D50
 THREADS = 2                              # the front's two vCPU; libjxl's output does not depend on it (P1)
 FILL_SRGB = (124, 116, 104)              # D13: coffeecv.segment_beans.SegmentConfig.fill_rgb
 STRIP_ROWS = 256                         # rows converted at a time (D38)
+# ML-29 P11 (R6): the most samples (pixels times channels) of a gain map made float, 64 MB of float32; a map over it is
+# left unapplied, the photo its main image, as a map that does not scale its channels alike is (D38). The dataset's
+# largest, 2026-11-18: 12.48 million (one channel, a quarter of a 200 MP photo); the phones' maps are a quarter of the
+# photo's area or less. A full-size map, as an editor may write, can be 180 million (60 MP, three channels).
+MAP_MAX_SAMPLES = 16_000_000
 
 
 @dataclass(frozen=True)
@@ -374,19 +379,21 @@ def _with_gain_map(data: bytes, name: str, source: Source) -> Source:
     photo's); a map that does not (three channels, or per-channel values) would be applied in the primaries ISO
     21496-1 names, so it is left unapplied, the photo its main image (D38, P11)."""
     from coffeecv import gain_map
-    g = gain_map.read(data)
+    g = gain_map.read(data, MAP_MAX_SAMPLES)
     channels = 1 if source.pixels.ndim == 2 else source.pixels.shape[2]
     if g is None or not g.alike or channels in (2, 4):
         return source
     h, w = source.pixels.shape[:2]
+    # One float copy of the photo: each strip's light gained as it is made (R6: the front's 600 MB; gain_map.apply
+    # on the whole photo held the light, the result and five whole-photo temporaries, 850 MB at 15 MP).
+    map_rows = gain_map.stretched(np.ascontiguousarray(orient(g.pixels, applied_orientation(data, name))), h, w)
     light = np.empty((h, w, 3), np.float32)
     for y in range(0, h, STRIP_ROWS):
         _, f = _light(source.pixels[y:y + STRIP_ROWS], source.full, source.linearize, 1 if channels == 1 else 3)
-        light[y:y + STRIP_ROWS] = ic.cms_transform(f, source.profile or SRGB, LINEAR_REC2020, intent=RELATIVE,
-                                                   outdtype=np.float32)
-    turned = np.ascontiguousarray(orient(g.pixels, applied_orientation(data, name)))
-    out = gain_map.apply(light, gain_map.GainMap(g.form, g.metadata, turned))
-    return Source(out, 1.0, LINEAR_REC2020, f"{source.decoder}+{g.form}", tone_map=True)
+        strip = ic.cms_transform(f, source.profile or SRGB, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
+        gain_map.apply_in_place(strip, g.metadata, map_rows[y:y + STRIP_ROWS])
+        light[y:y + STRIP_ROWS] = strip
+    return Source(light, 1.0, LINEAR_REC2020, f"{source.decoder}+{g.form}", tone_map=True)
 
 
 def _decode(data: bytes, name: str, max_pixels: int | None, settings: Settings) -> Source:

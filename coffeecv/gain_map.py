@@ -6,7 +6,7 @@ wrong (too bright or too dark, a colour cast, banding, the map turned or stretch
   1. compare with libultrahdr on the same JPEG: `python analysis/ml29/gain_map_check.py --sections 2` (it agreed
      within 0.006-0.014 stops on 60 dataset JPEGs, 2026-11-16) and tests.test_gain_map.Jpeg;
   2. then read, in this order: parse_iso / parse_hdrgm (the numbers), apply (the formula, its weight and offsets),
-     _stretched (the map's upsampling), _map_item / _heic_aux / _apple (which image is the map), and canonical's
+     stretched (the map's upsampling), _map_item / _heic_aux / _apple (which image is the map), and canonical's
      _with_gain_map (the map turned as the main image was, the light in linear Rec.2020).
 A canonical photo made with a map names it in its Source.decoder ("jpeg+Ultra HDR", "heif8+ISO 21496-1").
 The colour space (ML-29 D38): canonical applies every map to linear Rec.2020 light. That is exact for a one-channel
@@ -93,18 +93,19 @@ class GainMap:
             len(set(v)) == 1 for v in (m.gain_min, m.gain_max, m.gamma, m.base_offset, m.alternate_offset))
 
 
-def read(data: bytes) -> GainMap | None:
-    """The file's gain map by D14's order, or None: no map, or one no reader here understands."""
-    return next(iter(read_all(data)), None)
+def read(data: bytes, max_samples: int | None = None) -> GainMap | None:
+    """The file's gain map by D14's order, or None: no map, one no reader here understands, or one of more samples
+    (pixels times channels) than `max_samples`, which is decoded but never made float (canonical's MAP_MAX_SAMPLES)."""
+    return next(iter(read_all(data, max_samples)), None)
 
 
-def read_all(data: bytes) -> list[GainMap]:
+def read_all(data: bytes, max_samples: int | None = None) -> list[GainMap]:
     """Every form of gain map the file carries that a reader here understands, in D14's order (ISO 21496-1 first);
     a file with two is how the ISO reader is checked against the vendor's (R5)."""
     if data[:3] == b"\xff\xd8\xff":
-        return _jpeg(data)
+        return _jpeg(data, max_samples)
     if data[4:8] == b"ftyp":
-        return _heif(data)
+        return _heif(data, max_samples)
     return []
 
 
@@ -112,22 +113,28 @@ def apply(base: np.ndarray, gain_map: GainMap) -> np.ndarray:
     """The other rendition, float32 (h, w, 3), from `base`: the main image's linear light (h, w, 3), relative to
     standard-range white, in the colour space the map's maths uses (the main image's, when
     metadata.use_base_colour_space) and in the map's orientation. The map is stretched to the main image bilinearly."""
-    m = gain_map.metadata
     h, w = base.shape[:2]
-    stretched = _stretched(gain_map.pixels, h, w)
+    out = np.array(base, np.float32)
+    apply_in_place(out, gain_map.metadata, stretched(gain_map.pixels, h, w))
+    return out
+
+
+def apply_in_place(light: np.ndarray, m: Metadata, map_rows: np.ndarray) -> None:
+    """apply's formula on `light` (float32 (n, w, 3)), in place, with the map already stretched to it (`map_rows`,
+    float32 (n, w, 1 or 3), which an Apple map's curve overwrites): a strip of rows at a time, each sample as on the
+    whole photo, so canonical holds one copy of the photo's light (ML-29 P11, R6: the front's memory)."""
     if m.apple_headroom is not None:
-        CURVE_DECODERS["sRGB"](stretched)
-        return (base * (1 + (m.apple_headroom - 1) * stretched)).astype(np.float32)
+        CURVE_DECODERS["sRGB"](map_rows)
+        light *= 1 + (m.apple_headroom - 1) * map_rows
+        return
     weight = -1.0 if m.leads_down else 1.0
     if m.base_headroom == m.alternate_headroom:    # libavif's rule: the spec leaves it undefined, the map is not used
         weight = 0.0
-    out = np.empty((h, w, 3), np.float32)
     for c in range(3):
         k = c if len(m.gain_min) == 3 else 0
-        g = stretched[..., k if stretched.shape[2] == 3 else 0]
+        g = map_rows[..., k if map_rows.shape[2] == 3 else 0]
         log2_gain = m.gain_min[k] + (m.gain_max[k] - m.gain_min[k]) * g ** (1 / m.gamma[k])
-        out[..., c] = (base[..., c] + m.base_offset[k]) * np.exp2(log2_gain * weight) - m.alternate_offset[k]
-    return out
+        light[..., c] = (light[..., c] + m.base_offset[k]) * np.exp2(log2_gain * weight) - m.alternate_offset[k]
 
 
 # ----- ISO 21496-1 metadata -----
@@ -226,7 +233,7 @@ def _mpf_second_image(d: bytes) -> bytes | None:
     return None
 
 
-def _jpeg(d: bytes) -> list[GainMap]:
+def _jpeg(d: bytes, max_samples: int | None) -> list[GainMap]:
     second = _mpf_second_image(d)
     if second is None:
         return []
@@ -238,7 +245,9 @@ def _jpeg(d: bytes) -> list[GainMap]:
             hdrgm = parse_hdrgm(body)
     if iso is None and hdrgm is None:
         return []
-    pixels = _unit(ic.jpeg8_decode(second), 255.0)
+    pixels = _unit(ic.jpeg8_decode(second), 255.0, max_samples)
+    if pixels is None:
+        return []
     return [GainMap(form, m, pixels) for form, m in (("ISO 21496-1", iso), ("Ultra HDR", hdrgm)) if m is not None]
 
 
@@ -315,7 +324,7 @@ def _item_data(d: bytes, items: dict, item: int) -> bytes:
     return b"".join(d[o:o + n] for o, n in extents) if method == 0 else b""
 
 
-def _heif(d: bytes) -> list[GainMap]:
+def _heif(d: bytes, max_samples: int | None) -> list[GainMap]:
     items = _items(d)
     found = []
     for item, kind in items["types"].items():
@@ -323,15 +332,15 @@ def _heif(d: bytes) -> list[GainMap]:
         if kind == b"tmap" and len(refs) == 2 and refs[0] == items["primary"]:
             payload = _item_data(d, items, item)
             metadata = parse_iso(payload[1:]) if payload[:1] == b"\0" else None
-            pixels = _map_item(d, items, refs[1]) if metadata else None
+            pixels = _map_item(d, items, refs[1], max_samples) if metadata else None
             if pixels is not None:
                 found.append(GainMap("ISO 21496-1", metadata, pixels))
                 break
-    apple = _apple(d)
+    apple = _apple(d, max_samples)
     return found + ([apple] if apple else [])
 
 
-def _map_item(d: bytes, items: dict, item: int) -> np.ndarray | None:
+def _map_item(d: bytes, items: dict, item: int, max_samples: int | None) -> np.ndarray | None:
     """A HEIF's or AVIF's map item decoded: an AVIF's through a copy whose pitm names it, a HEIC's through
     pillow-heif's auxiliary images (libheif will not take a pitm that names one)."""
     if b"avif" in d[8:32] or b"avis" in d[8:32]:
@@ -341,30 +350,30 @@ def _map_item(d: bytes, items: dict, item: int) -> np.ndarray | None:
         copy = d[:at] + item.to_bytes(wide, "big") + d[at + wide:]
         pixels = ic.avif_decode(copy)
         depth = 8 if pixels.dtype == np.uint8 else primary_bit_depth(copy)
-        return None if depth is None else _unit(pixels, float(2**depth - 1))
-    return _heic_aux(d, lambda ids: item in ids)
+        return None if depth is None else _unit(pixels, float(2**depth - 1), max_samples)
+    return _heic_aux(d, lambda ids: item in ids, max_samples)
 
 
-def _heic_aux(d: bytes, wanted, kind: str = "") -> np.ndarray | None:
+def _heic_aux(d: bytes, wanted, max_samples: int | None, kind: str = "") -> np.ndarray | None:
     import pillow_heif
     heif = pillow_heif.open_heif(io.BytesIO(d), convert_hdr_to_8bit=False)
     for urn, ids in heif.info.get("aux", {}).items():
         if (not kind or urn == kind) and wanted(ids):
             image = heif.get_aux_image(next(i for i in ids if wanted([i])))
             pixels = np.asarray(image)
-            return _unit(pixels, 255.0) if pixels.dtype == np.uint8 else None
+            return _unit(pixels, 255.0, max_samples) if pixels.dtype == np.uint8 else None
     return None
 
 
 HEADROOM = re.compile(rb'HDRGainMapHeadroom(?:="|>)\s*([0-9.]+)')
 
 
-def _apple(d: bytes) -> GainMap | None:
+def _apple(d: bytes, max_samples: int | None) -> GainMap | None:
     """Apple's auxiliary gain map with its headroom (Apple's "Applying Apple HDR effect to your photos")."""
     found = HEADROOM.search(d)
     if found is None or float(found.group(1)) <= 1:
         return None
-    pixels = _heic_aux(d, lambda ids: bool(ids), APPLE_AUX)
+    pixels = _heic_aux(d, lambda ids: bool(ids), max_samples, APPLE_AUX)
     if pixels is None:
         return None
     one = (0.0,)
@@ -374,12 +383,17 @@ def _apple(d: bytes) -> GainMap | None:
 
 # ----- the map's pixels -----
 
-def _unit(pixels: np.ndarray, white: float) -> np.ndarray:
-    a = pixels.astype(np.float32) / white
-    return a[..., None] if a.ndim == 2 else a[..., :3] if a.shape[2] >= 3 else a[..., :1]
+def _unit(pixels: np.ndarray, white: float, max_samples: int | None) -> np.ndarray | None:
+    """The decoded map in 0-1, float32 (h, w, 1 or 3); None over `max_samples`, before any float copy (R6)."""
+    p = pixels[..., None] if pixels.ndim == 2 else pixels[..., :3] if pixels.shape[2] >= 3 else pixels[..., :1]
+    if max_samples is not None and p.size > max_samples:
+        return None
+    a = p.astype(np.float32)
+    a /= white
+    return a
 
 
-def _stretched(pixels: np.ndarray, h: int, w: int) -> np.ndarray:
+def stretched(pixels: np.ndarray, h: int, w: int) -> np.ndarray:
     """The map at (h, w), bilinear with half-pixel centres (Pillow's), each channel on its own."""
     if pixels.shape[:2] == (h, w):
         return pixels.copy()

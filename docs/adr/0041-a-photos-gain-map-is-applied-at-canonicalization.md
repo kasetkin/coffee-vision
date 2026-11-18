@@ -16,7 +16,7 @@ A map is applied to the light in linear Rec.2020 (D38). That is exact only for a
 
 - **Amends [ADR 0033](0033-photos-are-canonicalized-once-at-the-front.md):** the canonical photo is made from the main image with its gain map applied, not from the main image only.
 - A change to `coffeecv/gain_map.py` is a change to canonicalization, like one to `canonical.py`. It needs the store re-canonicalized and the models retrained. `dvc.yaml` names it as a dependency of the canonicalize, segcrop and test-mask stages.
-- The front's release carries `gain_map.py`.
+- The front's release carries `gain_map.py`. A map is applied strip by strip into one float copy of the photo, and a map of more than 16 million samples (pixels times channels, `canonical.MAP_MAX_SAMPLES`) is left unapplied before it is made float, so the front stays under its 600 MB (R6). On this machine, held to 2 CPUs: 394–484 MB and 14–18 s for the dataset's largest gain-map photos of each form, against 264–304 MB and 2.5–4 s without (`analysis/ml29/p11_front_cost.py`). The dataset's largest map has 12.48 million samples.
 - A map no reader here understands is no map: three iPhone 13 HEICs in the dataset.
 - The segmenter in service (`xl0_v7r_s123`) was fine-tuned on canonical photos made before this. Its next fine-tune ([ML-33](../ml-0033_ticket_segmenter_on_pass17.html)) reads the new ones.
 
