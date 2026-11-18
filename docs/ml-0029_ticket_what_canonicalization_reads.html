@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 running</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 done 2026-11-18 (today's model changes 6 of 1,684 answers)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -469,6 +469,10 @@
     <div><div class="when">2026-11-18</div>The owner adopted gain maps, though D16's bar is not met: "we will adopt gain-maps. Reason: they do not break anything on our dataset, but it theory can have positive effect with new photos."
       The decision departs from D16's bar, which the owner set and which left the decision to the owner either way.
       P11's adoption branch started.</div>
+    <div><div class="when">2026-11-18</div>P9 done: today's live model, segmenter and OOD probe on the 1,684 photos with a map
+      applied, from today's canonical photo and the scratch one. 6 answers change: 4 on segmenter-set photos with no class, and 2 right to wrong (unseen labelled photos 405 of 422 right, then 404).
+      No OOD verdict flips; the masks' median IoU is at least 0.999 for every camera
+      (<code>analysis/ml29/p9_report.txt</code>, <code>analysis/ml29/README.md</code>).</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

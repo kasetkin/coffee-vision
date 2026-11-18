@@ -305,17 +305,17 @@
 
   <h2>11. P9 &mdash; step 2: today's models on the scratch photos <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-17: crops made; the answers running (<code>analysis/ml29/p9_models.py</code>)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill done">Done</span> <span class="tag">2026-11-18: 6 of 1,684 answers change, 2 of them right to wrong; no OOD verdict flips; mask IoU median at least 0.999 a camera (<code>analysis/ml29/p9_report.txt</code>)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P8</span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The shipped segmenter, classifier and OOD probe run on each scratch photo and
+    <li><span class="box done"></span><span>The shipped segmenter, classifier and OOD probe run on each scratch photo and
       on its canonical photo of today, on one machine at one thread count
       (<code>docs/agents/experiments.md</code>).</span></li>
-    <li><span class="box"></span><span>The report, per camera and per class: country answers that change, and which
+    <li><span class="box done"></span><span>The report, per camera and per class: country answers that change, and which
       way against the label; mask overlap between the two; OOD verdicts that flip.</span></li>
-    <li><span class="box"></span><span>Stop for the owner: run step 3, or stop here and close Part 2 (P11's second
-      branch).</span></li>
+    <li><span class="box done"></span><span>Stop for the owner: run step 3, or stop here and close Part 2 (P11's second
+      branch). <span class="tag">step 3 run at the owner's word of 2026-11-16, before this report</span></span></li>
   </ol>
 
   <h2>12. P10 &mdash; step 3: re-crop, retrain, compare <span class="pill sm open">stop</span></h2>
@@ -569,6 +569,9 @@
       <code>p10_compare.txt</code>, README P10.</div>
     <div><div class="when">2026-11-18</div>The owner adopted gain maps, D16's bar not met: "we will adopt gain-maps. Reason: they do not break anything on our dataset, but it theory can have positive effect with new photos." P11's
       adoption branch started; the store's re-canonicalization waits for P9's answers, which read today's store.</div>
+    <div><div class="when">2026-11-18</div>P9 done (10:14 UTC). 6 of 1,684 answers change, 2 of them right to wrong, and no
+      OOD verdict flips. The crop path reproduces the segcrop stage's crops byte for byte on 8 sampled photos. The answers
+      ran partly beside P10's training and P11's measurements, which slowed them and changed nothing else.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
