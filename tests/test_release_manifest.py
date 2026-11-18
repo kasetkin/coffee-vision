@@ -22,7 +22,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
 from release_manifest import (  # noqa: E402
-    FRONT_LEFT_OUT, LITERT_RUNTIME, VK_ICD, all_files, front_manifest, manifest, unexpected)
+    LITERT_RUNTIME, VK_ICD, all_files, front_manifest, manifest, unexpected)
 
 from coffeecv import canonical  # noqa: E402
 from tests._tiers import real_data  # noqa: E402
@@ -196,7 +196,7 @@ class TestTwoReleases(unittest.TestCase):
                           "coffeecv/jxl_encode.py",
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
                           "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py", "coffeecv/tone_map.py",
-                          "coffeecv/linear_dng.py"})
+                          "coffeecv/linear_dng.py", "coffeecv/gain_map.py"})
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
@@ -221,19 +221,20 @@ class TestTwoReleases(unittest.TestCase):
                         mods = [name] if name != "coffeecv" else [f"coffeecv.{a.name}" for a in node.names]
                         todo += [mod.replace(".", "/") + ".py" for mod in mods]
         self.assertTrue(seen - {"webapp/front/check_service.py", "webapp/front/upload_check.py"})
-        self.assertEqual(seen - shipped, set(FRONT_LEFT_OUT))
+        self.assertEqual(seen - shipped, set())
 
-    def test_a_module_left_out_of_the_front_is_one_its_settings_never_import(self):
-        """ML-29 P7: gain_map.py stays off the front while FRONT_SETTINGS keeps gain maps off (D15); the front
-        canonicalizes a photo with a gain map without it."""
-        self.assertEqual(set(FRONT_LEFT_OUT), {"coffeecv/gain_map.py"})
-        self.assertFalse(canonical.FRONT_SETTINGS.gain_maps)
-        code = ("import sys; sys.modules['coffeecv.gain_map'] = None\n"
+    def test_the_front_carries_the_gain_map_reader_its_settings_apply(self):
+        """ML-29 P11: FRONT_SETTINGS applies gain maps, so the front's release carries gain_map.py and canonicalizes
+        a photo with a map through it."""
+        self.assertTrue(canonical.FRONT_SETTINGS.gain_maps)
+        self.assertIn("coffeecv/gain_map.py", front_manifest()["git"])
+        code = ("import sys\n"
                 "import numpy as np, imagecodecs as ic\n"
                 "from coffeecv import canonical\n"
                 "jpeg = ic.ultrahdr_encode(np.full((16, 16, 4), 0.5, np.float16))\n"
                 "made = canonical.canonicalize_with(jpeg, 'x.jpg', canonical.FRONT_SETTINGS)\n"
-                "assert canonical.is_canonical(made.canonical)\n")   # an import of gain_map would raise
+                "assert canonical.is_canonical(made.canonical)\n"
+                "assert 'coffeecv.gain_map' in sys.modules\n")
         subprocess.run([sys.executable, "-c", code], cwd=REPO, check=True)
 
     def test_both_releases_carry_the_data_canonical_reads(self):   # ML-19 D46; OPS-18 D13

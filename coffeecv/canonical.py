@@ -95,8 +95,8 @@ class Settings:
     quality: int
     keep_max_pixels: int
     cap_pixels: int
-    gain_maps: bool = False  # ML-29 P7: a photo's gain map applied and tone-mapped back (D10 b1); off in both settings
-    #                          until the experiment (D12) and the owner adopt it (D15)
+    gain_maps: bool = True   # ML-29 P7: a photo's gain map applied and tone-mapped back (D10 b1); on in both settings
+    #                          since the owner adopted it, store and front in one release (P11, 2026-11-18; D15, D16)
 
     def __post_init__(self):
         if self.colour not in ("float", "integer"):
@@ -370,12 +370,13 @@ def _with_gain_map(data: bytes, name: str, source: Source) -> Source:
     """ML-29 P7 (D10 b1), behind Settings.gain_maps: the main image's light in linear Rec.2020, the file's gain map
     (coffeecv.gain_map, D14's order) turned as the main image was and applied at full weight, then tone-mapped back
     into standard range by the encode (D33). A photo without a map, or with transparency, is left as decoded. The map
-    is applied in linear Rec.2020, which is its own maths for a one-channel map with equal offsets (every dataset
-    photo's); a three-channel map's maths would be in its base or alternate primaries, a difference left unmeasured."""
-    from coffeecv import gain_map                 # the experiment's only: the front never imports it (D15)
+    is applied in linear Rec.2020, which is its own maths for a map that scales the channels alike (every dataset
+    photo's); a map that does not (three channels, or per-channel values) would be applied in the primaries ISO
+    21496-1 names, so it is left unapplied, the photo its main image (D38, P11)."""
+    from coffeecv import gain_map
     g = gain_map.read(data)
     channels = 1 if source.pixels.ndim == 2 else source.pixels.shape[2]
-    if g is None or channels in (2, 4):
+    if g is None or not g.alike or channels in (2, 4):
         return source
     h, w = source.pixels.shape[:2]
     light = np.empty((h, w, 3), np.float32)

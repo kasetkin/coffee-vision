@@ -13,8 +13,8 @@ The colour space (ML-29 D38): canonical applies every map to linear Rec.2020 lig
 map with one offset on every channel (every dataset photo's), and not for a three-channel map, which ISO 21496-1
 applies in the base image's or the alternate's primaries: one of those coming out wrong is D38's case.
 
-Behind canonical.Settings.gain_maps, off in the store's and the front's settings: canonicalization ignores gain maps
-(ML-29 D3, D10) until the experiment adopts them (D12, D15).
+Behind canonical.Settings.gain_maps, on in the store's and the front's settings since the owner adopted it (ML-29 P11,
+2026-11-18); a map that does not scale the channels alike is left unapplied (D38).
 
 The readers, in D14's order, ISO 21496-1 first:
 - ISO 21496-1: the metadata in a HEIF's or AVIF's `tmap` item (whose `dimg` references are the main image, then the
@@ -82,6 +82,15 @@ class GainMap:
     form: str
     metadata: Metadata
     pixels: np.ndarray
+
+    @property
+    def alike(self) -> bool:
+        """The map scales red, green and blue alike: one channel, and one value in each per-channel field. Only such a
+        map's result is the same in every set of primaries with D65's white, so only it may be applied in linear
+        Rec.2020 (ML-29 D38)."""
+        m = self.metadata
+        return self.pixels.shape[2] == 1 and all(
+            len(set(v)) == 1 for v in (m.gain_min, m.gain_max, m.gamma, m.base_offset, m.alternate_offset))
 
 
 def read(data: bytes) -> GainMap | None:

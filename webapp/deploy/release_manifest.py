@@ -57,13 +57,8 @@ FRONT_CODE = [
     "coffeecv/timeline_schema.py",   # ticket OPS-3 P3: what POST /timeline accepts
     "coffeecv/tone_map.py",   # ticket ML-29 P5: an HDR photo's light into the standard range (D33)
     "coffeecv/linear_dng.py",   # ticket ML-31 D1: a JPEG XL LinearRaw DNG, which LibRaw cannot open
+    "coffeecv/gain_map.py",   # ticket ML-29 P11: a photo's gain map, which FRONT_SETTINGS applies (D15)
 ]
-# Imported by a front module but left out of the front's release, each with why the front never runs that import.
-# tests/test_release_manifest.py allows only these gaps, and canonicalizes on FRONT_SETTINGS without them.
-FRONT_LEFT_OUT = {
-    "coffeecv/gain_map.py": "ticket ML-29 P7: canonical imports it only with Settings.gain_maps, which "
-                            "FRONT_SETTINGS keeps off until the experiment is adopted (D15)",
-}
 # What webapp/app.py imports, found with an import trace and checked by tests/test_release_manifest.py. Since
 # ticket ML-7 (plan P10) the models run on LiteRT: no torch-side module, no vendored EfficientViT and no pretrained
 # weights; the converted model's directory instead.

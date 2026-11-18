@@ -178,6 +178,15 @@ class Apply(unittest.TestCase):
         out = gm.apply(self.base, gm.GainMap("test", m, flat(1.0, channels=3)))
         np.testing.assert_allclose(out, self.base * np.array([2, 4, 8], np.float32), rtol=1e-6)
 
+    def test_a_map_scales_its_channels_alike_only_with_one_channel_and_one_value_a_field(self):
+        one = gm.GainMap("test", meta(gain_max=1.0), flat(1.0))
+        per = gm.GainMap("test", gm.Metadata((0.0,) * 3, (1.0, 2.0, 3.0), (1.0,) * 3, (0.0,) * 3, (0.0,) * 3, 0.0,
+                                             3.0), flat(1.0))
+        same = gm.GainMap("test", gm.Metadata((0.0,) * 3, (1.0,) * 3, (1.0,) * 3, (0.0,) * 3, (0.0,) * 3, 0.0, 1.0),
+                          flat(1.0))
+        three = gm.GainMap("test", meta(gain_max=1.0), flat(1.0, channels=3))
+        self.assertEqual([g.alike for g in (one, per, same, three)], [True, False, True, False])
+
     def test_apples_formula(self):
         m = gm.Metadata((0.0,), (0.0,), (1.0,), (0.0,), (0.0,), 0.0, 2.0, apple_headroom=4.0)
         for value in (0.0, 0.5, 1.0):
@@ -226,7 +235,7 @@ class Jpeg(unittest.TestCase):
         data = ultra_hdr(main, self.gain, self.xmp, orientation=6)
         turn = cn.applied_orientation(data, "x.jpg")
         self.assertEqual(turn, 6)
-        upright_main = cn.decode(data, "x.jpg").pixels
+        upright_main = cn.decode(data, "x.jpg", settings=dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)).pixels
         upright_map = cn.orient(gm.read(data).pixels, turn)
         self.assertEqual(upright_map.shape[0] / upright_map.shape[1], upright_main.shape[0] / upright_main.shape[1])
         bright = upright_main[..., 0] > 160
@@ -295,12 +304,23 @@ class Setting(unittest.TestCase):
                    b'hdrgm:OffsetHDR="0"/>'
         self.on = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=True)
 
-    def test_off_in_both_settings(self):
-        self.assertFalse(cn.STORE_SETTINGS.gain_maps or cn.FRONT_SETTINGS.gain_maps)
+    def test_on_in_both_settings(self):   # P11: adopted by the owner, 2026-11-18, store and front together (D15)
+        self.assertTrue(cn.STORE_SETTINGS.gain_maps and cn.FRONT_SETTINGS.gain_maps)
+
+    def test_on_the_front_applies_a_map_as_the_store_does(self):
+        data = ultra_hdr(self.main, self.gain, self.xmp)
+        for settings in (cn.STORE_SETTINGS, cn.FRONT_SETTINGS):
+            with self.subTest(settings=settings.name):
+                off = dataclasses.replace(settings, gain_maps=False)
+                brighter = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", settings).canonical).astype(int)
+                plain = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", off).canonical).astype(int)
+                self.assertGreater(brighter.mean() - plain.mean(), 30)
 
     def test_off_a_photo_with_a_map_is_its_main_image(self):
         data = ultra_hdr(self.main, self.gain, self.xmp)
-        self.assertEqual(cn.canonicalize(data, "x.jpg"), cn.canonicalize(jpeg(self.main), "x.jpg"))
+        off = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", off).canonical,
+                         cn.canonicalize_with(jpeg(self.main), "x.jpg", off).canonical)
 
     def test_on_a_photo_without_a_map_keeps_its_bytes(self):
         data = jpeg(self.main)
@@ -316,8 +336,26 @@ class Setting(unittest.TestCase):
         np.testing.assert_allclose(src.pixels, base * 2, rtol=0.02)
         self.assertEqual((src.full, src.profile, src.tone_map), (1.0, cn.LINEAR_REC2020, True))
         brighter = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", self.on).canonical).astype(int)
-        plain = cn.load_canonical(cn.canonicalize(data, "x.jpg")).astype(int)
+        plain = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", dataclasses.replace(cn.STORE_SETTINGS,
+                                                                                         gain_maps=False)).canonical).astype(int)
         self.assertGreater(brighter.mean() - plain.mean(), 30)
+
+    def test_on_a_per_channel_map_is_left_unapplied(self):
+        """D38: a map whose channels differ is applied in the primaries ISO 21496-1 names, not linear Rec.2020; it is
+        left as the main image (the adoption's condition, P11)."""
+        xmp = (b'<rdf:Description hdrgm:Version="1.0" hdrgm:HDRCapacityMax="1" hdrgm:OffsetSDR="0" '
+               b'hdrgm:OffsetHDR="0"><hdrgm:GainMapMax><rdf:Seq><rdf:li>1</rdf:li><rdf:li>0.5</rdf:li>'
+               b"<rdf:li>0.25</rdf:li></rdf:Seq></hdrgm:GainMapMax></rdf:Description>")
+        data = ultra_hdr(self.main, self.gain, xmp)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
+                         cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
+
+    def test_on_a_three_channel_map_is_left_unapplied(self):
+        data = ultra_hdr(self.main, np.full((24, 32, 3), 255, np.uint8), self.xmp)
+        self.assertIsNotNone(gm.read(data))
+        self.assertEqual(gm.read(data).pixels.shape[2], 3)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
+                         cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
 
     def test_on_the_map_turns_with_the_main_image(self):
         main = self.main.copy()
@@ -326,7 +364,7 @@ class Setting(unittest.TestCase):
         gain[:, 16:] = 255                                        # the bright half boosted
         data = ultra_hdr(main, gain, self.xmp, orientation=6)
         src = cn.decode(data, "x.jpg", settings=self.on)
-        plain = cn.decode(data, "x.jpg")
+        plain = cn.decode(data, "x.jpg", settings=dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False))
         ratio = src.pixels[..., 0] / srgb_decode(plain.pixels[..., 0].astype(np.float32) / 255)
         bright = plain.pixels[..., 0] > 160
         self.assertGreater(np.median(ratio[bright]), 1.8)
