@@ -376,7 +376,7 @@
           full-size three-channel one.</td>
         <td>(a) any map up to a ceiling, 16 million samples (pixels times channels), larger ones left unapplied, the photo
           its main image (b) every map, the front's memory unbounded (c) a larger map scaled down before it is applied</td>
-        <td>(a), 2026-11-18, made by Claude during P11 and the owner's to confirm or change. The dataset's largest map has
+        <td>(a), 2026-11-18, made by Claude during P11 and confirmed by the owner the same day: &ldquo;D39, keep the 16-million-sample ceiling&rdquo;. The dataset's largest map has
           12.48 million samples (a 200 MP Galaxy Z Fold8 Ultra photo's), so no dataset photo is affected. A 60 MP photo
           with a full-size three-channel map took 1,650 MB with the front's settings on this machine, which (b) would allow. (c) changes what
           the map says. <code>canonical.MAP_MAX_SAMPLES</code>; a change to it is a change to canonicalization (ADR 0041).</td></tr>
@@ -485,6 +485,9 @@
       applied, from today's canonical photo and the scratch one. 6 answers change: 4 on segmenter-set photos with no class, and 2 right to wrong (unseen labelled photos 405 of 422 right, then 404).
       No OOD verdict flips; the masks' median IoU is at least 0.999 for every camera
       (<code>analysis/ml29/p9_report.txt</code>, <code>analysis/ml29/README.md</code>).</div>
+    <div><div class="when">2026-11-18</div>D39 recorded: a gain map of more than 16 million samples is left unapplied, so the
+      front stays under its memory (R6). Claude made it during P11, and the owner confirmed it: &ldquo;D39, keep the
+      16-million-sample ceiling&rdquo;.</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
