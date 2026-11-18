@@ -202,6 +202,22 @@ class Apply(unittest.TestCase):
                 out = gm.apply(self.base, gm.GainMap("Apple", m, flat(value)))
                 np.testing.assert_allclose(out, self.base * (1 + 3 * srgb_decode(np.float32(value))), rtol=1e-6)
 
+    def test_in_place_strip_by_strip_is_the_whole_photo(self):
+        """R6: canonical applies a map a strip of rows at a time, Apple's curve included; each sample comes out as
+        when the whole photo is applied at once."""
+        rng = np.random.default_rng(2)
+        light = rng.random((9, 5, 3), dtype=np.float32)
+        maps = rng.random((9, 5, 1), dtype=np.float32)
+        for m in (meta(gain_min=-0.5, gain_max=2.0, gamma=0.8, base_offset=0.01, alt_offset=0.02, alt_headroom=2.0),
+                  gm.Metadata((0.0,), (0.0,), (1.0,), (0.0,), (0.0,), 0.0, 2.0, apple_headroom=4.0)):
+            with self.subTest(apple=m.apple_headroom is not None):
+                whole, rows = light.copy(), maps.copy()
+                gm.apply_in_place(whole, m, rows)
+                strips, rows = light.copy(), maps.copy()
+                for y in range(0, 9, 4):
+                    gm.apply_in_place(strips[y:y + 4], m, rows[y:y + 4])
+                np.testing.assert_array_equal(strips, whole)
+
     def test_a_smaller_map_is_stretched_to_the_photo(self):
         small = np.zeros((2, 3, 1), np.float32)
         small[:, 1:] = 1.0
@@ -311,6 +327,7 @@ class Setting(unittest.TestCase):
         self.xmp = b'<x hdrgm:Version="1.0" hdrgm:GainMapMax="1" hdrgm:HDRCapacityMax="1" hdrgm:OffsetSDR="0" ' \
                    b'hdrgm:OffsetHDR="0"/>'
         self.on = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=True)
+        self.off = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)
 
     def test_on_in_both_settings(self):   # P11: adopted by the owner, 2026-11-18, store and front together (D15)
         self.assertTrue(cn.STORE_SETTINGS.gain_maps and cn.FRONT_SETTINGS.gain_maps)
@@ -326,9 +343,8 @@ class Setting(unittest.TestCase):
 
     def test_off_a_photo_with_a_map_is_its_main_image(self):
         data = ultra_hdr(self.main, self.gain, self.xmp)
-        off = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)
-        self.assertEqual(cn.canonicalize_with(data, "x.jpg", off).canonical,
-                         cn.canonicalize_with(jpeg(self.main), "x.jpg", off).canonical)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.off).canonical,
+                         cn.canonicalize_with(jpeg(self.main), "x.jpg", self.off).canonical)
 
     def test_on_a_photo_without_a_map_keeps_its_bytes(self):
         data = jpeg(self.main)
@@ -344,8 +360,7 @@ class Setting(unittest.TestCase):
         np.testing.assert_allclose(src.pixels, base * 2, rtol=0.02)
         self.assertEqual((src.full, src.profile, src.tone_map), (1.0, cn.LINEAR_REC2020, True))
         brighter = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", self.on).canonical).astype(int)
-        plain = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", dataclasses.replace(cn.STORE_SETTINGS,
-                                                                                         gain_maps=False)).canonical).astype(int)
+        plain = cn.load_canonical(cn.canonicalize_with(data, "x.jpg", self.off).canonical).astype(int)
         self.assertGreater(brighter.mean() - plain.mean(), 30)
 
     def test_on_a_per_channel_map_is_left_unapplied(self):
@@ -355,6 +370,16 @@ class Setting(unittest.TestCase):
                b'hdrgm:OffsetHDR="0"><hdrgm:GainMapMax><rdf:Seq><rdf:li>1</rdf:li><rdf:li>0.5</rdf:li>'
                b"<rdf:li>0.25</rdf:li></rdf:Seq></hdrgm:GainMapMax></rdf:Description>")
         data = ultra_hdr(self.main, self.gain, xmp)
+        self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
+                         cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
+
+    def test_on_an_iso_per_channel_map_is_left_unapplied(self):
+        """D38 through ISO 21496-1's metadata, which comes before the vendor's (D14): three per-channel values over a
+        one-channel map, so not alike."""
+        iso = iso_payload((0.0, 0.0, 0.0), (1.0, 0.5, 0.25), (1.0,) * 3, (0.0,) * 3, (0.0,) * 3, 0.0, 1.0)
+        data = ultra_hdr(self.main, self.gain, self.xmp, iso=iso)
+        g = gm.read(data)
+        self.assertEqual((g.form, g.alike), ("ISO 21496-1", False))
         self.assertEqual(cn.canonicalize_with(data, "x.jpg", self.on).canonical,
                          cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
 
@@ -375,8 +400,7 @@ class Setting(unittest.TestCase):
         xmp = (b'<x hdrgm:Version="1.0" hdrgm:GainMapMin="-0.5" hdrgm:GainMapMax="2.5" hdrgm:Gamma="0.8" '
                b'hdrgm:HDRCapacityMax="2.5" hdrgm:OffsetSDR="0.015625" hdrgm:OffsetHDR="0.03125"/>')
         data = ultra_hdr(main, gain, xmp, orientation=8)
-        off = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)
-        plain = cn.decode(data, "x.jpg", settings=off)
+        plain = cn.decode(data, "x.jpg", settings=self.off)
         _, f = cn._light(plain.pixels, plain.full, plain.linearize, 3)          # the whole photo at once
         light = ic.cms_transform(f, plain.profile or cn.SRGB, cn.LINEAR_REC2020, intent=cn.RELATIVE,
                                  outdtype=np.float32)
@@ -396,9 +420,10 @@ class Setting(unittest.TestCase):
         self.assertEqual(over, cn.canonicalize_with(jpeg(self.main), "x.jpg", self.on).canonical)
         self.assertNotEqual(at, over)
 
-    def test_every_dataset_map_is_under_the_ceiling(self):
-        """The dataset's largest, 2026-11-18: 12.48 million samples (one channel), a 200 MP Galaxy Z Fold8 Ultra
-        photo's; the front's 60 MP ceiling with a quarter-size three-channel map is 45 million."""
+    def test_the_ceiling_is_above_the_largest_dataset_map_recorded(self):
+        """The dataset's largest map, read by the scan of 2026-11-16 (analysis/ml29/README.md, P11): 12.48 million
+        samples (one channel), a 200 MP Galaxy Z Fold8 Ultra photo's. A pinned number, not a read of the dataset:
+        the scan is not in git. The front's 60 MP ceiling with a quarter-size three-channel map is 45 million."""
         self.assertGreaterEqual(cn.MAP_MAX_SAMPLES, 12_480_000)
 
     def test_on_the_map_turns_with_the_main_image(self):

@@ -288,7 +288,7 @@
     <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-11-16 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped, JPEG XL extra channels; ML-31: JPEG XL LinearRaw DNGs)</span>
+    <span>as of 2026-11-18 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped, JPEG XL extra channels, gain maps; ML-31: JPEG XL LinearRaw DNGs)</span>
   </div>
 
   <div class="callout">
@@ -315,8 +315,10 @@
     thermal, selection-mask and optional extra channels are skipped, and black, spot colour and CFA ones are a 400 that
     names them (D36). A DNG whose main image is JPEG XL-compressed LinearRaw (DNG 1.7, Samsung's Galaxy Z Fold8
     Ultra), which LibRaw cannot open, is read and developed by <code>coffeecv/linear_dng.py</code> following LibRaw's
-    steps (ticket ML-31 D1); every other RAW stays LibRaw's. A photo's gain map is read only with
-    <code>Settings.gain_maps</code>, off on the front (ML-29 P7). It forwards the
+    steps (ticket ML-31 D1); every other RAW stays LibRaw's. A photo's gain map is applied to its main image and
+    tone-mapped back, as the store does (ML-29 P11, ADR 0041), by <code>coffeecv/gain_map.py</code>: strip by strip, in
+    linear Rec.2020, and left unapplied when it does not scale the channels alike (D38) or has more than 16 million
+    samples (R6). With a map the front takes 12&ndash;15 s and at most about 490 MB for a 50 MP photo on 2 CPUs. It forwards the
     form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest

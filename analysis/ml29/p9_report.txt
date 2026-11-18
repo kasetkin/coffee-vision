@@ -26,6 +26,19 @@ Every photo, by where it is:
   train                                 859          858            1            0            0            0            0            0            0    1.000        4
   val                                   179          179            0            0            0            0            0            0            0    1.000        0
 
+Every labelled photo, by true class (trained on or not):
+                                     photos         same right->wrong wrong->right wrong->wrong      changed  now refused no longer refused refused both  IoU med  IoU<0.9
+  Brazil                                270          269            0            0            0            0            0            0            1    1.000        2
+  Colombia                              160          160            0            0            0            0            0            0            0    1.000        0
+  CostaRica                              84           84            0            0            0            0            0            0            0    0.999        0
+  Ethiopia                              215          214            1            0            0            0            0            0            0    1.000        0
+  Guatemala                              96           96            0            0            0            0            0            0            0    1.000        0
+  Indonesia                             117          117            0            0            0            0            0            0            0    1.000        1
+  Kenya                                  70           70            0            0            0            0            0            0            0    1.000        0
+  Peru                                  121          120            1            0            0            0            0            0            0    1.000        2
+  Rwanda                                 79           79            0            0            0            0            0            0            0    1.000        2
+  Vietnam                                70           70            0            0            0            0            0            0            0    0.999        0
+
 Photos the live model never trained on (val, test, not in its pool), by camera:
                                      photos         same right->wrong wrong->right wrong->wrong      changed  now refused no longer refused refused both  IoU med  IoU<0.9
   Apple iPhone 15                        28           28            0            0            0            0            0            0            0    0.999        0

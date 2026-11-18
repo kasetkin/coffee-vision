@@ -81,7 +81,7 @@ EFFORT = 7                               # D50
 THREADS = 2                              # the front's two vCPU; libjxl's output does not depend on it (P1)
 FILL_SRGB = (124, 116, 104)              # D13: coffeecv.segment_beans.SegmentConfig.fill_rgb
 STRIP_ROWS = 256                         # rows converted at a time (D38)
-# ML-29 P11 (R6): the most samples (pixels times channels) of a gain map made float, 64 MB of float32; a map over it is
+# ML-29 P11 (R6, D39): the most samples (pixels times channels) of a gain map made float, 64 MB of float32; a map over it is
 # left unapplied, the photo its main image, as a map that does not scale its channels alike is (D38). The dataset's
 # largest, 2026-11-18: 12.48 million (one channel, a quarter of a 200 MP photo); the phones' maps are a quarter of the
 # photo's area or less. A full-size map, as an editor may write, can be 180 million (60 MP, three channels).

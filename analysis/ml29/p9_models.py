@@ -313,6 +313,8 @@ def run_report(a: argparse.Namespace) -> None:
              ""]
     lines += group_lines("Every photo, by camera:", rows, lambda r: r["camera"])
     lines += [""] + group_lines("Every photo, by where it is:", rows, lambda r: r["where"])
+    lines += [""] + group_lines("Every labelled photo, by true class (trained on or not):",
+                                [r for r in rows if r["truth"] is not None], lambda r: r["truth"])
     lines += [""] + group_lines("Photos the live model never trained on (val, test, not in its pool), by camera:",
                                 unseen, lambda r: r["camera"])
     lines += [""] + group_lines("The same, by true class:", unseen, lambda r: r["truth"])

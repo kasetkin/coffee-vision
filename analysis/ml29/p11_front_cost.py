@@ -1,5 +1,6 @@
 """ML-29 P11 (R6): what applying gain maps costs the front, against its budget (ML-19 D22: 40 s for a 10 MB photo;
-D38: the service's MemoryMax=600M, a 60 MP photo's peak at most 400 MB).
+ML-19 D38: the service's MemoryMax, 600M since 2026-11-04 with swap allowed; its first aim, a 60 MP photo's peak at
+most 400 MB under 500M, was left when the owner raised it).
 
     python -I analysis/ml29/p11_front_cost.py REPO [--work DIR]
 
@@ -19,7 +20,6 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-MAX_PIXELS = 60_000_000   # webapp/front/check_service.py's ceiling for a photo that is not RAW
 PHOTOS = {   # name: path under the repo, or None for the one made here
     "Ultra HDR JPEG (Pixel, 12 MP)":
         "dataset/2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082019464.jpg",
@@ -47,9 +47,11 @@ def make_ceiling(work: Path) -> Path:
     return path
 
 
-def one(repo: Path, photo: Path, gain_maps: bool) -> dict:
+def measure(repo: Path, photo: Path, gain_maps: bool) -> dict:
     """The front's canonical photo of `photo`, in this process, as the check service makes it."""
     sys.path.insert(0, str(repo))
+    sys.path.insert(0, str(repo / "webapp" / "front"))
+    from check_service import MAX_PIXELS          # its ceiling for a photo that is not RAW
     from coffeecv import canonical as cn
     settings = replace(cn.FRONT_SETTINGS, gain_maps=gain_maps)
     data = photo.read_bytes()
@@ -73,7 +75,7 @@ def main() -> None:
     ap.add_argument("--one", nargs=2, help=argparse.SUPPRESS)
     args = ap.parse_args()
     if args.one:
-        print(json.dumps(one(args.repo, Path(args.one[0]), args.one[1] == "on")))
+        print(json.dumps(measure(args.repo, Path(args.one[0]), args.one[1] == "on")))
         return
     args.work.mkdir(parents=True, exist_ok=True)
     rows = []

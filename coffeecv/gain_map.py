@@ -9,9 +9,10 @@ wrong (too bright or too dark, a colour cast, banding, the map turned or stretch
      stretched (the map's upsampling), _map_item / _heic_aux / _apple (which image is the map), and canonical's
      _with_gain_map (the map turned as the main image was, the light in linear Rec.2020).
 A canonical photo made with a map names it in its Source.decoder ("jpeg+Ultra HDR", "heif8+ISO 21496-1").
-The colour space (ML-29 D38): canonical applies every map to linear Rec.2020 light. That is exact for a one-channel
-map with one offset on every channel (every dataset photo's), and not for a three-channel map, which ISO 21496-1
-applies in the base image's or the alternate's primaries: one of those coming out wrong is D38's case.
+The colour space (ML-29 D38): canonical applies a map to linear Rec.2020 light. That is exact for a one-channel map
+with one value in each per-channel field (GainMap.alike; every dataset photo's), and not for a three-channel map,
+which ISO 21496-1 applies in the base image's or the alternate's primaries: canonical leaves those unapplied, as it
+does a map of more than canonical.MAP_MAX_SAMPLES samples (R6).
 
 Behind canonical.Settings.gain_maps, on in the store's and the front's settings since the owner adopted it (ML-29 P11,
 2026-11-18); a map that does not scale the channels alike is left unapplied (D38).

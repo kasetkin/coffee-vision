@@ -168,8 +168,11 @@
         <td>208 dataset files carry both forms: the ISO result is checked against the vendor map's on them before it is
           trusted (D14).</td></tr>
       <tr><td class="id">R6</td><td><strong>Gain maps cost the front time and memory.</strong></td>
-        <td>Not measured. Only matters at adoption (D15); the adoption release measures it against the front's budget
-          (ML-19 D22, D38).</td></tr>
+        <td>Measured here, 2026-11-18, before the release: the dataset's largest gain-map photo of each form, held to 2
+          CPUs, 12&ndash;15 s and 392&ndash;487 MB peak, against 2&ndash;4 s and 264&ndash;304 MB without
+          (<code>analysis/ml29/p11_front_cost.py</code>). The first build applied a map on whole-photo copies, 618&ndash;855 MB,
+          over MemoryMax=600M; it now applies it strip by strip, and leaves a map over D39's ceiling unapplied. Within ML-19
+          D22's 40 s and D38's 600M. On the front, from the check service's log line (time and peak), at the release.</td></tr>
       <tr><td class="id">R7</td><td><strong>The 16-bit AVIF decode needs a decoder the front does not have.</strong></td>
         <td>To be verified in the first phase (D9); <code>imagecodecs</code> and pillow-heif are both installed
           already.</td></tr>
@@ -368,6 +371,15 @@
           <code>check</code> counts the maps' channels and fails on a three-channel one; P11's adoption first applies
           a three-channel map in ISO's space or leaves it unapplied (Adobe's tools write them, so a visitor could
           upload one).</td></tr>
+      <tr><td class="id">D39</td><td>How large a gain map is applied? A map is turned to float before it is applied, so its
+          size sets the front's memory (R6). Phones write maps at most a quarter of the photo; a photo editor can write a
+          full-size three-channel one.</td>
+        <td>(a) any map up to a ceiling, 16 million samples (pixels times channels), larger ones left unapplied, the photo
+          its main image (b) every map, the front's memory unbounded (c) a larger map scaled down before it is applied</td>
+        <td>(a), 2026-11-18, made by Claude during P11 and the owner's to confirm or change. The dataset's largest map has
+          12.48 million samples (a 200 MP Galaxy Z Fold8 Ultra photo's), so no dataset photo is affected. A 60 MP photo
+          with a full-size three-channel map took 1,650 MB with the front's settings on this machine, which (b) would allow. (c) changes what
+          the map says. <code>canonical.MAP_MAX_SAMPLES</code>; a change to it is a change to canonicalization (ADR 0041).</td></tr>
     </tbody>
   </table></div>
 

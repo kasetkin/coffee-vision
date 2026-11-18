@@ -405,7 +405,7 @@ on and checked against its prediction files (254 val and 254 test photos, all fo
 
 The crops (2026-11-16 to 2026-11-17): the segcrop stage's function on each scratch photo, and on today's for the two
 folders with no segcrop stage (`segmenter_positives`, `ood_negatives`); for every other folder today's crop is the
-stage's own. The check that the two paths agree: 8 photos sampled over 8 segcrop sessions, re-cropped here from
+stage's own. The check that the two paths agree: 8 photos sampled over 7 segcrop sessions, re-cropped here from
 today's canonical photo, give the stage's crop and mask byte for byte (2026-11-18, `tmp/`, not kept). The answers ran
 from 2026-11-17 to 2026-11-18 10:14 UTC, partly beside P10's training and P11's front measurements: 30,076 s for the
 last 1,492 photos. That slowed them and changed nothing else: at a fixed thread count the answers do not depend on load.
@@ -417,14 +417,14 @@ The result (`p9_report.txt`): the gain maps barely move today's model.
   never saw (a OnePlus Ethiopia, 0.27 today) and one it trained on (a Pixel 9 Pro Peru, 0.40). None goes from wrong
   to right. Unseen labelled photos (val, test and those not in its pool): 405 of 422 right today, 404 with gain maps.
   On the answers that stay, the top-1 probability moves by a median 0.000 (5th to 95th percentile −0.050 to +0.032).
-- **The OOD probe.** No verdict flips. The 168 photos with no beans are refused both times, and 4 bean photos are
-  refused both times. The probe's score is the same to 1e-3 on all but 15 photos (at most 0.026 apart). No warning
+- **The OOD probe.** No verdict flips. The 168 photos with no beans are refused both times, and so are 3 bean photos. The probe's score is the same to 1e-3 on all but 15 photos (at most 0.026 apart). No warning
   is given either way.
 - **Masks.** The median IoU between the two masks is at least 0.999 for every camera. 11 photos fall under 0.9. One photo
   becomes a D18 fallback with gain maps: a photo with no beans, refused both times. The one answer that changes with a mask that moves (IoU 0.66) is a
   segmenter-set photo.
-- By camera and by class (`p9_report.txt`): no camera or class has more than 2 changed answers. The Pixel 9 Pro (945
-  photos) and the OnePlus 7 Pro (522) hold all 6.
+- By camera and by class (`p9_report.txt`): the Pixel 9 Pro (945 photos) has 3 changed answers, the OnePlus 7 Pro
+  (522) 2 and the iPhone 16 Pro Max (8) 1. Over every labelled photo, trained on or not, Ethiopia and Peru each have
+  one right-to-wrong answer and no other class changes.
 
 Today's model was trained on photos without gain maps, so this is the change a user would see if only the store and
 the front changed. P10's question, whether a model trained on the gain-map photos does better, is answered there.
