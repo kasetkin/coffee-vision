@@ -104,3 +104,18 @@ class TestPreMl1CheckpointIsRefused(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRawPhotoIndex(unittest.TestCase):
+    """The index joins a crop to its original by stem: every original the store canonicalizes is one (ML-29 P11:
+    ML-31's DNGs were missing from it, and fit_ood_probe stopped on the first)."""
+
+    def test_holds_every_photo_the_store_reads_and_nothing_else(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "session" / "class_001__X"
+            d.mkdir(parents=True)
+            for name in ("a.jpg", "b.dng", "c.HEIC", "d.jxl", "e.cr3", "notes.txt"):
+                (d / name).write_bytes(b"")
+            index = ood_eval.raw_photo_index(Path(tmp))
+        self.assertEqual(sorted(index), ["a", "b", "c", "d", "e"])
+        self.assertEqual(index["b"].name, "b.dng")

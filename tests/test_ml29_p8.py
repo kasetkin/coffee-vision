@@ -5,6 +5,7 @@ scratch store and the change from today's canonical photos, on photos and maps m
 """
 from __future__ import annotations
 
+import dataclasses
 import importlib.util
 import json
 import tempfile
@@ -16,17 +17,29 @@ import numpy as np
 
 from coffeecv import canonical as cn
 from coffeecv.config import REPO_ROOT
+from tests import test_gain_map as tg
 
 _spec = importlib.util.spec_from_file_location("p8_scratch", REPO_ROOT / "analysis" / "ml29" / "p8_scratch.py")
 p8 = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(p8)
 
 
-def ultra_hdr(h: int = 32, w: int = 48) -> bytes:
-    """An Ultra HDR JPEG from libultrahdr: a grey ramp whose right half is 4x brighter than white."""
-    light = np.full((h, w, 4), 0.3, np.float16)
-    light[:, w // 2:, :3] = 1.2
+def ultra_hdr() -> bytes:
+    """An Ultra HDR JPEG with a one-channel map, as every dataset photo's is (D38), its right half boosted 2x."""
+    gain = np.zeros((24, 32), np.uint8)
+    gain[:, 16:] = 255
+    return tg.ultra_hdr(np.full((48, 64, 3), 100, np.uint8), gain, b'<x hdrgm:Version="1.0" hdrgm:GainMapMax="1" '
+                        b'hdrgm:HDRCapacityMax="1" hdrgm:OffsetSDR="0" hdrgm:OffsetHDR="0"/>')
+
+
+def libultrahdr() -> bytes:
+    """An Ultra HDR JPEG from libultrahdr, whose map of a colour photo has three channels: a grey ramp whose right
+    half is 4x brighter than white."""
+    light = np.full((32, 48, 4), 0.3, np.float16)
+    light[:, 24:, :3] = 1.2
     return ic.ultrahdr_encode(light)
+
+WITHOUT_MAPS = dataclasses.replace(cn.STORE_SETTINGS, gain_maps=False)   # the store before P11
 
 
 def row(path: str, gain_map: str = "Ultra HDR (hdrgm)", make: str = "Google", model: str = "Pixel 9 Pro") -> dict:
@@ -70,11 +83,21 @@ class Canonicalize(unittest.TestCase):
         self.assertIn("+", done["decoder"])                       # e.g. "pillow8+ISO 21496-1"
         made = target.read_bytes()
         self.assertTrue(cn.is_canonical(made))
-        today = cn.encode(cn.decode(original.read_bytes(), "x.jpg"), numthreads=1)
+        today = cn.encode(cn.decode(original.read_bytes(), "x.jpg", settings=WITHOUT_MAPS), numthreads=1)
         self.assertNotEqual(made, today)
         brighter = cn.load_canonical(made).astype(int) - cn.load_canonical(today)
         self.assertGreater(brighter[:, -8:].mean(), 5)              # the boosted half comes out brighter
-        self.assertEqual(done["map_channels"], 3)       # libultrahdr's map of a colour photo: D38's case, counted
+        self.assertEqual(done["map_channels"], 1)
+
+    def test_a_three_channel_map_is_left_unapplied(self):
+        """D38: libultrahdr's map of a colour photo is applied in no primaries here, so the photo is today's."""
+        original = self.root / "x.jpg"
+        original.write_bytes(libultrahdr())
+        target = self.root / "scratch" / "x.jpg.jxl"
+        done = p8.canonicalize_one((original, target, 1))
+        self.assertEqual((done["error"], done["decoder"], done["map_channels"]), ("", "jpeg", 0))
+        self.assertEqual(target.read_bytes(),
+                         cn.encode(cn.decode(original.read_bytes(), "x.jpg", settings=WITHOUT_MAPS), numthreads=1))
 
     def test_a_photo_without_a_map_keeps_todays_bytes(self):
         original = self.root / "y.png"

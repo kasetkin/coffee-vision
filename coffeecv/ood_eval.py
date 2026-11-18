@@ -35,6 +35,7 @@ from typing import NamedTuple
 import numpy as np
 import torch
 
+from coffeecv.canonical import is_photo
 from coffeecv.canonical_store import canonical_for
 from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
@@ -146,8 +147,9 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 
 
-def raw_photo_index() -> dict[str, Path]:
-    """Filename stem -> raw photo, across every session in `dataset/`.
+def raw_photo_index(dataset: Path = REPO_ROOT / "dataset") -> dict[str, Path]:
+    """Filename stem -> raw photo, across every session in `dataset/`: every original the store canonicalizes
+    (`canonical.is_photo`), a DNG or a JPEG XL as much as a JPEG.
 
     An index rather than a path transform because the pool a checkpoint trains on
     is a *merged* one (`data/segcropped/pool` is every session stitched together by
@@ -157,9 +159,9 @@ def raw_photo_index() -> dict[str, Path]:
     thing that still joins the two sides.
     """
     index: dict[str, Path] = {}
-    for class_dir in (REPO_ROOT / "dataset").glob("*/class_*__*"):
+    for class_dir in dataset.glob("*/class_*__*"):
         for p in class_dir.iterdir():
-            if p.is_file() and p.suffix.lower() in (".jpg", ".jpeg", ".png", ".heic"):
+            if p.is_file() and is_photo(p):
                 index[p.stem] = p
     return index
 
