@@ -335,7 +335,7 @@
 
   <h2>13. P11 &mdash; adopt as one release, or close <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-18: adopted by the owner; the adoption branch started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-18: adopted by the owner; released 2026-11-18 (<code>20261118T2124Z-1b0f1fb</code>), verified; left: the store&rsquo;s push to the DVC remote</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P10 <span class="tag">the owner's decision, given 2026-11-18: adopt</span></span></div>
   </div>
   <ol class="tasks">
@@ -589,6 +589,15 @@
       release). <code>scripts/check.sh --full</code> green. Details: <code>analysis/ml29/README.md</code>, P11.</div>
     <div><div class="when">2026-11-18</div>The owner's go-ahead to release store, front and model together (D15): "you have my
       permission to deploy release".</div>
+    <div><div class="when">2026-11-18</div>Released: <code>main</code> fast-forwarded to <code>1b0f1fb</code> and pushed;
+      <code>20261118T2124Z-1b0f1fb-dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code> deployed on both hosts and verified
+      (<code>--verify</code>: every check ok, the four examples their answers). The deploy's own check skipped:
+      <code>scripts/check.sh --full</code> passed on the tree before the last commit, whose one code change passed its
+      tests and the pre-push fast tier. Photo answers were down for the smoke and the flip, before 22:25 UTC. Through
+      the domain with the probe marker, the dataset's largest gain-map photo of each form and a 12 MP Pixel answered
+      with their class; the front canonicalized them in 9.4&ndash;13.6 s at peaks of 395&ndash;493 MB (16&ndash;96 MB of
+      swap), under MemoryMax=600M and D22's 40 s. The store's DVC push resumed after the deploy. Details:
+      <code>analysis/ml29/README.md</code>, P11.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

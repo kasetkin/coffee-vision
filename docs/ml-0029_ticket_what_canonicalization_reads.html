@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 done 2026-11-18 (today's model changes 6 of 1,684 answers)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 done 2026-11-18 (today's model changes 6 of 1,684 answers); gain maps released 2026-11-18 with the owner's go-ahead (<code>20261118T2124Z-1b0f1fb</code>, <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -489,6 +489,14 @@
     <div><div class="when">2026-11-18</div>D39 recorded: a gain map of more than 16 million samples is left unapplied, so the
       front stays under its memory (R6). Claude made it during P11, and the owner confirmed it: &ldquo;D39, keep the
       16-million-sample ceiling&rdquo;.</div>
+    <div><div class="when">2026-11-18</div>The store re-canonicalized and re-cropped with gain maps through its DVC stages,
+      checked file by file; the pool is the one exp289&ndash;291 trained on, so exp290 shipped without retraining as
+      <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>, its OOD probe refitted (164/164 negatives caught, 2/295 bean
+      photos refused, the same two as ML-16's) and converted. The owner gave the go-ahead to release (D15): &ldquo;you have
+      my permission to deploy release&rdquo;. Released as <code>20261118T2124Z-1b0f1fb-dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>
+      on both hosts and verified; through the live site the dataset's gain-map photos of each form answered with their
+      class, the front canonicalizing them in 9.4&ndash;13.6 s at peaks of 395&ndash;493 MB. Left: the store's push to the
+      DVC remote (the plan's Activity, <code>analysis/ml29/README.md</code>, P11).</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and

@@ -546,3 +546,19 @@ split before ML-25's and ML-31's photos).
 
 The model converted for serving (`litert_export`, D7's check on 13 fixtures), and `scripts/check.sh --full` green
 on the release's tree.
+
+**The release** (the owner's go-ahead, D15): `20261118T2124Z-1b0f1fb-dino3b16_segxl0v7r_country_aug8_ml29gm_s123`,
+deployed on both hosts and verified (`--verify`: every check ok, the four examples their answers; the deploy's own
+full check skipped, `scripts/check.sh --full` having passed on the tree before the last commit, whose only code
+change, `raw_photo_index`'s refusal, passed its tests and the fast tier). Through the domain with the probe marker
+(`tmp/ml29_p11/live_check.py`, not kept), the photos of the front-cost table each answered with their class
+(the iPhone HEIC, which has none, Colombia), and the front's log:
+
+| Photo | Canonicalized on the front | Peak MB (swap) |
+|---|---|---|
+| Ultra HDR JPEG (Pixel, 12 MP) | 9.4 s | 395 (16) |
+| Ultra HDR JPEG (Pixel 9 Pro, 50 MP) | 11.8 s | 435 (81) |
+| ISO 21496-1 JPEG (Galaxy Z Fold8 Ultra, 50 MP) | 11.5 s | 447 (59) |
+| ISO 21496-1 HEIC (iPhone, 48 MP) | 13.6 s | 493 (96) |
+
+each a 32-bit decode, the map applied, under MemoryMax=600M and D22's 40 s; 23 to 31 s end to end at the front.
