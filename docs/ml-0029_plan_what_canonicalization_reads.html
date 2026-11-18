@@ -572,6 +572,23 @@
     <div><div class="when">2026-11-18</div>P9 done (10:14 UTC). 6 of 1,684 answers change, 2 of them right to wrong, and no
       OOD verdict flips. The crop path reproduces the segcrop stage's crops byte for byte on 8 sampled photos. The answers
       ran partly beside P10's training and P11's measurements, which slowed them and changed nothing else.</div>
+    <div><div class="when">2026-11-18</div>P11's adoption branch, to the release. The setting on in the store's and the front's
+      settings and <code>gain_map.py</code> back in the stages' dependencies and the front's release (<code>111881f</code>);
+      D38's condition met by leaving a map that does not scale red, green and blue alike unapplied (<code>GainMap.alike</code>,
+      tests first); ADR 0041 written and ADR 0033 amended (<code>4ef6428</code>). R6: the front applies a map strip by strip and
+      leaves one over D39's ceiling (16 million samples, confirmed by the owner) unapplied, so the dataset's largest
+      gain-map photos of each form take 392&ndash;487 MB and 12&ndash;15 s idle on 2 CPUs, under MemoryMax=600M and D22's 40 s
+      (<code>1a664e7</code>, <code>analysis/ml29/p11_front_cost.py</code>). The store re-run through <code>dvc repro -s</code>, every
+      canonicalize stage, then every segcrop stage, <code>merge_segpool</code> and the test masks (10:50 to 16:02 UTC), checked file
+      by file: P8's and P9's scratch outputs exactly, the rest unchanged, the pool's tree P10's <code>dff5c24c</code>, so nothing
+      is retrained (<code>1f190a7</code>). exp290 shipped as <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>, its card naming
+      the tracked pool; OOD reference and probe refitted on it, after <code>ood_eval.raw_photo_index</code> learnt the DNG originals
+      (<code>170348f</code>); <code>ood_eval</code>: 164/164 negatives caught, 2/295 bean photos refused, the same two as ML-16's.
+      Converted: D7's check passed on 13 fixtures; the .pt and .litert pushed and checked on the remote. The store's own
+      push is not finished (stopped at 4,002 of 6,214 objects missing, for the conversion's lock; resumed after the
+      release). <code>scripts/check.sh --full</code> green. Details: <code>analysis/ml29/README.md</code>, P11.</div>
+    <div><div class="when">2026-11-18</div>The owner's go-ahead to release store, front and model together (D15): "you have my
+      permission to deploy release".</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,

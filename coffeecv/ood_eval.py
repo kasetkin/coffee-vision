@@ -35,7 +35,7 @@ from typing import NamedTuple
 import numpy as np
 import torch
 
-from coffeecv.canonical import is_photo
+from coffeecv.canonical import DATASET, is_photo
 from coffeecv.canonical_store import canonical_for
 from coffeecv.class_list import ClassList, load_classes
 from coffeecv.config import CHECKPOINTS_DIR, REPO_ROOT, RunConfig
@@ -147,7 +147,7 @@ def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
 
 
 
-def raw_photo_index(dataset: Path = REPO_ROOT / "dataset") -> dict[str, Path]:
+def raw_photo_index(dataset: Path = DATASET) -> dict[str, Path]:
     """Filename stem -> raw photo, across every session in `dataset/`: every original the store canonicalizes
     (`canonical.is_photo`), a DNG or a JPEG XL as much as a JPEG.
 
@@ -156,12 +156,16 @@ def raw_photo_index(dataset: Path = REPO_ROOT / "dataset") -> dict[str, Path]:
     the merge_segpool stage; until ticket ML-8, four camera pools), so a cropped photo's
     directory no longer names the session its raw original lives in. The stems survive both the crop and the
     merge unchanged and are unique across the whole tree, which makes them the one
-    thing that still joins the two sides.
+    thing that still joins the two sides. Two originals with one stem (a RAW beside its JPEG, two photos to the
+    store) would make a crop ambiguous, so they are refused.
     """
     index: dict[str, Path] = {}
     for class_dir in dataset.glob("*/class_*__*"):
         for p in class_dir.iterdir():
             if p.is_file() and is_photo(p):
+                if p.stem in index:
+                    raise ValueError(f"two originals with the stem {p.stem!r}, {index[p.stem]} and {p}: "
+                                     "a crop names its original by stem alone")
                 index[p.stem] = p
     return index
 

@@ -102,9 +102,6 @@ class TestPreMl1CheckpointIsRefused(unittest.TestCase):
         cfg, _ = ood_eval.split_config(self.card({"train_capture_dirs": ["data/cropped/cam_sony"], "seed": 3}), None)
         self.assertEqual((cfg.train_capture_dirs, cfg.seed), (("data/cropped/cam_sony",), 3))
 
-if __name__ == "__main__":
-    unittest.main()
-
 
 class TestRawPhotoIndex(unittest.TestCase):
     """The index joins a crop to its original by stem: every original the store canonicalizes is one (ML-29 P11:
@@ -119,3 +116,18 @@ class TestRawPhotoIndex(unittest.TestCase):
             index = ood_eval.raw_photo_index(Path(tmp))
         self.assertEqual(sorted(index), ["a", "b", "c", "d", "e"])
         self.assertEqual(index["b"].name, "b.dng")
+
+    def test_two_originals_with_one_stem_are_refused(self):
+        """A crop names its original by stem alone, so a RAW beside its JPEG (two photos, canonical_path) is
+        ambiguous: refused, not the last one read."""
+        with tempfile.TemporaryDirectory() as tmp:
+            d = Path(tmp) / "session" / "class_001__X"
+            d.mkdir(parents=True)
+            for name in ("PXL_1.jpg", "PXL_1.dng"):
+                (d / name).write_bytes(b"")
+            with self.assertRaisesRegex(ValueError, "PXL_1"):
+                ood_eval.raw_photo_index(Path(tmp))
+
+
+if __name__ == "__main__":
+    unittest.main()

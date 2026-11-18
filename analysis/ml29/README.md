@@ -493,3 +493,56 @@ augmented views a training patch):
   photos no class's F1 moves more than 0.007 on test or 0.012 on val on average; on the shared ones Colombia -0.010
   on test, Guatemala -0.030 on val, Sony G8441 most. The largest single cell, the iPhone 15 on val (115 to 142
   patches), Brazil -0.049 and Ethiopia +0.057, is a few photos either way.
+
+## P11: adopted, the store and the model on gain maps (`p11_front_cost.py`)
+
+    python -I analysis/ml29/p11_front_cost.py /workspace --work /tmp/ml29_p11      # -> the table below
+
+The owner adopted gain maps on 2026-11-18, D16's bar not met (ADR 0041). The setting is on in the store's and the
+front's settings (`canonical.py`), and `gain_map.py` is a dependency of the canonicalize, segcrop and test-mask
+stages again.
+
+**The front's cost (R6).** Each photo canonicalized with `FRONT_SETTINGS`, gain maps off and on, in a fresh process
+held to 2 CPUs (the front's 2 vCPU), on this machine idle (2026-11-18). The budget: ML-19 D22's 40 s and the service's
+MemoryMax, 600M (ML-19 D38). A map is applied strip by strip into the one float copy of the photo, and a map of more
+than 16 million samples (`canonical.MAP_MAX_SAMPLES`, D39, the owner's 2026-11-18) is left unapplied before anything
+is made float; the dataset's largest has 12.48 million. Before the strip-wise application, a 50 MP photo peaked at
+850 MB (`1a664e7`).
+
+| Photo | Upload | Front's photo | Seconds off -> on (2 CPUs) | Peak MB off -> on |
+|---|---|---|---|---|
+| Ultra HDR JPEG (Pixel, 12 MP) | 2.20 MB | 3072 x 4080, 32-bit | 2.17 -> 11.61 | 264 -> 392 |
+| Ultra HDR JPEG (Pixel 9 Pro, 50 MP) | 10.04 MB | 3360 x 4463, 32-bit | 2.94 -> 13.22 | 293 -> 425 |
+| ISO 21496-1 JPEG (Galaxy Z Fold8 Ultra, 50 MP) | 10.36 MB | 3354 x 4472, 32-bit | 3.02 -> 14.3 | 291 -> 444 |
+| ISO 21496-1 HEIC (iPhone, 48 MP) | 5.79 MB | 3354 x 4472, 32-bit | 3.6 -> 14.78 | 304 -> 487 |
+| Ultra HDR JPEG at the ceiling (made here, 60 MP) | 4.42 MB | 4000 x 3750, 8-bit | 2.58 -> 2.72 | 275 -> 278 |
+
+The 60 MP file's map is over the ceiling, so it is left unapplied and the photo is its main image, as before.
+
+**The store.** All 22 canonicalize stages re-run through DVC (`dvc repro -s` each, 2026-11-18 10:50 to 13:30 UTC,
+4 jobs; a 50 MP photo peaks at about 1.15 GB a job). Checked file by file (`tmp/`, not kept): the 1,684 photos with
+an applied map are the same bytes as P8's scratch photos, and the other 1,088 the same bytes as before (the md5s in
+the previous `dvc.lock`). None missing, none new.
+
+**The crops.** Then each segcrop stage, `merge_segpool` and `seg_ml19_predict@xl0_v7r_s123` (13:31 to 16:02 UTC).
+Every session crop and mask of a gain-map photo is the same bytes as P9's scratch crop, every other file the same
+bytes as before; 11 gain-map photos have no mask either way (D18 fallbacks, as at P10). The pool's tree is
+`dff5c24c`, the one exp289-291 trained on (`p10_pool_manifest.json`), so the gain-map arm's runs are the store's
+own and nothing is retrained. 5 canonicalize and 4 segcrop stages changed only in their dependencies (`gain_map.py`).
+
+**The model.** exp290 (seed 123, the best val of exp289-291: val 0.9574, test 0.9559) shipped as
+`dino3b16_segxl0v7r_country_aug8_ml29gm_s123`. exp290's `config.json` keeps the scratch pool it trained on
+(`outputs/ml29_p10/segcropped/pool`); the card names `data/segcropped/pool`, whose tree is that pool's, so the card
+resolves to tracked data on any checkout. Its OOD reference and probe were refitted on it (ML-16 D13's refit, which
+ML-27 D4 moved to the next retrain); the reference was built again from the card's pool and is the same but for that path and its time. The probe's fit first
+stopped on an ML-31 DNG: `ood_eval.raw_photo_index` knew only JPEG, PNG and HEIC originals; it now takes every
+photo the store reads (`canonical.is_photo`, a test in `tests/test_ood_id_photos.py`).
+
+**The OOD guard** (`p11_ood_probe.txt`, `p11_ood_eval.txt`): the probe fitted on 225 of the model's test photos (41
+dropped as sharing a group with the segmenter's test split) and 468 training and validation negatives. On the
+segmenter dataset's test split, 164/164 negatives are caught and 2 of 295 bean photos refused, both never trained on
+and both without a mask, the two ML-16's probe refused (`analysis/ml16/ood_eval.txt`: 160/160 and 2/200, on the
+split before ML-25's and ML-31's photos).
+
+The model converted for serving (`litert_export`, D7's check on 13 fixtures), and `scripts/check.sh --full` green
+on the release's tree.
