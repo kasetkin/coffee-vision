@@ -93,11 +93,26 @@ class Cameras(unittest.TestCase):
         rows = [{"folder_id": "001", "photo": "PXL_1__cropped.jxl", "true_label": "E", "pred_label": "E"},
                 {"folder_id": "001", "photo": "PXL_1__cropped.jxl", "true_label": "E", "pred_label": "K"},
                 {"folder_id": "001", "photo": "DSC_2__cropped.jxl", "true_label": "E", "pred_label": "E"}]
-        got = p10.by_camera(rows, cams, {"Google Pixel 9 Pro"})
+        got = p10.by_camera(rows, cams, {"Google Pixel 9 Pro"}, swapped={("001", "PXL_1__cropped.jxl")})
         self.assertEqual(got["Google Pixel 9 Pro"]["n"], 2)
         self.assertAlmostEqual(got["Google Pixel 9 Pro"]["acc"], 0.5)
         self.assertEqual(got["all cameras with gain maps"]["n"], 2)
         self.assertEqual(got["all cameras without"]["acc"], 1.0)
+        self.assertEqual(got["all photos, gain map applied"]["n"], 2)
+        self.assertEqual(got["all photos as today"]["n"], 1)
+
+
+class CompareRows(unittest.TestCase):
+    def test_a_camera_missing_from_a_seeds_split_keeps_its_column(self):
+        def sc(n, f):
+            return {"n": n, "acc": f, "macro_f1": f}
+
+        table = {"Pixel": {289: (sc(10, 0.9), sc(10, 1.0)), 291: (sc(4, 0.5), sc(4, 0.75))}}
+        (line,) = p10.camera_rows(table, [289, 290, 291])
+        cells = line.split("  delta")[0].split()
+        self.assertEqual(cells[-3:], ["0.9000->1.0000", "-", "0.5000->0.7500"])
+        self.assertIn("n=10/-/4", line)
+        self.assertIn("+0.1750 [+0.1000, +0.2500]", line)
 
 
 if __name__ == "__main__":

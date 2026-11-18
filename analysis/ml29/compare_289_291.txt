@@ -1,0 +1,36 @@
+new:      exp 289 290 291 (plan §9.1 shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; fitted on 8 augmented views per training patch beside it at equal total sample weight (ticket ML-8 D4, ADR 0025; the unaugmented arm in metrics.json arms); the scratch pool outputs/ml29_p10/segcropped/pool (ml29gm) in place of data/segcropped/pool, its photos and split the same, crop_method segment; country classes (ticket ML-3, dataset/classes.txt); in-distribution metrics only)
+baseline: exp 286 287 288 (plan §9.1 shipping fit: frozen dinov3_vitb16, readout cls_mean, L2 logistic-regression head at fixed C=0.1, no TTA; fitted on 8 augmented views per training patch beside it at equal total sample weight (ticket ML-8 D4, ADR 0025; the unaugmented arm in metrics.json arms); one pool of every session (data/segcropped/pool, ticket ML-8 D2), crop_method segment; country classes (ticket ML-3, dataset/classes.txt); in-distribution metrics only)
+changed:  train_capture_dirs: ['data/segcropped/pool'] -> ['outputs/ml29_p10/segcropped/pool']
+
+ seed       exp  val base  val new    val Δ  test base  test new   test Δ
+   42   289/286    0.9571   0.9477  -0.0094     0.9592    0.9560  -0.0032
+  123   290/287    0.9568   0.9574  +0.0006     0.9586    0.9559  -0.0027
+    7   291/288    0.9514   0.9450  -0.0064     0.9401    0.9433  +0.0031
+  val Δ: mean -0.0051, range -0.0094 .. +0.0006 (spread 0.0100)
+ test Δ: mean -0.0009, range -0.0032 .. +0.0031 (spread 0.0063)
+
+per-class val F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Peru                         0.960 -> 0.948 0.917 -> 0.911 0.939 -> 0.910   -0.016
+  Kenya                        0.981 -> 0.958 0.972 -> 0.981 0.988 -> 0.969   -0.011
+  Guatemala                    0.915 -> 0.890 0.946 -> 0.943 0.853 -> 0.856   -0.009
+  CostaRica                    0.963 -> 0.960 0.975 -> 0.965 0.985 -> 0.976   -0.007
+  Colombia                     0.876 -> 0.863 0.904 -> 0.908 0.950 -> 0.948   -0.004
+  Rwanda                       0.991 -> 0.985 0.984 -> 0.981 0.987 -> 0.987   -0.003
+  Indonesia                    0.988 -> 0.982 0.978 -> 0.978 0.972 -> 0.972   -0.002
+  Brazil                       0.987 -> 0.984 0.969 -> 0.969 0.966 -> 0.966   -0.001
+  Vietnam                      1.000 -> 1.000 1.000 -> 1.000 1.000 -> 0.997   -0.001
+  Ethiopia                     0.911 -> 0.908 0.923 -> 0.938 0.875 -> 0.869   +0.002
+
+per-class test F1, baseline -> new per seed, sorted by mean Δ:
+  class                                   s42           s123             s7   mean Δ
+  Kenya                        0.963 -> 0.966 0.981 -> 0.960 0.969 -> 0.969   -0.006
+  Guatemala                    0.934 -> 0.925 0.872 -> 0.860 0.925 -> 0.934   -0.004
+  Indonesia                    0.987 -> 0.981 0.991 -> 0.988 0.972 -> 0.972   -0.003
+  Brazil                       0.960 -> 0.963 0.969 -> 0.962 0.969 -> 0.963   -0.003
+  Peru                         0.966 -> 0.957 0.984 -> 0.988 0.933 -> 0.932   -0.002
+  Vietnam                      1.000 -> 1.000 1.000 -> 1.000 1.000 -> 1.000   +0.000
+  Colombia                     0.887 -> 0.877 0.922 -> 0.915 0.840 -> 0.860   +0.001
+  Rwanda                       0.997 -> 0.994 0.994 -> 0.997 0.968 -> 0.972   +0.001
+  CostaRica                    0.972 -> 0.971 0.984 -> 0.994 0.946 -> 0.942   +0.002
+  Ethiopia                     0.927 -> 0.926 0.889 -> 0.896 0.879 -> 0.888   +0.005

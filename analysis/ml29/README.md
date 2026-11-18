@@ -388,3 +388,51 @@ The review page (`page`, `outputs/ml29_p8/review/index.html`): 12 largest change
 today's canonical photo beside the scratch one, whole and a full-resolution crop around the beans. The one pair
 looked at here (a Fold8 Ultra Brazil photo, `random_date_raccoon`) shows what the toy run's did: an even brightening,
 no banding, halos or clipping. The page is the owner's to look through.
+
+## P10: re-crop, retrain, compare (`p10_pool.py`, `fit_frozen_head --pool`)
+
+    python analysis/ml29/p10_pool.py build
+    python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 286 --allow-dirty
+    python -m coffeecv.fit_frozen_head --seeds 42 123 7 --start-exp 289 --allow-dirty \
+        --pool outputs/ml29_p10/segcropped/pool --label ml29gm
+    python -m coffeecv.compare_experiments 289 290 291 --vs 286 287 288     # -> compare_289_291.txt
+    python analysis/ml29/p10_pool.py compare --gain 289 290 291 --base 286 287 288   # -> p10_compare.txt
+
+D12's step 3. The scratch pool (`outputs/ml29_p10/segcropped/pool`, gitignored) is `data/segcropped/pool` with the
+1,255 gain-map photos' crops and masks replaced by P9's (the shipped segmenter, `xl0_v7r_s123`, on P8's scratch
+photos, as the segcrop stage crops), hard links; every other file a symbolic link to the tracked pool's. Same
+names, so the same split (it keys on the folder's name, `pool`); 27 scratch crops are of photos the pool excludes;
+no photo becomes or stops being a D18 fallback. `p10_pool_manifest.json` lists every swapped crop by hash, the tree
+`dff5c24c`, which the gain-map runs' resume fingerprint holds. Matched by class id and file name, as `merge_rig`
+merges: the first build matched folder names and left 141 crops of sessions that name a class otherwise at today's
+(fixed, `382e138`, before any run). Tests: `tests/test_ml29_p10.py`, `tests/test_fit_frozen_head_pool.py`.
+
+Two departures from the plan. The baseline is refitted, not the shipped model's runs: exp283-285 trained on the
+pool of 80c44ac (3,363 files), the pool now has 3,527 (ML-31), so exp286-288 are the same recipe on today's pool,
+and the two arms' configs differ in `train_capture_dirs` alone (checked key by key before the gain-map arm). Both
+arms ran with `--allow-dirty`: the uncommitted files were another ticket's docs (ML-32), the board, and from
+2026-11-17 the owner's pass17 labels (ML-33), none read by a fit; `dvc status` clean. exp286-288 record commit
+`fb11906`, the baseline launched at `8018b6d`: between them only `NAMED_SEGMENTERS` gained a name. One machine, 6
+torch threads; 3.3 to 4.8 h a seed (4.8 with P9's answers beside it).
+
+Patch macro-F1, ML-27's recipe (600/160/160 patches a class, frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8
+augmented views a training patch):
+
+| seed | baseline | gain maps | val, unaug | val, aug | test, unaug | test, aug |
+|---|---|---|---|---|---|---|
+| 42 | 286 | 289 | 0.9518 -> 0.9481 | 0.9571 -> 0.9477 | 0.9537 -> 0.9500 | 0.9592 -> 0.9560 |
+| 123 | 287 | 290 | 0.9456 -> 0.9468 | 0.9568 -> 0.9574 | 0.9543 -> 0.9473 | 0.9586 -> 0.9559 |
+| 7 | 288 | 291 | 0.9471 -> 0.9375 | 0.9514 -> 0.9450 | 0.9298 -> 0.9297 | 0.9401 -> 0.9433 |
+
+- Paired by seed (augmented heads, the shipped form): test -0.0009 on average (-0.0032 to +0.0031), val -0.0051
+  (-0.0094 to +0.0006). The baseline's own seed range is 0.9401-0.9592 on test, 0.9514-0.9571 on val. Per class
+  on test no mean moves more than 0.006 (Kenya -0.006, Ethiopia +0.005); on val Peru -0.016 and Kenya -0.011 move
+  most, Peru lower at every seed (`compare_289_291.txt`).
+- D16's bar is not met: the overall test metric does not improve, let alone beyond the seed range. No class drops
+  beyond it either.
+- The control (`p10_compare.txt`): the photos whose crops the arms share move as much as the swapped ones. Test:
+  swapped -0.0014 (-0.0037 to +0.0029), shared -0.0009 (-0.0050 to +0.0024); val: swapped -0.0035, shared -0.0075
+  (-0.0091 to -0.0063, lower at every seed). By camera, the cameras without gain maps (Sony G8441, 351 to 430
+  patches) val -0.0074 at every seed; the Pixel 9 Pro (604 to 713 patches) test -0.0013, val +0.0003; the OnePlus 7
+  Pro (309 to 417) test -0.0032, val -0.0128. The deltas are the head's refit on other features, spread over every
+  photo, not an effect on the photos the maps brighten. The small cameras (3 to 30 patches) move by single photos.

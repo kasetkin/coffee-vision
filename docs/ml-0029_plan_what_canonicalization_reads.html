@@ -320,15 +320,15 @@
 
   <h2>12. P10 &mdash; step 3: re-crop, retrain, compare <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-17: both arms training (exp 286&ndash;288 baseline, 289&ndash;291 gain maps), the owner's word given 2026-11-16</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-18: both arms trained (exp 286&ndash;288 baseline, 289&ndash;291 gain maps) and compared: test &minus;0.0009 (&minus;0.0032 to +0.0031), D16's bar not met; waits for the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P9 <span class="tag">and the owner's word to run it (given 2026-11-16)</span></span></div>
   </div>
   <ol class="tasks">
-    <li><span class="box"></span><span>The scratch photos re-cropped with the existing segmenter, beside
+    <li><span class="box done"></span><span>The scratch photos re-cropped with the existing segmenter, beside
       <code>data/segcropped</code>; the classifier retrained as recorded runs on seeds 42, 123 and 7
       (<code>docs/agents/experiments.md</code>; <code>docs/agents/remote-sweeps.md</code> if it runs on another
       machine); the baseline is the shipped model's own three runs.</span></li>
-    <li><span class="box"></span><span>The comparison, paired by seed (ADR 0002): the overall test metric as a range
+    <li><span class="box done"></span><span>The comparison, paired by seed (ADR 0002): the overall test metric as a range
       over seeds, per-class F1, and both again per camera (D13), set against D16's bar.</span></li>
     <li><span class="box"></span><span>Stop for the owner: adopt, or not (D16).</span></li>
   </ol>
@@ -558,6 +558,15 @@
       the same split; the swapped crops by hash in <code>p10_pool_manifest.json</code>). (2) Both arms run with
       <code>--allow-dirty</code>: the only uncommitted files are another ticket's docs (ML-32) and the board;
       <code>dvc status</code> clean. <code>fit_frozen_head --pool --label</code> fits on the scratch pool.</div>
+    <div><div class="when">2026-11-18</div>P10's runs and comparison done. Baseline exp286&ndash;288 (today's pool), gain
+      maps exp289&ndash;291 (the scratch pool, 1,255 crops swapped), configs differing in
+      <code>train_capture_dirs</code> alone. Augmented heads, paired by seed: test &minus;0.0009 on average
+      (&minus;0.0032 to +0.0031) against the baseline's seed range 0.9401&ndash;0.9592; val &minus;0.0051 (&minus;0.0094
+      to +0.0006). No class moves beyond the range; Peru's val F1 is lower at every seed (&minus;0.016 on average).
+      The photos the arms share move as much as the swapped ones (test &minus;0.0009 against &minus;0.0014; val
+      &minus;0.0075 against &minus;0.0035): no effect of the maps beyond the head's refit. D16's bar is not met.
+      Stop for the owner: adopt or not (D16); P11's branch. <code>analysis/ml29/compare_289_291.txt</code>,
+      <code>p10_compare.txt</code>, README P10.</div>
   </div>
 
   <footer>Related: <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29 ticket</a>,
