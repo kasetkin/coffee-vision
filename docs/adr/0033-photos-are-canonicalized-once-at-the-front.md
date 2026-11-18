@@ -8,6 +8,8 @@ Every photo both models read is first turned into its canonical photo (GLOSSARY.
 
 We chose this over decoding each original as it comes (today), because that path ignores colour profiles and orientation, so 47% of the dataset reached the models as Display P3 numbers read as sRGB. We chose one lossy generation at the front over canonicalizing on the inference host, because only the front can make the photo smaller before the 2.1 Mbit/s link, and over canonicalizing on both, which would encode a photo twice. We chose Rec.2020 storage over storing sRGB, the owner's call, so the stored photos keep their wide-gamut colour even though the models read sRGB today. We chose `imagecodecs` over Pillow's ImageCms, which converts 8-bit RGB only and would band Rec.2020; over OpenCV, which has no ICC colour management; over pyvips, whose wheel has no JPEG XL and whose 16-bit conversion goes through a lossy lookup table; and over `pillow-jxl-plugin`, which cannot write the Rec.2020 encoding and is GPL-3.0. One wheel that bundles both C libraries means one pin holds both, where separate packages could drift apart (`analysis/ml19/research_16bit_colour.md`).
 
+Amended 2026-11-18 by [ADR 0041](0041-a-photos-gain-map-is-applied-at-canonicalization.md) ([ML-29](../ml-0029_ticket_what_canonicalization_reads.html) P11): not "its main image only". A photo with a gain map is canonicalized from its main image with the map applied, tone-mapped back into standard range.
+
 ## Consequences
 
 - **Amends [ADR 0031](0031-the-front-and-the-inference-host.md):** the front gets the decoders, colour management and a JPEG XL encoder, and about 500 MB of memory. It is no longer standard-library only.

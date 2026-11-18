@@ -47,7 +47,7 @@ Turning a photo into its **canonical photo**: the one form both models read, in 
 _Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
 
 **Main image**:
-The one picture in a photo file that canonicalization turns into the canonical photo.
+The one picture in a photo file that canonicalization turns into the canonical photo, with its gain map applied when it has one.
 _Avoid_: Primary image, base image
 
 **Second image**:
@@ -55,7 +55,7 @@ Any other picture stored in the same file as the main image: a gain map, a depth
 _Avoid_: Sub-image, auxiliary image (one container's word for it)
 
 **Gain map**:
-A second image that says, region by region, how much brighter the HDR version of the photo is than the main image.
+A second image that says, region by region, how much brighter the HDR version of the photo is than the main image. The one second image canonicalization reads (ADR 0041).
 _Avoid_: HDR map, HDR image (a photo whose main image is itself HDR is not a gain map)
 
 **HDR**:
