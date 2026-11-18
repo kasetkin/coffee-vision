@@ -363,21 +363,23 @@ headroom 0.
 
 `report` (`outputs/ml29_p8/report.csv`, `report.log`), per camera, the median photo's mean change in 8-bit levels:
 
-| Camera | Photos | Masks | Under a level | Whole photo | Bean region | Outside it (abs) |
+| Camera | Photos | Masks | Under a level | Whole photo | Bean region | Outside it |
 |---|---|---|---|---|---|---|
-| Apple iPhone 13 | 3 | 1 | 3 | +0.00 | +0.00 | 0.00 |
-| Apple iPhone 15 | 98 | 9 | 0 | +15.18 | +18.10 | 13.12 |
-| Apple iPhone 15 Pro | 4 | 1 | 0 | +11.56 | +11.03 | 18.68 |
-| Apple iPhone 15 Pro Max | 37 | 10 | 0 | +10.79 | +13.24 | 11.25 |
+| Apple iPhone 13 | 3 | 1 | 3 | +0.00 | +0.00 | +0.00 |
+| Apple iPhone 15 | 98 | 9 | 0 | +15.18 | +18.10 | +13.11 |
+| Apple iPhone 15 Pro | 4 | 1 | 0 | +11.56 | +11.03 | +18.67 |
+| Apple iPhone 15 Pro Max | 37 | 10 | 0 | +10.79 | +13.24 | +11.24 |
 | Apple iPhone 16 Pro | 1 | 0 | 0 | +3.60 | - | - |
-| Apple iPhone 16 Pro Max | 8 | 4 | 0 | +28.84 | +24.33 | 35.53 |
-| OnePlus 7 Pro (GM1911) | 522 | 70 | 1 | +17.32 | +15.46 | 14.07 |
-| Google Pixel 7 | 9 | 3 | 0 | +9.86 | +1.17 | 11.66 |
-| Google Pixel 9 Pro | 945 | 97 | 6 | +22.18 | +11.71 | 13.88 |
-| Samsung Galaxy Z Fold6 | 13 | 1 | 0 | +27.56 | +18.41 | 31.71 |
-| Samsung Galaxy Z Fold8 Ultra | 47 | 16 | 0 | +26.95 | +24.75 | 24.91 |
+| Apple iPhone 16 Pro Max | 8 | 4 | 0 | +28.84 | +24.33 | +35.53 |
+| OnePlus 7 Pro (GM1911) | 522 | 70 | 1 | +17.32 | +15.46 | +14.05 |
+| Google Pixel 7 | 9 | 3 | 0 | +9.86 | +1.17 | +11.62 |
+| Google Pixel 9 Pro | 945 | 97 | 6 | +22.18 | +11.71 | +13.87 |
+| Samsung Galaxy Z Fold6 | 13 | 1 | 0 | +27.56 | +18.41 | +31.67 |
+| Samsung Galaxy Z Fold8 Ultra | 47 | 16 | 0 | +26.95 | +24.75 | +24.91 |
 
-Every photo with a map read is brighter, none darker; 10 change by under a level (the 3 iPhone 13s and 7 more). Over
+Bean region and outside it are the median photo's signed mean change over the test split's masks; outside it
+also counts the 40 photos whose test mask is empty (the whole photo outside), so its photos are not quite the bean
+column's. Every photo with a map read is brighter, none darker; 10 change by under a level (the 3 iPhone 13s and 7 more). Over
 all 1,687 the median photo moves +20.1 levels, its 99th percentile pixel 43 levels; the largest, +52, is an OOD
 negative (a Pixel 9 Pro street scene with sky). On the 198 photos whose test-split mask leaves a region outside the
 beans, the bean region moves +15.3 levels at the median and the rest +14.0: the maps lift the beans about as much as
@@ -411,9 +413,21 @@ Two departures from the plan. The baseline is refitted, not the shipped model's 
 pool of 80c44ac (3,363 files), the pool now has 3,527 (ML-31), so exp286-288 are the same recipe on today's pool,
 and the two arms' configs differ in `train_capture_dirs` alone (checked key by key before the gain-map arm). Both
 arms ran with `--allow-dirty`: the uncommitted files were another ticket's docs (ML-32), the board, and from
-2026-11-17 the owner's pass17 labels (ML-33), none read by a fit; `dvc status` clean. exp286-288 record commit
-`fb11906`, the baseline launched at `8018b6d`: between them only `NAMED_SEGMENTERS` gained a name. One machine, 6
-torch threads; 3.3 to 4.8 h a seed (4.8 with P9's answers beside it).
+2026-11-17 the owner's pass17 labels (ML-33), none read by a fit; `dvc status` clean. A run records the commit
+checked out when it is archived, not when it started: the baseline launched at `8018b6d`, exp286 and exp287 record
+`fb11906`, exp288 `9349517`; the gain-map arm launched at `9349517` and exp289-291 record it. Between `8018b6d` and
+`9349517` the code a fit runs changed only by `NAMED_SEGMENTERS` gaining a name (`42bdf63`, which no fit reads);
+the rest is `p10_pool.py`, docs and the pass17 labels. One machine, 6 torch threads; 3.3 to 4.8 h a seed (4.8 with
+P9's answers beside it).
+
+Before the runs, the changed path ran at toy scale through the real command (2026-11-16, `fit_frozen_head --smoke
+--allow-dirty --seeds 42 --pool <a partial scratch pool of links> --label smoke`): 23 crops swapped, 3,481 files
+linked, the fit to its end in 100 minutes, peak memory 1.8 GB; not archived (smoke).
+
+The scratch pool is outside git and DVC, as the plan has P8 to P10 beside the store until P11, so a checkout
+cannot restore exp289-291's input. It is rebuilt from committed code on this machine (libjxl's output depends on
+the CPU, `dvc.yaml`): `p8_scratch.py canonicalize`, `p9_models.py crop`, `p10_pool.py build`; the manifest's
+hashes (each crop and mask, and the tree's, `dff5c24c`, which the runs' fingerprint holds) check the result.
 
 Patch macro-F1, ML-27's recipe (600/160/160 patches a class, frozen DINOv3 ViT-B/16 `cls_mean`, C = 0.1, 8
 augmented views a training patch):
@@ -436,3 +450,8 @@ augmented views a training patch):
   patches) val -0.0074 at every seed; the Pixel 9 Pro (604 to 713 patches) test -0.0013, val +0.0003; the OnePlus 7
   Pro (309 to 417) test -0.0032, val -0.0128. The deltas are the head's refit on other features, spread over every
   photo, not an effect on the photos the maps brighten. The small cameras (3 to 30 patches) move by single photos.
+  Accuracy moves with macro-F1 (test: swapped -0.0012, shared -0.0000).
+- Per class per camera (D13; the groups, and the cameras with at least 100 patches in every seed): on the swapped
+  photos no class's F1 moves more than 0.007 on test or 0.012 on val on average; on the shared ones Colombia -0.010
+  on test, Guatemala -0.030 on val, Sony G8441 most. The largest single cell, the iPhone 15 on val (115 to 142
+  patches), Brazil -0.049 and Ethiopia +0.057, is a few photos either way.

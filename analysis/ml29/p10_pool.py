@@ -15,10 +15,11 @@
   split keys on the capture dir's name. Fails if a gain-map photo of the pool's sessions has no scratch crop, or a
   scratch crop matches no crop of the pool and is not on its exclude list. Writes OUT/pool_manifest.json: each
   swapped crop's sha256 and mask's, the D18 fallbacks that change, and the tree's hash as fit_frozen_head versions it.
-- compare: per seed and arm, the test (and val) patch accuracy and macro-F1 by camera, from each run's
+- compare: per seed and arm, the test (and val) patch macro-F1 and accuracy by camera, from each run's
   predictions files, the camera from the scan (analysis/ml29/scan_dataset.py); the paired delta per seed (gain maps
-  minus baseline) and its range. Cameras with no gain map are the arms' control: their photos are the same crops.
-  Writes analysis/ml29/p10_compare.txt.
+  minus baseline) and its range; then each class's F1 delta per camera with enough patches (D13). The arms' control:
+  the photos whose crops they share (no map applied), and the cameras with no gain map. Writes
+  analysis/ml29/p10_compare.txt.
 
 The pool is outside DVC (the plan's P8 to P10 run beside the store until P11); the runs record it by its files'
 hash in their resume fingerprint and by its path in config.json, and the manifest, committed, lists every swapped
@@ -51,10 +52,16 @@ TRACKED = REPO / "data" / "segcropped" / "pool"
 OUT = REPO / "outputs" / "ml29_p10"
 MANIFEST_COPY = REPO / "analysis" / "ml29" / "p10_pool_manifest.json"
 COMPARE = REPO / "analysis" / "ml29" / "p10_compare.txt"
+MIN_CLASS_PATCHES = 100       # per class per camera only where every seed has this many patches: a few photos below
 
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def class_id(class_dir: str) -> str:
+    """`013` of `class_013__Brazil_Decaff`: the folder id the predictions files carry."""
+    return class_key(class_dir).removeprefix("class_")
 
 
 def class_key(class_dir: str) -> str:
@@ -166,18 +173,18 @@ def camera_of_crop(scan_rows: list[dict]) -> dict[tuple[str, str], str]:
     for r in scan_rows:
         parts = Path(r["file"]).relative_to(p8.DATASET).parts
         if len(parts) >= 3 and parts[1].startswith("class_"):
-            out[(parts[1].split("__")[0].removeprefix("class_"), crop_io.crop_name(Path(r["file"]).stem))] = \
-                p8.camera(r)
+            out[(class_id(parts[1]), crop_io.crop_name(Path(r["file"]).stem))] = p8.camera(r)
     return out
 
 
 def scores(rows: list[dict]) -> dict:
-    """Patch accuracy and macro-F1 over the classes present."""
+    """Patch accuracy, macro-F1 over the classes present, and each present class's F1."""
     from sklearn.metrics import f1_score
     y, p = [r["true_label"] for r in rows], [r["pred_label"] for r in rows]
     present = sorted(set(y))
+    per_class = f1_score(y, p, labels=present, average=None, zero_division=0)
     return {"n": len(rows), "acc": float(np.mean([a == b for a, b in zip(y, p)])),
-            "macro_f1": float(f1_score(y, p, labels=present, average="macro", zero_division=0))}
+            "macro_f1": float(np.mean(per_class)), "per_class": dict(zip(present, map(float, per_class)))}
 
 
 def by_camera(rows: list[dict], cams: dict[tuple[str, str], str], gain_cams: set[str],
@@ -199,7 +206,7 @@ def camera_rows(table: dict[str, dict[int, tuple]], seeds: list[int]) -> list[st
     order, "-" where the camera has no patch in that seed's split, and the paired delta's mean and range."""
     lines = []
     for cam in sorted(table, key=lambda c: (not c.startswith("all"), c)):
-        cells, deltas, ns = [], [], []
+        cells, deltas, acc_deltas, ns = [], [], [], []
         for seed in seeds:
             bv, gv = table[cam].get(seed, (None, None))
             if bv is None or gv is None:
@@ -208,10 +215,29 @@ def camera_rows(table: dict[str, dict[int, tuple]], seeds: list[int]) -> list[st
                 continue
             ns.append(str(bv["n"]))
             deltas.append(gv["macro_f1"] - bv["macro_f1"])
+            acc_deltas.append(gv["acc"] - bv["acc"])
             cells.append(f"{bv['macro_f1']:.4f}->{gv['macro_f1']:.4f}")
         rng = f"{np.mean(deltas):+.4f} [{min(deltas):+.4f}, {max(deltas):+.4f}]" if deltas else "-"
+        acc = f"{np.mean(acc_deltas):+.4f}" if acc_deltas else "-"
         lines.append(f"  {cam[:30]:30s} n={'/'.join(ns):15s} " + "  ".join(f"{c:14s}" for c in cells)
-                     + f"  delta {rng}")
+                     + f"  delta {rng}  accuracy delta {acc}")
+    return lines
+
+
+def class_rows(table: dict[str, dict[int, tuple]], seeds: list[int], min_n: int) -> list[str]:
+    """Per class, the gain-map arm's F1 minus the baseline's, averaged over the seeds where the class is present,
+    for each camera or group with at least `min_n` patches in every seed's split; the largest drop first."""
+    lines = []
+    for cam in sorted(table, key=lambda c: (not c.startswith("all"), c)):
+        pairs = [table[cam].get(seed, (None, None)) for seed in seeds]
+        if any(b is None or g is None or b["n"] < min_n for b, g in pairs):
+            continue
+        deltas = collections.defaultdict(list)
+        for b, g in pairs:
+            for cls in b["per_class"].keys() & g["per_class"].keys():
+                deltas[cls].append(g["per_class"][cls] - b["per_class"][cls])
+        mean = sorted(((float(np.mean(v)), c) for c, v in deltas.items()))
+        lines.append(f"  {cam[:30]:30s} " + ", ".join(f"{c} {d:+.3f}" for d, c in mean))
     return lines
 
 
@@ -220,11 +246,10 @@ def run_compare(a: argparse.Namespace) -> None:
     cams = camera_of_crop(scan)
     gain_cams = {p8.camera(r) for r in scan if r["gain_map"]}
     manifest = json.loads((a.out / "pool_manifest.json").read_text())
-    swapped = {(class_key(c["crop"].split("/")[0]).removeprefix("class_"), c["crop"].split("/")[1])
-               for c in manifest["crops"]}
+    swapped = {(class_id(c["crop"].split("/")[0]), c["crop"].split("/")[1]) for c in manifest["crops"]}
     lines = [f"ML-29 P10: gain maps applied (exp {', '.join(map(str, a.gain))}) against the baseline "
-             f"(exp {', '.join(map(str, a.base))}), paired by seed; patch accuracy and macro-F1 over the classes "
-             "present, per camera. Generated by analysis/ml29/p10_pool.py compare.", ""]
+             f"(exp {', '.join(map(str, a.base))}), paired by seed; patch macro-F1 over the classes present and "
+             "accuracy, per camera, then per class per camera. Generated by analysis/ml29/p10_pool.py compare.", ""]
     for split in ("test", "val"):
         table = collections.defaultdict(dict)        # camera -> seed -> (base, gain)
         for g, b in zip(a.gain, a.base):
@@ -235,6 +260,9 @@ def run_compare(a: argparse.Namespace) -> None:
         lines.append(f"{split}: per camera, macro-F1 baseline -> gain maps per pair, gain-map exp "
                      f"{', '.join(map(str, a.gain))} (n: its patches in each); the delta's mean and range")
         lines += camera_rows(table, a.gain)
+        lines.append(f"{split}: per class, F1 gain maps minus baseline, the mean over the pairs; cameras with at "
+                     f"least {MIN_CLASS_PATCHES} patches in every seed")
+        lines += class_rows(table, a.gain, MIN_CLASS_PATCHES)
         lines.append("")
     text = "\n".join(lines)
     COMPARE.write_text(text + "\n")

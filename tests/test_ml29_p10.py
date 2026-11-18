@@ -115,5 +115,31 @@ class CompareRows(unittest.TestCase):
         self.assertIn("+0.1750 [+0.1000, +0.2500]", line)
 
 
+class PerClass(unittest.TestCase):
+    def test_a_class_dir_and_a_folder_id_give_one_class_id(self):
+        self.assertEqual(p10.class_id("class_013__Brazil_Decaff"), "013")
+        self.assertEqual(p10.class_id("class_013__Brazil_SulDeMinas"), "013")
+
+    def test_scores_carry_each_classes_f1(self):
+        rows = [{"true_label": "E", "pred_label": "E"}, {"true_label": "E", "pred_label": "K"},
+                {"true_label": "K", "pred_label": "K"}]
+        got = p10.scores(rows)
+        self.assertAlmostEqual(got["per_class"]["E"], 2 / 3)
+        self.assertAlmostEqual(got["per_class"]["K"], 2 / 3)
+
+    def test_class_rows_list_the_cameras_with_enough_patches_in_every_seed(self):
+        def sc(n, e, k):
+            return {"n": n, "acc": 1.0, "macro_f1": 1.0, "per_class": {"E": e, "K": k}}
+
+        table = {"Pixel": {1: (sc(200, 0.9, 0.8), sc(200, 1.0, 0.7)), 2: (sc(150, 0.9, 0.8), sc(150, 0.8, 0.8))},
+                 "Small": {1: (sc(20, 0.5, 0.5), sc(20, 1.0, 1.0)), 2: (sc(20, 0.5, 0.5), sc(20, 1.0, 1.0))},
+                 "Gone": {1: (sc(300, 0.5, 0.5), sc(300, 1.0, 1.0))}}
+        lines = p10.class_rows(table, [1, 2], min_n=100)
+        self.assertEqual(len(lines), 1)
+        self.assertIn("Pixel", lines[0])
+        self.assertIn("K -0.050", lines[0])          # (-0.1 + 0.0) / 2, the larger drop first
+        self.assertIn("E +0.000", lines[0])
+
+
 if __name__ == "__main__":
     unittest.main()
