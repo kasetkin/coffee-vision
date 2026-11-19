@@ -376,10 +376,16 @@ class TestCheckPreviews(unittest.TestCase):
     def test_a_missing_part_fails(self):
         self.assertEqual(check_previews(PREVIEWS, None)[1], ["no previews part"])
 
-    def test_a_missing_or_reordered_format_fails(self):
-        served = {**PREVIEWS, "previews": dict(reversed(list(PREVIEWS["previews"].items())))}
+    def test_a_missing_format_fails(self):
+        served = {**PREVIEWS, "previews": {k: v for k, v in PREVIEWS["previews"].items() if k != "jxl"}}
         self.assertEqual(check_previews(PREVIEWS, served)[1],
-                         ["previews are [jxl, avif10, p3_jpeg], expected [p3_jpeg, avif10, jxl]"])
+                         ["previews are [avif10, p3_jpeg], expected [avif10, jxl, p3_jpeg]"])
+
+    def test_the_order_is_not_checked(self):
+        """The expected answer is a PROBE line, whose keys are sorted (the first deploy's smoke failed on that)."""
+        expected = json.loads(json.dumps(PREVIEWS, sort_keys=True))
+        self.assertEqual(list(expected["previews"]), ["avif10", "jxl", "p3_jpeg"])
+        self.assertEqual(check_previews(expected, PREVIEWS)[1], [])
 
     def test_another_size_fails(self):
         failures = check_previews(PREVIEWS, _previews((768, 1023)))[1]

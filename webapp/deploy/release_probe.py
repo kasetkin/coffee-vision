@@ -246,14 +246,15 @@ def _repo():
 
 
 def check_previews(expected: dict | None, served: dict | None) -> tuple[str, list[str]]:
-    """The served previews part against the expected one (ticket OPS-25 D5): the same formats in the same order, each
-    sent as its type, decoding at the expected size with the expected colour tags. Not their pixels: two machines'
-    encoders may differ. (summary of each file's size, failures)."""
+    """The served previews part against the expected one (ticket OPS-25 D5): the same formats, each sent as its type,
+    decoding at the expected size with the expected colour tags. Not their order, which the page does not read and a
+    PROBE line loses (its keys are sorted), nor their pixels: two machines' encoders may differ. (summary of each
+    file's size, failures)."""
     if served is None:
         return "", ["no previews part"]
     e, s = expected["previews"], served.get("previews") or {}
-    if list(s) != list(e):
-        return "", [f"previews are [{', '.join(s)}], expected [{', '.join(e)}]"]
+    if set(s) != set(e):
+        return "", [f"previews are [{', '.join(sorted(s))}], expected [{', '.join(sorted(e))}]"]
     summary, failures = [], []
     for name in e:
         if s[name].get("mime") != e[name]["mime"]:

@@ -14,9 +14,11 @@ Display only, as the sRGB preview is (GLOSSARY.md, "Preview"): nothing here is w
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import struct
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 import imagecodecs as ic
 import numpy as np
@@ -25,12 +27,25 @@ from PIL import Image
 from coffeecv.canonical import NOOPTIMIZE, REC2020, RELATIVE
 
 D65 = (0.3127, 0.3290)
-# Display P3: DCI-P3's primaries, D65, the sRGB curve. LittleCMS builds it; the curve is a 256-point table, which
-# reads 8-bit sRGB samples exactly as LittleCMS's own sRGB does (tests/test_preview_formats.py), in 2,124 bytes.
+# Display P3: DCI-P3's primaries, D65, the sRGB curve, as a 256-point table, which reads 8-bit sRGB samples exactly as
+# LittleCMS's own sRGB does (tests/test_preview_formats.py), in 2,124 bytes. Committed, not built at import: LittleCMS
+# stamps the time into a profile's header, so each process would embed different bytes (the first OPS-25 deploy's
+# smoke). The committed file is `p3_profile()`'s output of 2026-11-19, held to it by the tests.
 _x = np.linspace(0.0, 1.0, 256)
 SRGB_CURVE = np.round(np.where(_x <= 0.04045, _x / 12.92, ((_x + 0.055) / 1.055) ** 2.4) * 65535).astype(np.uint16)
-DISPLAY_P3 = ic.cms_profile("rgb", whitepoint=D65, primaries=(0.680, 0.320, 0.265, 0.690, 0.150, 0.060),
-                            transferfunction=SRGB_CURVE)
+P3_PROFILE_PATH = Path(__file__).resolve().parent / "data" / "display_p3.icc"
+P3_PROFILE_SHA256 = "c08b2f7e1849bad388dd1ca0e55a9ab625f49cfb41d89d12d0e451ef799fb49f"
+
+
+def p3_profile() -> bytes:
+    """Display P3 as LittleCMS builds it now: the committed profile but for its header's creation time."""
+    return ic.cms_profile("rgb", whitepoint=D65, primaries=(0.680, 0.320, 0.265, 0.690, 0.150, 0.060),
+                          transferfunction=SRGB_CURVE)
+
+
+DISPLAY_P3 = P3_PROFILE_PATH.read_bytes()
+if hashlib.sha256(DISPLAY_P3).hexdigest() != P3_PROFILE_SHA256:
+    raise ImportError(f"{P3_PROFILE_PATH} is not the committed Display P3 profile (OPS-25)")
 # D8: Rec.2020's primaries with the sRGB curve, what the AVIF and the JPEG XL are tagged as. Never embedded, so its
 # curve is a finer table, for the 10- and 16-bit samples converted into it.
 _x = np.linspace(0.0, 1.0, 4096)

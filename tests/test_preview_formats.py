@@ -82,6 +82,13 @@ class EncodeAll(unittest.TestCase):
                                     flags=cn.NOOPTIMIZE)[0, 0].astype(int)
         self.assertLessEqual(np.abs(self._middle(a, False) - p3_brown).max(), 3)
 
+    def test_the_committed_profile_is_littlecms_display_p3_but_for_its_date(self):
+        """The header's creation time (bytes 24-35) is the one difference; the profile ID (84-99) is not set."""
+        built = pf.p3_profile()
+        self.assertEqual(len(built), len(pf.DISPLAY_P3))
+        self.assertEqual(built[:24] + built[36:], pf.DISPLAY_P3[:24] + pf.DISPLAY_P3[36:])
+        self.assertEqual(pf.DISPLAY_P3[84:100], bytes(16))
+
     def test_the_display_p3_profile_reads_srgb_as_srgb(self):
         """Display P3's curve is sRGB's: sRGB's own primaries with it are LittleCMS's sRGB, level for level."""
         same = ic.cms_profile("rgb", whitepoint=pf.D65, primaries=(0.64, 0.33, 0.30, 0.60, 0.15, 0.06),

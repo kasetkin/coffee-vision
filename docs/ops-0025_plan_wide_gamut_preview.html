@@ -223,6 +223,14 @@
       curve (ticket D8): the samples are converted by LittleCMS to Rec.2020 with the sRGB curve, the AVIF tagged CICP
       9/13/9, the JPEG XL encoded by imagecodecs' <code>jpegxl_encode</code> with the sRGB enum, distance 1.0. The
       owner's go for P4.</div>
+    <div><div class="when">2026-11-19</div>P4's first full deploy, <code>2489cf5</code>, stopped at the smoke, before
+      the flip (photo answers down 34 s), on two faults of P3's check, not of the answer: the PROBE line's sorted keys
+      put the formats in another order, and LittleCMS stamps the time into the P3 profile, so the host's JPEG
+      embedded other bytes. The check no longer compares the order, and the profile is committed
+      (<code>coffeecv/data/display_p3.icc</code>, pinned by its sha256). The smoke's numbers against the last two
+      releases' on the same photo: <code>preview_ms</code> 3448 (3452, 3388), the classification out at 9760 ms
+      (latency 9755, 9693); the shrink took 1845 ms on the host, hidden beside segmentation; the three files 1249 ms
+      and 460,360 bytes after the classification.</div>
   </div>
 
   <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25 ticket</a>,

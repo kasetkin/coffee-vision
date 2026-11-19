@@ -68,7 +68,8 @@ LIBRARY = [f"coffeecv/{m}.py" for m in (
     "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans", "tone_map", "linear_dng",
     "preview_formats")] + [   # ticket OPS-25 P1: the page's wide-gamut previews
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13).
-    "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"]
+    "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv",
+    "coffeecv/data/display_p3.icc"]   # ticket OPS-25: the P3 preview's profile, which preview_formats reads
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them
 # (a model without a probe runs the centroid guard -- the probe file's presence is the switch).
 MODEL_REQUIRED = (".pt.dvc", ".json")
