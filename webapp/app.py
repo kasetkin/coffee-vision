@@ -576,11 +576,13 @@ def _preview_part(seg) -> dict:
     decode HEIC/AVIF/JXL/RAW itself, and the canonical photo as the page shows it (OPS-25 D7): its 8-bit sRGB, the
     pixels the model reads (`canonical.rec2020_to_srgb`'s); the
     whole photo's bean mask (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model);
-    `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. Display only: nothing here is
-    ever trusted back from the client.
+    `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. During OPS-25's trial the
+    thumbnail names its format in its corner (D9, D10). Display only: nothing here is ever trusted back from the
+    client.
     """
     thumb = Image.fromarray(seg.photo)
     thumb.thumbnail((PREVIEW_MAX_DIM, PREVIEW_MAX_DIM))
+    thumb = Image.fromarray(preview_formats.label(np.asarray(thumb), "srgb_jpeg"))   # OPS-25 D9, D10: its label
     buf = io.BytesIO()
     thumb.save(buf, format="JPEG", quality=85)
     part = {"part": "preview", "thumbnail": base64.b64encode(buf.getvalue()).decode("ascii"),

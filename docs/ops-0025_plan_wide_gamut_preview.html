@@ -188,17 +188,34 @@
     the classification. The overlay on each tab was checked in headless Chromium against a saved answer (P2), not on
     the live site; the live page's tabs on the phones are P5.</p>
 
-  <h2>7. P5 &mdash; The owner's look <span class="pill sm open">stop</span></h2>
+  <h2>7. P7 &mdash; Each preview names its format (D9, D10)</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-19: implemented and tested here; its release next, with the owner's go</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <p>Added after P4, from the owner, so numbered after P6 and done before P5. <code>preview_formats.label</code> burns
+    the tab's name into a copy of the samples: Pillow's own font at 4% of the long side (41 px at 1024, about 13 CSS
+    px on the page), 2% from the bottom-right corner, white fill and black outline at the dtype's extremes with no
+    antialiased levels, skipped on an image too small for it. <code>encode_all</code> labels each file's samples
+    before its encode, <code>_preview_part</code> the sRGB thumbnail (D10).</p>
+  <ol class="tasks">
+    <li><span class="box done"></span><span><code>label</code> and its tests: where it goes, pure white and black,
+      nothing else changed, its scale, a too-small image left alone; each file decodes with its own label; the app's
+      thumbnail and P3 JPEG carry theirs. <span class="result">Done 2026-11-19.</span></span></li>
+    <li><span class="box"></span><span>The release, <code>--verify</code>.</span></li>
+  </ol>
+
+  <h2>8. P5 &mdash; The owner's look <span class="pill sm open">stop</span></h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
-    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P7</span></div>
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Stop for the owner: the tabs on a Pixel 9 Pro and an iPhone, on a photo with
       many pixels outside sRGB (ML-19's list); R2's browser facts and the choice into the ticket.</span></li>
   </ol>
 
-  <h2>8. P6 &mdash; Adoption or removal</h2>
+  <h2>9. P6 &mdash; Adoption or removal</h2>
   <div class="fields">
     <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
@@ -209,7 +226,7 @@
       was seen. A release, verified.</span></li>
   </ol>
 
-  <h2>9. Verification</h2>
+  <h2>10. Verification</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>P1: the first two parts unchanged; the third part's three files are their
       formats at the preview's size; a colour outside sRGB survives in all three.</span></li>

@@ -185,6 +185,20 @@ class TestAnalyze(unittest.TestCase):
         self.assertEqual(max(tw, th), self.app.PREVIEW_MAX_DIM)
         self.assertLessEqual(abs(tw - w * th / h), 1, ((tw, th), (w, h)))
 
+    def test_every_preview_names_its_format_in_its_corner(self):   # OPS-25 D9, D10
+        from coffeecv import preview_formats as pf
+        thumb = np.asarray(_decode(self.preview["thumbnail"])).astype(int)
+        p3 = np.asarray(_decode(self.parts[2]["previews"]["p3_jpeg"]["data"])).astype(int)
+        blank = np.zeros(thumb.shape, np.uint8)
+        for name, a in (("srgb_jpeg", thumb), ("p3_jpeg", p3)):
+            with self.subTest(name):
+                fill = np.all(pf.label(blank, name) == 255, axis=2)
+                self.assertGreater(np.count_nonzero(fill), 100)
+                self.assertGreater(a[fill].mean(), 200)
+        self.assertGreater(np.count_nonzero(np.all(pf.label(blank, "srgb_jpeg") == 255, axis=2)
+                                            != np.all(pf.label(blank, "p3_jpeg") == 255, axis=2)), 100,
+                           "two different words")
+
     def test_classification_is_classify_ones_answer(self):
         from coffeecv.infer import classify_one
         app = self.app

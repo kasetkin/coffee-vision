@@ -57,6 +57,36 @@ class Shrink(unittest.TestCase):
         np.testing.assert_array_equal(pf.shrink(rec, 1024), rec)
 
 
+class Label(unittest.TestCase):
+    """D9: each preview's format, white on a black outline, in its bottom-right corner (D10: today's sRGB one too)."""
+
+    def test_the_names_are_the_tabs(self):
+        self.assertEqual(pf.LABELS, {"srgb_jpeg": "sRGB JPEG", "p3_jpeg": "P3 JPEG", "avif10": "AVIF 10-bit",
+                                     "jxl": "JPEG XL"})
+
+    def test_it_is_white_on_black_in_the_bottom_right_corner_and_nothing_else_changes(self):
+        for dtype, top in ((np.uint8, 255), (np.uint16, 65535)):
+            with self.subTest(dtype=dtype.__name__):
+                a = np.full((768, 1024, 3), top // 3, dtype)
+                out = pf.label(a, "avif10")
+                self.assertIsNot(out, a)
+                changed = np.any(out != a, axis=2)
+                ys, xs = np.nonzero(changed)
+                self.assertGreater(ys.min(), 768 * 0.8)
+                self.assertGreater(xs.min(), 1024 * 0.6)
+                self.assertLess((ys.max(), xs.max()), (768, 1024))
+                self.assertEqual({int(v) for v in np.unique(out[changed])}, {0, top})   # pure: grey in any space
+                self.assertGreater(np.count_nonzero(out[changed] == top), 100)
+                np.testing.assert_array_equal(a, np.full((768, 1024, 3), top // 3, dtype))
+
+    def test_it_scales_with_the_image_and_skips_one_too_small(self):
+        big = np.count_nonzero(np.any(pf.label(np.zeros((1024, 768, 3), np.uint8), "jxl") != 0, axis=2))
+        small = np.count_nonzero(np.any(pf.label(np.zeros((512, 384, 3), np.uint8), "jxl") != 0, axis=2))
+        self.assertLess(small, big / 2)
+        tiny = np.zeros((20, 30, 3), np.uint8)
+        np.testing.assert_array_equal(pf.label(tiny, "jxl"), tiny)
+
+
 class EncodeAll(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -67,6 +97,23 @@ class EncodeAll(unittest.TestCase):
         """One pixel well inside a half, away from the JPEG's blocks across the edge."""
         h, w = a.shape[:2]
         return a[h // 2, (3 * w) // 4 if right else w // 4].astype(int)
+
+    def test_each_file_carries_its_own_label(self):   # D9
+        rec = np.full((768, 1024, 3), 20000, np.uint16)
+        files = pf.encode_all(rec)
+        decoded = {"p3_jpeg": np.asarray(Image.open(io.BytesIO(files["p3_jpeg"]))).astype(float) / 255,
+                   "avif10": ic.avif_decode(files["avif10"]).astype(float) / 1023,
+                   "jxl": ic.jpegxl_decode(files["jxl"]).astype(float) / 65535}
+        for name, a in decoded.items():
+            with self.subTest(name):
+                want = np.any(pf.label(rec, name) != rec, axis=2)
+                white = np.all(pf.label(rec, name) == 65535, axis=2)
+                self.assertGreater(a[white].mean(), 0.9)   # the label's fill, white through each encoder
+                # and nothing outside its box, past the 16 pixels of the lossy codecs' ringing around its edges
+                ys, xs = np.nonzero(want)
+                away = np.ones(want.shape, bool)
+                away[max(0, ys.min() - 16):ys.max() + 17, max(0, xs.min() - 16):xs.max() + 17] = False
+                self.assertLess(np.abs(a[away] - a[0, 0]).max(), 0.02)
 
     def test_the_three_formats_in_the_pages_order(self):
         self.assertEqual(list(self.files), ["p3_jpeg", "avif10", "jxl"])

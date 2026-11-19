@@ -65,6 +65,42 @@ JXL_EFFORT = 7        # the store's (canonical.EFFORT)
 MIME = {"p3_jpeg": "image/jpeg", "avif10": "image/avif", "jxl": "image/jxl"}
 
 
+# D9: each preview names its own format in its bottom-right corner, so a phone's screenshot says which file the browser
+# showed; D10: today's sRGB preview too, during the trial. The tabs' own words.
+LABELS = {"srgb_jpeg": "sRGB JPEG", "p3_jpeg": "P3 JPEG", "avif10": "AVIF 10-bit", "jxl": "JPEG XL"}
+LABEL_SIZE = 0.04     # the text's height, of the long side: 41 px at 1024, about 13 CSS px in the page's 20rem box
+LABEL_MARGIN = 0.02   # from the corner, of the long side
+LABEL_MIN_PX = 8      # smaller than this, no label
+
+
+def label(a: np.ndarray, name: str) -> np.ndarray:
+    """A copy of `a` (H x W x 3, uint8 or uint16) with LABELS[name] in its bottom-right corner: white, outlined in
+    black, both the dtype's extremes on every channel, so they are the same grey in any colour space and the label
+    adds no colour difference between the tabs. One font (Pillow's own, at Pillow's pinned version) on both hosts.
+    An image too small for a readable label is returned unlabelled."""
+    from PIL import ImageDraw, ImageFont
+
+    h, w = a.shape[:2]
+    size = round(LABEL_SIZE * max(h, w))
+    out = a.copy()
+    if size < LABEL_MIN_PX:
+        return out
+    font = ImageFont.load_default(size=size)
+    stroke = max(1, round(size / 10))
+    x0, y0, x1, y1 = font.getbbox(LABELS[name], stroke_width=stroke)
+    margin = round(LABEL_MARGIN * max(h, w))
+    if x1 - x0 + 2 * margin > w or y1 - y0 + 2 * margin > h:
+        return out
+    at = (w - margin - x1, h - margin - y1)
+    shape, fill = Image.new("L", (w, h)), Image.new("L", (w, h))
+    ImageDraw.Draw(shape).text(at, LABELS[name], font=font, fill=255, stroke_width=stroke, stroke_fill=255)
+    ImageDraw.Draw(fill).text(at, LABELS[name], font=font, fill=255)
+    shape, fill = np.asarray(shape) >= 128, np.asarray(fill) >= 128   # no antialiased levels: pure black, pure white
+    out[shape] = 0
+    out[fill] = np.iinfo(a.dtype).max
+    return out
+
+
 def shrink(rec: np.ndarray, max_dim: int) -> np.ndarray:
     """An H x W x 3 uint16 photo at the size Pillow's `thumbnail((max_dim, max_dim))` gives the sRGB preview, by the
     same resampling, one channel at a time on three threads: as 32-bit integers (mode I), since Pillow has no 16-bit
@@ -108,8 +144,9 @@ def jxl(small: np.ndarray) -> bytes:
 
 
 def encode_all(small: np.ndarray) -> dict[str, bytes]:
-    """The three files of `small`, the preview-sized Rec.2020 samples, in MIME's order."""
-    return {"p3_jpeg": p3_jpeg(small), "avif10": avif10(small), "jxl": jxl(small)}
+    """The three files of `small`, the preview-sized Rec.2020 samples, in MIME's order, each with its label (D9)."""
+    return {"p3_jpeg": p3_jpeg(label(small, "p3_jpeg")), "avif10": avif10(label(small, "avif10")),
+            "jxl": jxl(label(small, "jxl"))}
 
 
 def avif_cicp(data: bytes) -> tuple[int, int, int, bool] | None:

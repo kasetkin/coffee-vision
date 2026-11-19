@@ -195,6 +195,15 @@
           BT.709-tagged files with a display gamma, about 11 levels darker than the JPEGs (the plan's finding 7). Amends
           D1: both stay Rec.2020; the AVIF is CICP 9/13/9, the JPEG XL 16-bit Rec.2020 with the sRGB curve, no longer
           the canonical photo's own encoding.</td></tr>
+      <tr><td class="id">D9</td><td>A label on each preview?</td>
+        <td>(a) none (b) the format's name burnt into each file's corner (c) a label on the page</td>
+        <td>(b), 2026-11-19, the owner's idea, as recommended: each file names its format (the tab's words) in its
+          bottom-right corner, white outlined in black, 4% of the long side, so a screenshot says which file the browser
+          showed; pure white and black are the same grey in every space, so the label adds no gamut difference.</td></tr>
+      <tr><td class="id">D10</td><td>Today's sRGB preview labelled too?</td>
+        <td>(a) yes, every visitor's and the examples' first picture carries "sRGB JPEG" during the trial (b) only the
+          three new files</td>
+        <td>(a), 2026-11-19, as recommended: the four tabs alike. The label goes with the tabs at adoption (D6).</td></tr>
     </tbody>
   </table></div>
 
@@ -238,6 +247,11 @@
       in <code>fc085e6</code>. Measured on the host (§7): the third part's three files 460,360 bytes, built in 1.25&ndash;1.29 s
       after the classification; the preview and the classification out when the last releases' were (the plan's
       P4). Next: the owner's look on a Pixel 9 Pro and an iPhone.</div>
+    <div><div class="when">2026-11-19</div>The owner's test image (Rec.2020 green text on a Rec.2020 green, both
+      clipped to the same sRGB green): through the live site, the sRGB preview loses the text and the three others
+      keep it (116&ndash;118 levels apart on a P3 screen, read colour-managed); headless Chromium composites in sRGB,
+      so the phones are the browser test. D9, D10 from the owner: each preview names its format in its corner; the
+      owner's go for the release that carries them.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
