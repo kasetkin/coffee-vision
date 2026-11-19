@@ -1,0 +1,235 @@
+<title>Wide-gamut photo preview, tried as format tabs on the live page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-25 · coffee-vision · the page's photo preview</div>
+  <h1>The preview shows the canonical photo's wide-gamut colours, after a trial of three formats on the live page</h1>
+  <p class="lede">Today's preview is an untagged 8-bit sRGB JPEG, so a wide-gamut phone screen shows it as plain
+    sRGB. This ticket adds tabs under the live page's preview that flip between today's preview and three wide-gamut
+    ones (P3 JPEG, 10-bit AVIF, JPEG XL); the owner compares them on a Pixel 9 Pro and an iPhone and keeps one. Gamut
+    only: HDR brightness is <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>. Decisions settled
+    2026-11-19; not planned, not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-18; decisions settled 2026-11-19; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Webapp: what the page shows</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">webapp/app.py (_preview_part and a new previews part), webapp/static/index.html (the preview, its tabs and overlay canvases), webapp/deploy/ (--verify's check of the third part), the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-18</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The trial is on the live site (D2): every answer carries a third part with three more previews, and the page shows format tabs under the preview, today's sRGB preview selected. After adoption the tabs and the third part go and the chosen format is the preview (D6). What the models read never changes.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">ML-29 P11's release is the base</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-18.</strong> "Create OPS ticket to test and maybe implement wide gamut image
+      preview. At some point there should be a test version of web-site that will show 2 previews side by side, one
+      old 8-bit sRGB and one new. If HDR brightness can be included in such release &mdash; we will add it, if not
+      &mdash; only color gamut. We will discover during ticket planing."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The page's preview is the inference host's JPEG thumbnail of the 8-bit sRGB read-back. It is untagged, so every
+    browser shows it as sRGB, with colours outside sRGB clipped. The canonical photo it comes from is Rec.2020 at 16
+    bits, so it holds colours that a Display P3 screen can show and the preview drops. After this ticket:</p>
+  <ul>
+    <li><strong>The trial.</strong> The inference host makes three wide-gamut previews from the canonical photo's
+      Rec.2020 samples (D1) and sends them as a third part of the answer, after the classification (D5). The page
+      shows a row of tabs under the preview to flip between them and today's (D2). The owner looks at them on a Pixel 9
+      Pro and an iPhone (D4).</li>
+    <li><strong>Adoption.</strong> The chosen format becomes the preview, for visitors' photos and the examples alike;
+      the tabs and the third part go (D6).</li>
+    <li><strong>Gamut only</strong> (D3). The canonical photo is standard range since ML-29 (ADR 0041), so no format
+      made from it can be brighter than white. Keeping the light above white is a change to canonicalization:
+      <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>.</li>
+  </ul>
+
+  <h2>2. Background</h2>
+  <p>From <a href="../analysis/ml29/research_browser_hdr_preview.md">analysis/ml29/research_browser_hdr_preview.md</a>
+    (2026-11-18), which cites a primary source for each claim and lists the ones it could not confirm, and from the
+    code and earlier tickets:</p>
+  <ul>
+    <li><strong>The preview today.</strong> <code>&lt;img id="preview"&gt;</code> (<code>webapp/static/index.html</code>)
+      gets <code>data:image/jpeg</code> from <code>_preview_part</code> (<code>webapp/app.py</code>). That thumbnail is
+      at most 1024 px, quality 85, with no ICC profile, made from <code>load_canonical</code>'s 8-bit sRGB. Its
+      docstring promises "the pixels the model sees" (OPS-7 D8). The examples' preview is the same thumbnail. The bean
+      overlay is two 2D canvases in the default sRGB.</li>
+    <li><strong>The canonical photo.</strong> Rec.2020 primaries, BT.709 transfer, 16-bit lossy JPEG XL, standard
+      range (ADR 0033, ML-19 D7). A gain map is applied and its light above white tone-mapped back (ADR 0041, ML-29
+      D33). Its 16 bits are finer steps, not headroom.</li>
+    <li><strong>How much lies outside sRGB.</strong> Measured in ML-19
+      (<a href="../analysis/ml19/README.md">analysis/ml19/README.md</a>, <code>gamut.py</code>): of 1,152
+      Display-P3-tagged photos, 0.86% of pixels fall outside sRGB and 0.29% by more than 2%. 120 photos have more than
+      1% outside, 18 more than 10%: mostly <code>user_realworld</code> negatives and two label cards; the highest bean
+      photo, from the Pixel, 57.8%. The owner has seen such photos look different in sRGB and P3.</li>
+    <li><strong>iPhone 15 Pro, 16 Pro, 17 Pro, Safari.</strong> WebKit colour-matches tagged images, and the panels
+      are "Wide color (P3)". Safari decodes AVIF (16+) and JPEG XL (17+).</li>
+    <li><strong>Pixel 9 Pro, Chrome.</strong> Chrome colour-manages tagged images and decodes AVIF. Whether it sees a
+      wide-gamut screen in the Pixel's default "Adaptive" colour setting is unconfirmed. JPEG XL on by default from
+      Chrome 155 (2026-10-06), by news reports, not a primary source; the tab on the phone confirms it.</li>
+    <li><strong>Firefox</strong> (not one of the owner's test browsers). JPEG XL on by default from Firefox 158
+      (2026-10-13); 152&ndash;157 and ESR 153 have it built in but off. By news reports
+      (<a href="https://betanews.com/article/firefox-158-jpeg-xl-smooth-scrolling/">Betanews</a>,
+      <a href="https://news.slashdot.org/story/26/10/12/2131234/firefox-158-now-available-with-jpeg-xl-support-by-default">Slashdot</a>),
+      and the owner's own reading, 2026-11-19.</li>
+    <li><strong>No room for a second worker.</strong> The inference host has about 3.6 GB free beside the live
+      worker, which costs about 3.3 GB (ADR 0026, OPS-10), so a test release beside the live one is not possible.</li>
+    <li><strong>The encoders.</strong> <code>imagecodecs</code> 2026.10.10, the version <code>canonical.py</code> pins,
+      has <code>avif_encode</code> (bit depth and CICP primaries, transfer and matrix) and the JPEG XL encoder.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The preview is an untagged 8-bit sRGB JPEG, read as sRGB by every browser.</li>
+        <li>Colours outside sRGB are clipped before the preview is made.</li>
+        <li>The answer has two parts: the preview, then the classification.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After the trial release</h3>
+      <ul>
+        <li>Under the preview, tabs: <strong>sRGB JPEG (today)</strong> · <strong>P3 JPEG</strong> ·
+          <strong>AVIF 10-bit</strong> · <strong>JPEG XL</strong>, each with its size; today's selected.</li>
+        <li>The answer has a third part, <code>previews</code>, after the classification.</li>
+        <li>A tab whose format the browser cannot show says so.</li>
+        <li>The bean overlay lines up with whichever tab is shown.</li>
+      </ul>
+      <h3>After adoption</h3>
+      <ul>
+        <li>One wide-gamut preview, the owner's choice, with today's JPEG as the fallback where a browser cannot show
+          it; no tabs, two parts again.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>What the models read.</strong> 8-bit sRGB from the canonical photo (ADR 0033). The preview is display
+      only (GLOSSARY.md, "Preview").</li>
+    <li><strong>The canonical photo</strong> and canonicalization, at the front and in the store (D3).</li>
+    <li><strong>The one streamed request</strong> (ADR 0023): the previews are a part of the same answer, and the
+      server keeps no photo between requests.</li>
+    <li><strong>What a visitor sees first.</strong> The preview part and the classification part arrive as they do
+      today; the third part comes after both (D5).</li>
+    <li><strong>The overlay's canvases,</strong> in sRGB (D7).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The P3 preview looks no different.</strong></td>
+        <td>Answered by ML-19's measurement (§2): some photos, mostly negatives, have many pixels outside sRGB, and the
+          owner has seen them differ. Not measured again (owner, 2026-11-19).</td></tr>
+      <tr><td class="id">R2</td><td><strong>Chrome on the Pixel 9 Pro shows P3 as sRGB, or no JPEG XL.</strong></td>
+        <td>Unconfirmed in the research. The tabs answer it on the phone; a test image whose two halves differ only
+          outside sRGB makes it visible, and a format the browser cannot decode says so on its tab.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The preview stops being "the pixels the model sees" (OPS-7 D8).</strong></td>
+        <td>The same picture, less clipped. The promise becomes "the canonical photo as the page shows it" (D7).</td></tr>
+      <tr><td class="id">R4</td><td><strong>The variants cost the inference host's time or the answer's size.</strong></td>
+        <td>Three more encodes per answer, AVIF the slowest, and three more images over the host's slow link (ADR
+          0031). Sent after the classification (D5), so no visitor waits longer for the answer; encode time and the
+          part's size are measured on the host before the release.</td></tr>
+      <tr><td class="id">R5</td><td><strong>The overlay misaligns.</strong></td>
+        <td>Every variant has the same size as today's preview, so the canvases keep its size and position; the
+          release checks the overlay on each tab.</td></tr>
+      <tr><td class="id">R6</td><td><strong>Visitors see a trial feature.</strong></td>
+        <td>Accepted by the owner (D2): today's preview stays the default, and the tabs go at adoption.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>The wide-gamut preview's file?</td>
+        <td>(a) JPEG with a Display P3 ICC profile, 8-bit (b) PNG with <code>cICP</code> (c) 10-bit AVIF (d) JPEG XL</td>
+        <td>(a), (c) and (d), all three tried, 2026-11-19: "ideally I want to test all variants". Each made on the
+          inference host at the preview's 1024 px from the canonical photo's 16-bit Rec.2020 samples: the JPEG 8-bit,
+          Display P3 ICC, quality 85; the AVIF 10-bit, CICP Rec.2020 primaries and BT.709 transfer, quality about 80;
+          the JPEG XL 16-bit Rec.2020 as the canonical photo is encoded, distance 1.0. Not the front's full-size file,
+          which would cross the slow link at up to 15 MP.</td></tr>
+      <tr><td class="id">D2</td><td>What is the test version of the site?</td>
+        <td>(a) a second release on its own port or path (b) the live release with a hidden switch (c) a static page
+          fed by saved answers (d) a visible switch on the live page</td>
+        <td>(d), 2026-11-19: "a simple switch on the real site, not hidden". Tabs under the preview, flipped in place
+          (a phone's width halves a side-by-side pair): sRGB JPEG (today), P3 JPEG, AVIF 10-bit, JPEG XL, each with its
+          size; today's selected by default; the overlay drawn over whichever is shown; a format the browser cannot
+          decode says so on its tab. The examples get the same tabs. (a) does not fit beside the live worker (ADR
+          0026).</td></tr>
+      <tr><td class="id">D3</td><td>HDR brightness in this release, and from what source?</td>
+        <td>(a) gamut only (b) the visitor's own file shown as the preview (reverses OPS-7 D8) (c) the canonical photo
+          keeps the light above white (amends ADR 0033, ADR 0036, ADR 0041)</td>
+        <td>(a), 2026-11-19. The owner's aim is (c), one canonical JPEG XL with both gamut and brightness; it is a
+          change to canonicalization and what the models read, so it is its own ticket,
+          <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>. (b) was not taken: Chrome cannot show a HEIC,
+          and no browser a RAW.</td></tr>
+      <tr><td class="id">D4</td><td>What decides adoption?</td>
+        <td>(a) the owner's look at the tabs on the Pixel 9 Pro and an iPhone (b) plus a new measurement of pixels
+          outside sRGB</td>
+        <td>(a), 2026-11-19; R1 is already answered.</td></tr>
+      <tr><td class="id">D5</td><td>When are the extra previews sent?</td>
+        <td>(a) a third part after the classification (b) in the preview part (c) only when the visitor turns a switch
+          on before uploading</td>
+        <td>(a), on every answer during the trial, 2026-11-19. The tabs say "loading" until it comes. Amends OPS-7 D8's
+          two lines; <code>--verify</code> checks the third part.</td></tr>
+      <tr><td class="id">D6</td><td>What ships at adoption?</td>
+        <td>&mdash;</td>
+        <td>2026-11-19: the tabs and the third part go; the chosen format is the preview, with today's sRGB JPEG as
+          the fallback where a browser cannot show it. Which fallback, if any, is settled with the choice.</td></tr>
+      <tr><td class="id">D7</td><td>The overlay, the examples and the preview's promise?</td>
+        <td>&mdash;</td>
+        <td>2026-11-19: the canvases stay sRGB; the examples get the same previews, which come for free since theirs
+          is the same thumbnail; <code>_preview_part</code>'s "the pixels the model sees" becomes "the canonical photo
+          as the page shows it", and GLOSSARY.md defines Preview.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The share of pixels outside sRGB is known (R1: ML-19's measurement).</span></li>
+    <li><span class="box done"></span><span>D1&ndash;D7 settled, HDR brightness split off to ML-34.</span></li>
+    <li><span class="box"></span><span>The three variants' encode time and the third part's size are measured on the inference host before the release.</span></li>
+    <li><span class="box"></span><span>The live page shows the four tabs, today's selected, for visitors' photos and the examples; the overlay lines up on each; <code>--verify</code> checks the third part.</span></li>
+    <li><span class="box"></span><span>The owner has looked at the tabs on a Pixel 9 Pro and on an iPhone, and R2's browser facts are recorded as confirmed or not.</span></li>
+    <li><span class="box"></span><span>The owner's choice is recorded. If one is adopted, it ships as D6 says; if none, the tabs go and the idea goes to <code>.out-of-scope/</code> with what was seen.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Any change to what the models read, or to canonicalization.</li>
+    <li>HDR brightness: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>.</li>
+    <li>HEIC as a preview format: only Safari shows it.</li>
+    <li>A wide-gamut overlay.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-18</div>Ticket written from the owner's request and
+      analysis/ml29/research_browser_hdr_preview.md, on <code>aecebaf</code>. Decisions open. Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-11-19</div>Grilled with the owner, on <code>990064f</code>: D1&ndash;D7 settled. The
+      trial moved from a test version to visible tabs on the live page; R1 answered by ML-19's measurement; gamut
+      only, with HDR brightness written as ML-34. "Preview" added to GLOSSARY.md. Triage to ready-for-agent. Not
+      planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a>,
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a>,
+    <a href="ops-0007_ticket_photos_and_answers_optimization.html">OPS-7</a> (D8, the preview),
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="adr/0041-a-photos-gain-map-is-applied-at-canonicalization.md">ADR 0041</a>,
+    <a href="../analysis/ml19/README.md">ML-19's gamut measurement</a>,
+    <a href="../analysis/ml29/research_browser_hdr_preview.md">the browser research</a>.</footer>
+</main>

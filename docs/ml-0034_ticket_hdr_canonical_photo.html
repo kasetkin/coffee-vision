@@ -1,0 +1,136 @@
+<title>An HDR canonical photo: keep the light above white for the preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-34 · coffee-vision · canonicalization</div>
+  <h1>The canonical photo keeps a photo's light above white, so the page can show it with HDR brightness</h1>
+  <p class="lede">Split off from OPS-25 (D3), which shows the canonical photo's wide gamut but no brightness. The
+    owner's aim is one canonical JPEG XL that carries both. Since ML-29 the canonical photo is standard range, so this
+    is a change to canonicalization and to how the models read it. Written, not planned, not implemented; no decision
+    taken.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-19; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: what canonicalization keeps</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">coffeecv/canonical.py, coffeecv/gain_map.py, the canonical store and its DVC stages, the front's check service, webapp/app.py (the preview), the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-19</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">If done: the front's canonical photo changes form, and the preview gains HDR brightness on screens that have it. What the models read must stay ML-29's (D2), or both models are retrained.</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill open">OPS-25</span> <span class="tag">its chosen preview format is the one this would make bright</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-19</strong> (grilling OPS-25). "Ideally we should be able to use canonicalized
+      version from the front to show both: wide gamut and high brightness using JPEG XL format after ML-29 was
+      completed." Kept out of OPS-25: "let's keep OPS-25 about gamut only".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>A photo with a gain map, or an HDR main image, holds light above SDR white. Canonicalization applies the map and
+    tone-maps that light back into standard range (ADR 0041, ML-29 D33), so the canonical photo, and any preview made
+    from it, is never brighter than white. This ticket would keep that light in the canonical photo, as a PQ or HLG
+    transfer or a JPEG XL gain map, and give the models a read-back that tone-maps it exactly as canonicalization does
+    today, so their input does not change.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>The canonical photo today.</strong> Rec.2020, BT.709 transfer, 16-bit lossy JPEG XL, standard range;
+      its 16 bits are finer steps, not headroom (ADR 0033, ADR 0041).</li>
+    <li><strong>How much it concerns.</strong> 1,687 of the dataset's 2,772 photos carry a gain map, 1,684 of them
+      applied (ADR 0041, ML-29 P8).</li>
+    <li><strong>The browsers.</strong> Safari shows HDR images in <code>&lt;img&gt;</code> from Safari 26; Chrome
+      shows gain-map JPEG and AVIF as HDR by a reading of its source, not by a test
+      (<a href="../analysis/ml29/research_browser_hdr_preview.md">research_browser_hdr_preview.md</a>). Whether either
+      shows an HDR JPEG XL is not researched.</li>
+    <li><strong>The front's cost.</strong> Applying a map already takes the front to 392&ndash;487 MB and 12&ndash;15 s
+      for the largest photos, against its 600 MB (ADR 0041, ML-29 R6).</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The canonical photo is standard range; light above white is tone-mapped away at canonicalization.</li>
+        <li>No preview is brighter than SDR white.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The canonical photo keeps the light above white.</li>
+        <li>The models' read-back tone-maps it to the same 8-bit sRGB as today.</li>
+        <li>On an HDR screen and browser, the preview's highlights go above white.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>What the models read,</strong> if D2 holds: the 8-bit sRGB of ML-29's canonical photo.</li>
+    <li><strong>One canonical photo per photo</strong> (ADR 0033): kept in one file, not two.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The read-back's tone map differs from today's, so the models' input changes.</strong></td>
+        <td>Unmeasured. Compare the read-back with today's canonical photos on the dataset before anything else; a
+          difference means a re-canonicalization and a retrain.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The front runs out of memory or time.</strong></td>
+        <td>It is already near its 600 MB for the largest gain-map photos (ADR 0041). Measured as ML-29 R6 was.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The browsers do not show the chosen HDR form.</strong></td>
+        <td>Unresearched for JPEG XL. Tested on the Pixel 9 Pro and an iPhone before the canonical form is chosen.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How does the canonical photo keep the light above white?</td>
+        <td>(a) a PQ or HLG transfer (b) a JPEG XL gain map over today's standard-range image (c) a separate HDR
+          preview rendition made at the front, the canonical photo unchanged</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>Must the models' input stay ML-29's exactly?</td>
+        <td>(a) yes, a read-back that reproduces D33's tone map (b) no, re-canonicalize and retrain</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D3</td><td>Does the store change too, or only the front?</td>
+        <td>(a) both (b) the front only (a further departure in ADR 0036)</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>D1&ndash;D3 decided, and the ADRs they amend (0033, 0036, 0041) amended.</span></li>
+    <li><span class="box"></span><span>The models' read-back measured against today's canonical photos on the dataset (R1).</span></li>
+    <li><span class="box"></span><span>The front's memory and time measured on the largest gain-map photos (R2).</span></li>
+    <li><span class="box"></span><span>The owner has seen the bright preview on a Pixel 9 Pro and an iPhone.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>The preview's wide gamut and its format: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a>.</li>
+    <li>Showing the visitor's own file as the preview (OPS-25 D3 (b), not taken).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-19</div>Ticket written from the owner's answer while grilling OPS-25 (D3), on
+      <code>990064f</code>. Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a>,
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="adr/0041-a-photos-gain-map-is-applied-at-canonicalization.md">ADR 0041</a>,
+    <a href="../analysis/ml29/research_browser_hdr_preview.md">the browser research</a>.</footer>
+</main>

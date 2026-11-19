@@ -46,6 +46,10 @@ _Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a r
 Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization". Made with one of two sets of settings, the same format either way: the **store's** (float colour, effort 7, quality 95, over 60 MP to 50 MP), which the canonical store and training use, and the **front's** (integer colour, effort 3, quality 90, over 18 MP to 15 MP), with which the front canonicalizes every visitor's photo (ADR 0036).
 _Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
 
+**Preview**:
+The page's picture of the canonical photo, shown before the answer, with the photo's bean region drawn over it. Display only: never what a model reads, and never trusted back from the client.
+_Avoid_: Thumbnail (the preview's file, not the concept), the model's input
+
 **Main image**:
 The one picture in a photo file that the canonical photo is made from, with the photo's gain map where one applies.
 _Avoid_: Primary image, base image
