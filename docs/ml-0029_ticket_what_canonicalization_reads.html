@@ -15,7 +15,7 @@
     (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 done 2026-11-18 (today's model changes 6 of 1,684 answers); gain maps released 2026-11-18 with the owner's go-ahead (<code>20261118T2124Z-1b0f1fb</code>, <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>)</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-19 by the owner; written 2026-11-14 from a grilling session; D1&ndash;D29 decided 2026-11-14, D30&ndash;D36 2026-11-15; dataset scan and gain-map measurement done 2026-11-14; planned 2026-11-14 (<a href="ml-0029_plan_what_canonicalization_reads.html">P1&ndash;P11</a>); D26&ndash;D29 from its Q1&ndash;Q4 2026-11-14; P1 started 2026-11-14; P1 to P3 done 2026-11-15; release A live; P4 to P7 done 2026-11-16; release B live 2026-11-16 (<code>20261116T1722Z-e459f9f</code>): Part 1 done; Part 2's P8 started; P8 done 2026-11-17 (every gain-map photo brighter, the median +20.1 levels); P10's runs and comparison done 2026-11-18 (test &minus;0.0009, D16's bar not met); adopted by the owner 2026-11-18 notwithstanding (D16): P11 started; P9 done 2026-11-18 (today's model changes 6 of 1,684 answers); gain maps released 2026-11-18 with the owner's go-ahead (<code>20261118T2124Z-1b0f1fb</code>, <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>)</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the models' input</span></div>
@@ -409,15 +409,15 @@
   </ul>
   <p><strong>Part 2: use more.</strong></p>
   <ul class="checks">
-    <li><span class="box"></span><span>The ISO 21496-1 reader agrees with the vendor map on the files that carry both
+    <li><span class="box done"></span><span>The ISO 21496-1 reader agrees with the vendor map on the files that carry both
       (R5).</span></li>
-    <li><span class="box"></span><span>Step 1's report: per camera, the change in the bean region, and the crops the
+    <li><span class="box done"></span><span>Step 1's report: per camera, the change in the bean region, and the crops the
       owner looked at.</span></li>
-    <li><span class="box"></span><span>Step 2's report: answers, masks and OOD verdicts that change with today's
+    <li><span class="box done"></span><span>Step 2's report: answers, masks and OOD verdicts that change with today's
       models. The owner's decision to run step 3 or stop.</span></li>
-    <li><span class="box"></span><span>Step 3, if run: the paired three-seed comparison, per class and per camera,
+    <li><span class="box done"></span><span>Step 3, if run: the paired three-seed comparison, per class and per camera,
       against D16's bar, and the owner's decision.</span></li>
-    <li><span class="box"></span><span>Adopted: one release of store, front and model, with the front's time and
+    <li><span class="box done"></span><span>Adopted: one release of store, front and model, with the front's time and
       memory measured (R6). Not adopted: <code>.out-of-scope/</code> gains the idea and its measurements.</span></li>
   </ul>
 
@@ -497,6 +497,10 @@
       on both hosts and verified; through the live site the dataset's gain-map photos of each form answered with their
       class, the front canonicalizing them in 9.4&ndash;13.6 s at peaks of 395&ndash;493 MB. Left: the store's push to the
       DVC remote (the plan's Activity, <code>analysis/ml29/README.md</code>, P11).</div>
+    <div><div class="when">2026-11-19</div>The owner looked at P8's crops (<code>outputs/ml29_p8/review/index.html</code>) and
+      closed the ticket: &ldquo;P8 crops are okay, I think we can close ml-29&rdquo;. The store's push to the DVC remote was
+      still running (1,592 of 6,214 objects to go at 05:00 UTC); its check on the remote follows in the plan's Activity.
+      Follow-up: the segmenter's next fine-tune reads the gain-map photos (ADR 0041, <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a>).</div>
   </div>
 
   <footer>Related: <a href="ml-0020_ticket_hdr_gain_maps.html">ML-20</a> and
