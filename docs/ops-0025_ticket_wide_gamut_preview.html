@@ -10,10 +10,10 @@
     sRGB. This ticket adds tabs under the live page's preview that flip between today's preview and three wide-gamut
     ones (P3 JPEG, 10-bit AVIF, JPEG XL); the owner compares them on a Pixel 9 Pro and an iPhone and keeps one. Gamut
     only: HDR brightness is <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>. Decisions settled
-    2026-11-19; not planned, not implemented.</p>
+    2026-11-19; planned, P1&ndash;P3 implemented 2026-11-19, not deployed.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-18; decisions settled 2026-11-19; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-18; decisions settled 2026-11-19; planned 2026-11-19 (<a href="ops-0025_plan_wide_gamut_preview.html">P1&ndash;P6</a>); P1&ndash;P3 implemented 2026-11-19, tested here, not deployed; the plan's Q1 open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: what the page shows</span></div>
@@ -219,6 +219,12 @@
       trial moved from a test version to visible tabs on the live page; R1 answered by ML-19's measurement; gamut
       only, with HDR brightness written as ML-34. "Preview" added to GLOSSARY.md. Triage to ready-for-agent. Not
       planned, not implemented.</div>
+    <div><div class="when">2026-11-19</div>Planned (<a href="ops-0025_plan_wide_gamut_preview.html">P1&ndash;P6</a>)
+      and P1&ndash;P3 implemented: the third part on the inference host (<code>coffeecv/preview_formats.py</code>), the
+      page's four tabs, the smoke's and <code>--verify</code>'s checks of the part. Here, on the smoke photo: the three
+      files 461 KB, built in 581 ms after the classification; the host's numbers are P4's. In headless Chromium 156 the
+      tabs work and the overlay holds on each, and the AVIF and the JPEG XL, D1's BT.709 transfer, show about 11 levels
+      darker than the two JPEGs: the plan's Q1, which P4 waits on. Not deployed.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,

@@ -723,22 +723,26 @@ def usable_cpus() -> int:
         return os.cpu_count() or 1
 
 
-def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
-    """A canonical photo's 8-bit sRGB, H x W x 3 uint8 (D7): decoded at 16 bits, LittleCMS without its lossy
-    optimization (the same as float32's output, P1), relative colorimetric, clipped and rounded. Anything else is
-    refused with NotCanonical; a canonical header over a broken codestream raises Unreadable.
-
-    ML-21: libjxl decodes on `numthreads` threads and the strips are converted on as many (None: every CPU this
-    process may use). Neither libjxl's decode nor a strip's conversion depends on the thread count, so the pixels
-    do not either; imagecodecs releases the GIL in both."""
+def decode_canonical(data: bytes, numthreads: int | None = None) -> np.ndarray:
+    """A canonical photo's own samples, H x W x 3 uint16 Rec.2020 with the BT.709 transfer (D7): the first of
+    load_canonical's two steps, apart for the page's wide-gamut previews (ticket OPS-25 P1). Anything else is refused
+    with NotCanonical; a canonical header over a broken codestream raises Unreadable. libjxl decodes on `numthreads`
+    threads (None: every CPU this process may use); its output does not depend on the count (ML-21)."""
     problems = canonical_problems(data)
     if problems:
         raise NotCanonical("not a canonical photo: " + "; ".join(problems))
-    threads = numthreads or usable_cpus()
     try:
-        rec = ic.jpegxl_decode(data, numthreads=threads)
+        return ic.jpegxl_decode(data, numthreads=numthreads or usable_cpus())
     except (ic.JpegxlError, ValueError, RuntimeError) as exc:   # a canonical header over a broken codestream
         raise Unreadable(f"unreadable canonical photo ({type(exc).__name__})") from exc
+
+
+def rec2020_to_srgb(rec: np.ndarray, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
+    """decode_canonical's samples as 8-bit sRGB, H x W x 3 uint8 (D7), load_canonical's second step: LittleCMS without
+    its lossy optimization (the same as float32's output, P1), relative colorimetric, clipped and rounded, in strips
+    of `strip` rows on `numthreads` threads (None: every CPU this process may use). A strip's conversion does not
+    depend on the thread count, so the pixels do not either; imagecodecs releases the GIL."""
+    threads = numthreads or usable_cpus()
     out = np.empty(rec.shape, np.uint8)
 
     def convert(y: int) -> None:
@@ -755,8 +759,15 @@ def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None)
     return out
 
 
+def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
+    """A canonical photo's 8-bit sRGB, H x W x 3 uint8 (D7): what every model reads, in training and in serving.
+    decode_canonical, then rec2020_to_srgb, both on `numthreads` threads (ML-21: the pixels do not depend on it)."""
+    return rec2020_to_srgb(decode_canonical(data, numthreads), strip, numthreads)
+
+
 __all__ = ["CAP_PIXELS", "FRONT_SETTINGS", "KEEP_MAX_PIXELS", "NotCanonical", "STORE_SETTINGS", "Settings",
            "TooLarge", "Unreadable", "applied_orientation",
            "canonical_path",
-           "canonical_problems", "canonicalize", "canonicalize_file", "canonicalize_with", "Made", "capped_size", "decode", "encode",
-           "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "to_rec2020"]
+           "canonical_problems", "canonicalize", "canonicalize_file", "canonicalize_with", "Made", "capped_size", "decode",
+           "decode_canonical", "encode",
+           "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "rec2020_to_srgb", "to_rec2020"]

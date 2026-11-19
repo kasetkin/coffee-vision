@@ -65,7 +65,8 @@ FRONT_CODE = [
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "bean_scale", "canonical", "class_list", "colour_declaration", "config", "crop_tray", "geometry", "infer",
     "jxl_encode",
-    "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans", "tone_map", "linear_dng")] + [
+    "jxl_header", "litert", "model_io", "photo_io", "sam_loader", "segment_beans", "tone_map", "linear_dng",
+    "preview_formats")] + [   # ticket OPS-25 P1: the page's wide-gamut previews
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13).
     "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"]
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them

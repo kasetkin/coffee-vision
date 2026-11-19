@@ -22,6 +22,7 @@ training environment, which has torch), through the same classify_one:
 Locally, two outputs are compared with:
 
     python release_probe.py compare-smoke EXPECTED.json SMOKE_OUTPUT.txt
+    python release_probe.py check-previews EXPECTED.json ANSWER.ndjson     # an answer's third part (OPS-25, --verify)
     python release_probe.py compare-classify --d7 TORCH.json RELEASE.json   # ML-7 D7's bars (deploy --compare)
     python release_probe.py compare-classify A.json B.json [--tol 1e-4]     # bit for bit, or within --tol
 """
@@ -210,11 +211,94 @@ def _compare_thumbnails(expected: str, served: str) -> tuple[str, list[str]]:
     return summary, []
 
 
+def _preview_facts(mime: str, data: bytes) -> tuple[tuple[int, int], tuple]:
+    """A wide-gamut preview's (width, height) and colour tags (ticket OPS-25 D1): a JPEG's ICC profile's sha256, an
+    AVIF's CICP and depth, a JPEG XL's colour encoding and depth. Raises on a file that does not decode."""
+    import hashlib
+
+    import imagecodecs as ic
+    from PIL import Image
+
+    if mime == "image/jpeg":
+        im = Image.open(io.BytesIO(data))
+        im.load()
+        icc = im.info.get("icc_profile")
+        return im.size, (im.format, im.mode, icc and hashlib.sha256(icc).hexdigest()[:16])
+    if mime == "image/avif":
+        a = ic.avif_decode(data)
+        return (a.shape[1], a.shape[0]), (str(a.dtype), int(a.max()) <= 1023, _repo().preview_formats.avif_cicp(data))
+    if mime == "image/jxl":
+        a = ic.jpegxl_decode(data)
+        c = _repo().jxl_header.read_header(data).colour
+        return (a.shape[1], a.shape[0]), (str(a.dtype), (c.primaries, c.transfer, c.white_point))
+    raise ValueError(f"no check for {mime}")
+
+
+def _repo():
+    """The repo's coffeecv, for the previews' colour tags: an AVIF's CICP and a JPEG XL's header. The checks that use
+    it run here, from a checkout (compare-smoke, check-previews), never inside a release."""
+    repo = str(Path(__file__).resolve().parents[2])
+    if repo not in sys.path:
+        sys.path.append(repo)
+    import coffeecv.jxl_header
+    import coffeecv.preview_formats
+    return coffeecv
+
+
+def check_previews(expected: dict | None, served: dict | None) -> tuple[str, list[str]]:
+    """The served previews part against the expected one (ticket OPS-25 D5): the same formats in the same order, each
+    sent as its type, decoding at the expected size with the expected colour tags. Not their pixels: two machines'
+    encoders may differ. (summary of each file's size, failures)."""
+    if served is None:
+        return "", ["no previews part"]
+    e, s = expected["previews"], served.get("previews") or {}
+    if list(s) != list(e):
+        return "", [f"previews are [{', '.join(s)}], expected [{', '.join(e)}]"]
+    summary, failures = [], []
+    for name in e:
+        if s[name].get("mime") != e[name]["mime"]:
+            failures.append(f"previews {name} is sent as {s[name].get('mime')}, expected {e[name]['mime']}")
+            continue
+        data = base64.b64decode(s[name].get("data") or "")
+        want_size, want_tags = _preview_facts(e[name]["mime"], base64.b64decode(e[name]["data"]))
+        try:
+            size, tags = _preview_facts(e[name]["mime"], data)
+        except Exception as exc:
+            failures.append(f"previews {name} does not decode as {e[name]['mime']}: {type(exc).__name__}: {exc}")
+            continue
+        summary.append(f"{name} {size[0]} x {size[1]} {len(data)} B")
+        if size != want_size:
+            failures.append(f"previews {name} is {size[0]} x {size[1]}, expected {want_size[0]} x {want_size[1]}")
+        elif tags != want_tags:
+            failures.append(f"previews {name}'s colour tags are {tags}, expected {want_tags}")
+    return ", ".join(summary), failures
+
+
+def check_previews_cli(expected_file: Path, answer_file: Path) -> None:
+    """--verify's check of the third part through the domain: `answer_file` is /analyze's answer, one part a line;
+    `expected_file` holds the staged app's PROBE line on the same photo. A release whose answer has no previews part
+    expected (one from before OPS-25) is not checked."""
+    exp = _probe_line(expected_file.read_text())
+    want = next((p for p in exp["analyze"]["parts"] if p.get("part") == "previews"), None)
+    if want is None:
+        print("previews: none expected (a release from before OPS-25)")
+        return
+    parts = [json.loads(line) for line in answer_file.read_text().splitlines() if line.strip()]
+    summary, failures = check_previews(want, next((p for p in parts if p.get("part") == "previews"), None))
+    print(f"previews: {summary}")
+    for f in failures:
+        print(f"FAIL: {f}")
+    if failures:
+        raise SystemExit(1)
+
+
 def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
     """The VM's smoke answer against the one computed locally from the same staged tree: /analyze's two parts
     (ticket OPS-7 D8). The classification by verdict, top-1 and scores within SCORE_TOL; the preview's mask
     decoded, by IoU >= MASK_IOU_MIN, since the two machines' masks differ in a few pixels; its thumbnail by format
-    and size (`_compare_thumbnails`); the rest of the preview within 1e-3."""
+    and size (`_compare_thumbnails`); the rest of the preview within 1e-3. The parts are the expected answer's: since
+    OPS-25 a previews part after the classification, held to the expected one by `check_previews`, its cost (R4)
+    reported from the request log."""
     exp = _probe_line(expected_file.read_text())
     got, parts = {}, []
     for line in smoke_file.read_text().splitlines():
@@ -228,16 +312,17 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
     status, _, rest = got.get("SMOKE_ANALYZE", "").partition(" ")
     seconds, _, content_type = rest.partition(" ")
     names = [p.get("part") for p in parts]
+    want = [p.get("part") for p in exp["analyze"]["parts"]]
     if (status, content_type) != ("200", "application/x-ndjson"):
         failures.append(f"/analyze answered {status or 'nothing'} {content_type}".rstrip())
-    elif names != ["preview", "classification"]:
+    elif names != want:
         error = next((f": {p.get('message')}" for p in parts if p.get("part") == "error"), "")
         failures.append(f"/analyze answered the parts [{', '.join(map(str, names))}], expected "
-                        f"[preview, classification]{error}")
+                        f"[{', '.join(want)}]{error}")
     else:
-        print(f"  /analyze        200 in {seconds} s, parts preview, classification")
-        preview, body = parts
-        exp_preview, e = exp["analyze"]["parts"]
+        print(f"  /analyze        200 in {seconds} s, parts {', '.join(names)}")
+        preview, body = parts[:2]
+        exp_preview, e = exp["analyze"]["parts"][:2]
         if body.get("verdict") != e.get("verdict"):
             failures.append(f"classification verdict {body.get('verdict')} != expected {e.get('verdict')}")
         er, gr = e.get("ranked") or [], body.get("ranked") or []
@@ -261,8 +346,16 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
             failures.append(f"preview box differs by up to {worst:.2e}")
         print(f"  preview         cropped={preview.get('cropped')}, max box diff vs local {worst:.1e}, {mask_summary}, "
               f"{thumb_summary}")
+        if len(want) > 2:   # OPS-25 D5
+            summary, bad = check_previews(exp["analyze"]["parts"][2], parts[2])
+            failures += bad
+            print(f"  previews        {summary}")
 
     log = json.loads(got.get("SMOKE_LOG", "{}") or "{}")
+    if "previews_build_ms" in log:   # OPS-25 R4: the third part's cost on the host, reported, not gated
+        print(f"  previews cost   shrink {log.get('previews_shrink_ms')} ms, build {log['previews_build_ms']} ms, "
+              f"{log.get('previews_bytes')} bytes; classification out at {log.get('classification_ms')} ms, "
+              f"latency {log.get('latency_ms')} ms")
     served = (log.get("build") or {}).get("model_sha")
     if served != exp["build"]["model_sha"]:
         failures.append(f"model_sha served {served} != expected {exp['build']['model_sha']}")
@@ -400,6 +493,9 @@ def main() -> None:
     p = sub.add_parser("compare-smoke")
     p.add_argument("expected", type=Path)
     p.add_argument("smoke", type=Path)
+    p = sub.add_parser("check-previews", help="an /analyze answer's previews part against the expected one (OPS-25)")
+    p.add_argument("expected", type=Path)
+    p.add_argument("answer", type=Path)
     p = sub.add_parser("compare-classify")
     p.add_argument("a", type=Path)
     p.add_argument("b", type=Path)
@@ -421,6 +517,8 @@ def main() -> None:
         classify_torch(args.photos, args.checkpoint)
     elif args.cmd == "compare-smoke":
         compare_smoke(args.expected, args.smoke)
+    elif args.cmd == "check-previews":
+        check_previews_cli(args.expected, args.answer)
     else:
         compare_classify(args.a, args.b, args.tol, args.d7)
 

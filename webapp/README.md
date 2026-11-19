@@ -48,7 +48,11 @@ or the host) the page stays up and `/analyze` answers `503 {"error": "the classi
   `skip_crop`) and `seg_fallback` (no usable mask, so the whole photo is
   classified). Then `{"part": "classification"}` with the verdict and the ranked
   classes, or `{"part": "error", "message": ...}` if the classification fails
-  after the 200 has gone out. An unreadable photo is a plain 400 before any line.
+  after the 200 has gone out. During ticket OPS-25's trial a classification is
+  followed by `{"part": "previews"}`: the preview as a Display P3 JPEG, a 10-bit
+  AVIF and a JPEG XL, each `{"mime", "data"}` (base64) at the thumbnail's size,
+  for the page's format tabs (`coffeecv/preview_formats.py`). An unreadable photo
+  is a plain 400 before any line.
   The app sends `X-Accel-Buffering: no`, so both nginx servers, and the check
   service between them, pass the preview on before the classification is done.
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build

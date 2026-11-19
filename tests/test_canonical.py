@@ -469,6 +469,17 @@ class IsCanonical(unittest.TestCase):
             with self.subTest(threads=threads):
                 np.testing.assert_array_equal(cn.load_canonical(canon, numthreads=threads), one)
 
+    def test_load_canonical_is_its_two_steps(self):   # OPS-25 P1: the webapp keeps the Rec.2020 samples between them
+        a = (np.random.default_rng(5).random((300, 200, 3)) * 255).astype(np.uint8)
+        canon = cn.canonicalize(png(a))
+        rec = cn.decode_canonical(canon)
+        self.assertEqual((rec.shape, rec.dtype), ((300, 200, 3), np.dtype(np.uint16)))
+        np.testing.assert_array_equal(cn.rec2020_to_srgb(rec), cn.load_canonical(canon))
+        with self.assertRaises(cn.NotCanonical):
+            cn.decode_canonical(jpeg(patches(SRGB_PATCHES)))
+        with self.assertRaises(cn.Unreadable):
+            cn.decode_canonical(self.canon[:len(self.canon) // 2])
+
     def test_orientation_size_preview_and_animation(self):
         h = read_header(self.canon)
         self.assertEqual(cn.header_problems(h), [])

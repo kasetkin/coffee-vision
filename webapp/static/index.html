@@ -210,6 +210,30 @@
        between requests (ADR 0023), so an edited box is a second upload of
        the photo, carrying the edit, as "Use full photo instead" is. */
   }
+  /* The preview's formats (ticket OPS-25 D2), a trial: under the preview, flipped in place, today's sRGB JPEG first
+     and selected. Each tab says its file's size, "loading" until the previews part comes, or that this browser cannot
+     show it. */
+  #preview-tabs {
+    display: none;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+  }
+  #preview-tabs button {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0.3rem 0.6rem;
+    border-radius: 1rem;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+  #preview-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+  #preview-tabs .size { display: block; font-size: 0.7rem; opacity: 0.85; }
   #outline-label {
     display: none;
     width: fit-content;
@@ -341,6 +365,13 @@
         <div id="crop-overlay"></div>
       </div>
     </div>
+    <!-- Ticket OPS-25 D2: the trial's format tabs, in the previews part's order after today's preview. -->
+    <div id="preview-tabs" role="tablist" aria-label="Preview format">
+      <button type="button" role="tab" data-format="srgb_jpeg">sRGB JPEG<span class="size"></span></button>
+      <button type="button" role="tab" data-format="p3_jpeg">P3 JPEG<span class="size"></span></button>
+      <button type="button" role="tab" data-format="avif10">AVIF 10-bit<span class="size"></span></button>
+      <button type="button" role="tab" data-format="jxl">JPEG XL<span class="size"></span></button>
+    </div>
     <label id="outline-label"><input id="outline-toggle" type="checkbox" checked> Show outline</label>
     <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
@@ -383,6 +414,7 @@ const resultEl = document.getElementById('result');
 const examplesEl = document.getElementById('examples');
 const exampleRow = document.getElementById('example-row');
 const formatsToggle = document.getElementById('formats-toggle');
+const previewTabs = document.getElementById('preview-tabs');
 const examplesToggle = document.getElementById('examples-toggle');
 
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
@@ -745,7 +777,7 @@ function choose(file, example, r) {
 function clearPhoto() {
   currentUpload++;
   resultEl.innerHTML = '';
-  hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
+  hide(previewWrap, previewTabs, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
   lastCropBox = null;
   lastMask = null;
   lastFile = lastExample = null;
@@ -837,6 +869,7 @@ function showSending(on) {
 async function analyze(file, skipCrop, example, r) {
   const upload = ++currentUpload;
   const isStale = () => upload !== currentUpload;
+  let previewPart = null, answered = false;
   setBusy(true);
   try {
     const res = await postAnalyze(file, skipCrop, isStale, r);
@@ -855,7 +888,6 @@ async function analyze(file, skipCrop, example, r) {
       endRun(refusalOutcome(res.status, data), r);
       return;
     }
-    let previewPart = null, answered = false;
     for await (const part of res.parts()) {
       if (isStale()) return;
       showSending(false);
@@ -869,6 +901,7 @@ async function analyze(file, skipCrop, example, r) {
       } else if (part.part === 'classification') {
         mark(r, 'to_answer_ms', r.sentAt);
         answered = true;
+        spinner.style.display = 'none';   // OPS-25: the answer is in; the controls wait for the previews part
         render(part);
         if (example) renderTruth(example);
         // D1: only if the whole photo was not already used.
@@ -881,8 +914,12 @@ async function analyze(file, skipCrop, example, r) {
         answered = true;
         renderRefused(part.message);
         endRun('failed', r);
+      } else if (part.part === 'previews') {
+        await showPreviews(part, isStale);
+        if (isStale()) return;
       }
     }
+    if (!isStale()) settlePreviewTabs();
     // R4: a stream cut before its second part (a dropped connection, the
     // worker killed at 30 s) is not left waiting.
     if (!answered && !isStale()) {
@@ -890,7 +927,10 @@ async function analyze(file, skipCrop, example, r) {
       endRun('cut', r);
     }
   } catch (err) {
-    if (!isStale()) {
+    if (answered && !isStale()) {
+      // OPS-25: cut while the previews part crossed, after the answer: the answer stays, the tabs say so.
+      settlePreviewTabs();
+    } else if (!isStale()) {
       renderRefused(UNREACHABLE);
       const last = r.attempts[r.attempts.length - 1];
       if (last && last.status) endRun('cut', r);   // the answer had begun
@@ -1041,6 +1081,7 @@ async function showPreview(part, isStale) {
   preview.onload = renderOverlay;
   preview.src = src;
   previewWrap.style.display = 'block';
+  resetPreviewTabs(src, part.thumbnail);
   renderOverlay();
   // The two notes cannot fire together: a segmenter model's needs_review is
   // always false (coffeecv/infer.py).
@@ -1053,6 +1094,72 @@ async function showPreview(part, isStale) {
     cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
     cropNote.style.display = 'block';
   }
+}
+
+// The trial's format tabs (ticket OPS-25 D2, D5): today's preview selected, the three others "loading" until the
+// previews part. Each is the same size as today's preview, so the overlay stays where it is on every tab (R5): a
+// tab only swaps #preview's src, whose load redraws it.
+let previewSources = {};
+const tabFor = format => previewTabs.querySelector(`[data-format="${format}"]`);
+
+function base64Bytes(b64) {
+  return Math.floor(b64.length * 3 / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
+}
+
+function setTab(format, note, usable) {
+  const tab = tabFor(format);
+  if (!tab) return;
+  tab.querySelector('.size').textContent = note;
+  tab.disabled = !usable;
+}
+
+function selectPreview(format) {
+  if (!previewSources[format]) return;
+  for (const tab of previewTabs.querySelectorAll('button')) {
+    tab.setAttribute('aria-selected', String(tab.dataset.format === format));
+  }
+  if (preview.src !== previewSources[format]) preview.src = previewSources[format];
+}
+
+function resetPreviewTabs(src, b64) {
+  previewSources = {srgb_jpeg: src};
+  for (const tab of previewTabs.querySelectorAll('button')) {
+    const format = tab.dataset.format;
+    if (format === 'srgb_jpeg') setTab(format, `${Math.round(base64Bytes(b64) / 1024)} KB`, true);
+    else setTab(format, 'loading', false);
+  }
+  selectPreview('srgb_jpeg');
+  previewTabs.style.display = 'flex';
+}
+
+// The previews part: each file decoded before its tab is offered, so a format this browser cannot show says so.
+async function showPreviews(part, isStale) {
+  await Promise.all(Object.entries(part.previews || {}).map(async ([format, file]) => {
+    const src = `data:${file.mime};base64,${file.data}`;
+    const img = new Image();
+    img.src = src;
+    let ok = true;
+    try {
+      await img.decode();
+    } catch (err) {
+      ok = false;
+    }
+    if (isStale()) return;
+    const size = `${Math.round(base64Bytes(file.data) / 1024)} KB`;
+    if (ok) previewSources[format] = src;
+    setTab(format, ok ? size : `${size}, can't show`, ok);
+  }));
+}
+
+// The stream has ended: a tab still loading never came (an error part, or the previews failed on the server).
+function settlePreviewTabs() {
+  for (const tab of previewTabs.querySelectorAll('button')) {
+    if (tab.querySelector('.size').textContent === 'loading') setTab(tab.dataset.format, 'not sent', false);
+  }
+}
+
+for (const tab of previewTabs.querySelectorAll('button')) {
+  tab.addEventListener('click', () => selectPreview(tab.dataset.format));
 }
 
 function renderRefused(message) {

@@ -25,7 +25,9 @@ from PIL import Image
 
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "webapp" / "deploy"))
-from release_probe import compare_classify, compare_smoke  # noqa: E402
+if str(REPO) not in sys.path:   # run as a script too: the previews are made by coffeecv
+    sys.path.insert(0, str(REPO))
+from release_probe import check_previews, check_previews_cli, compare_classify, compare_smoke  # noqa: E402
 
 BUILD = {"model_sha": "1ef12a19f56c9070", "code": {"commit": "0123456789abcdef0123456789abcdef01234567"}}
 BOX = [0.11366666666666667, 0.25325, 0.881, 0.7655]
@@ -57,6 +59,17 @@ def _preview(mask: np.ndarray | None, box=BOX, thumbnail: str | None = None) -> 
     return {"part": "preview", "thumbnail": thumbnail or _jpeg_b64(), "cropped": mask is not None,
             "box": box if mask is not None else None, "needs_review": False,
             "mask": None if mask is None else _png_b64(mask), "seg_fallback": mask is None}
+
+
+def _previews(size: tuple[int, int] = (768, 1024)) -> dict:
+    """The third part (ticket OPS-25 D5), made by the module that makes it, on a flat Rec.2020 photo of `size`."""
+    from coffeecv import preview_formats as pf
+    files = pf.encode_all(np.full((size[1], size[0], 3), 30000, np.uint16))
+    return {"part": "previews", "previews": {n: {"mime": pf.MIME[n], "data": base64.b64encode(b).decode("ascii")}
+                                             for n, b in files.items()}}
+
+
+PREVIEWS = _previews()
 
 
 class TestSmokeMore(unittest.TestCase):
@@ -112,17 +125,20 @@ class TestCompareSmoke(unittest.TestCase):
         self.boot = None   # the SMOKE_BOOT record, when a test sets one
 
     def compare(self, expected_preview: dict, served_preview: dict | None, served_rest=(CLASSIFICATION,),
-                status: str = "200", content_type: str = "application/x-ndjson") -> tuple[bool, str]:
-        """compare_smoke on the two previews, the classifications agreeing unless `served_rest` says otherwise:
-        (passed, what it printed)."""
+                status: str = "200", content_type: str = "application/x-ndjson", expected_rest=(),
+                log: dict | None = None) -> tuple[bool, str]:
+        """compare_smoke on the two previews, the classifications agreeing unless `served_rest` says otherwise, and
+        the expected answer's parts after them `expected_rest` (OPS-25: the previews part): (passed, what it
+        printed)."""
         exp = self.dir / "expected.json"
         exp.write_text("PROBE " + json.dumps({"build": BUILD, "analyze": {
-            "status": 200, "content_type": "application/x-ndjson", "parts": [expected_preview, CLASSIFICATION]}}) + "\n")
+            "status": 200, "content_type": "application/x-ndjson",
+            "parts": [expected_preview, CLASSIFICATION, *expected_rest]}}) + "\n")
         served = [p for p in (served_preview, *served_rest) if p is not None]
         smoke = self.dir / "smoke.txt"
         smoke.write_text(f"SMOKE_ANALYZE {status} 7.25 {content_type}\n"
                          + "".join(f"SMOKE_PART {json.dumps(p)}\n" for p in served)
-                         + f"SMOKE_LOG {json.dumps({'build': BUILD})}\n"
+                         + f"SMOKE_LOG {json.dumps({'build': BUILD, **(log or {})})}\n"
                          + (f"SMOKE_BOOT {json.dumps(self.boot)}\n" if self.boot else ""))
         out = io.StringIO()
         try:
@@ -217,6 +233,29 @@ class TestCompareSmoke(unittest.TestCase):
         passed, out = self.compare(_preview(self.mask), _preview(self.mask), served_rest=(other,))
         self.assertFalse(passed, out)
         self.assertIn("FAIL: classification top-1", out)
+
+    def test_the_previews_part_passes_and_its_cost_is_reported(self):   # OPS-25 R4
+        log = {"latency_ms": 9100, "classification_ms": 8400, "previews_shrink_ms": 90, "previews_build_ms": 610,
+               "previews_bytes": 460000}
+        passed, out = self.compare(_preview(self.mask), _preview(self.mask), served_rest=(CLASSIFICATION, PREVIEWS),
+                                   expected_rest=(PREVIEWS,), log=log)
+        self.assertTrue(passed, out)
+        self.assertIn("parts preview, classification, previews", out)
+        self.assertIn("previews        p3_jpeg 768 x 1024 ", out)
+        self.assertIn("previews cost   shrink 90 ms, build 610 ms, 460000 bytes; classification out at 8400 ms, "
+                      "latency 9100 ms", out)
+
+    def test_a_missing_previews_part_fails(self):
+        passed, out = self.compare(_preview(self.mask), _preview(self.mask), expected_rest=(PREVIEWS,))
+        self.assertFalse(passed, out)
+        self.assertIn("FAIL: /analyze answered the parts [preview, classification], expected "
+                      "[preview, classification, previews]", out)
+
+    def test_wrong_previews_fail(self):
+        passed, out = self.compare(_preview(self.mask), _preview(self.mask),
+                                   served_rest=(CLASSIFICATION, _previews((767, 1024))), expected_rest=(PREVIEWS,))
+        self.assertFalse(passed, out)
+        self.assertIn("FAIL: previews p3_jpeg is", out)
 
     def test_the_boot_record_is_reported(self):
         gpu = {"ok": True, "why_not": [], "busy_frac": 0.71,
@@ -324,6 +363,70 @@ class TestCompareD7(unittest.TestCase):
         passed, out = self.compare(self.photos(12), self.photos(12), release_sha="0" * 16)
         self.assertFalse(passed)
         self.assertIn("different models", out)
+
+
+class TestCheckPreviews(unittest.TestCase):
+    """check_previews (OPS-25 D5): the served third part against the expected one, as --verify and the smoke hold it."""
+
+    def test_the_same_part_passes_and_is_summarised(self):
+        summary, failures = check_previews(PREVIEWS, PREVIEWS)
+        self.assertEqual(failures, [])
+        self.assertRegex(summary, r"^p3_jpeg 768 x 1024 \d+ B, avif10 768 x 1024 \d+ B, jxl 768 x 1024 \d+ B$")
+
+    def test_a_missing_part_fails(self):
+        self.assertEqual(check_previews(PREVIEWS, None)[1], ["no previews part"])
+
+    def test_a_missing_or_reordered_format_fails(self):
+        served = {**PREVIEWS, "previews": dict(reversed(list(PREVIEWS["previews"].items())))}
+        self.assertEqual(check_previews(PREVIEWS, served)[1],
+                         ["previews are [jxl, avif10, p3_jpeg], expected [p3_jpeg, avif10, jxl]"])
+
+    def test_another_size_fails(self):
+        failures = check_previews(PREVIEWS, _previews((768, 1023)))[1]
+        self.assertEqual(len(failures), 3, failures)
+        self.assertIn("previews p3_jpeg is 768 x 1023, expected 768 x 1024", failures)
+
+    def test_a_file_that_does_not_decode_or_lost_its_colour_tags_fails(self):
+        p3 = base64.b64decode(PREVIEWS["previews"]["p3_jpeg"]["data"])
+        buf = io.BytesIO()
+        Image.open(io.BytesIO(p3)).save(buf, "JPEG")   # the same pixels, no ICC profile
+        served = json.loads(json.dumps(PREVIEWS))
+        served["previews"]["p3_jpeg"]["data"] = base64.b64encode(buf.getvalue()).decode("ascii")
+        served["previews"]["jxl"]["data"] = base64.b64encode(b"not a jxl").decode("ascii")
+        failures = check_previews(PREVIEWS, served)[1]
+        self.assertEqual(len(failures), 2, failures)
+        self.assertTrue(failures[0].startswith("previews p3_jpeg's colour tags are"), failures)
+        self.assertTrue(failures[1].startswith("previews jxl does not decode"), failures)
+
+    def test_another_mime_fails(self):
+        served = json.loads(json.dumps(PREVIEWS))
+        served["previews"]["avif10"]["mime"] = "image/png"
+        self.assertIn("previews avif10 is sent as image/png, expected image/avif", check_previews(PREVIEWS, served)[1])
+
+    def test_the_cli_checks_an_answer_and_skips_a_release_from_before_ops25(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        d = Path(tmp.name)
+
+        def run(expected_parts: list, answer_parts: list) -> tuple[bool, str]:
+            (d / "exp.json").write_text("PROBE " + json.dumps({"analyze": {"parts": expected_parts}}) + "\n")
+            (d / "answer.ndjson").write_text("".join(json.dumps(p) + "\n" for p in answer_parts))
+            out = io.StringIO()
+            try:
+                with contextlib.redirect_stdout(out):
+                    check_previews_cli(d / "exp.json", d / "answer.ndjson")
+            except SystemExit as e:
+                return e.code == 0, out.getvalue()
+            return True, out.getvalue()
+
+        two = [_preview(None), CLASSIFICATION]
+        self.assertEqual(run(two, two), (True, "previews: none expected (a release from before OPS-25)\n"))
+        passed, out = run([*two, PREVIEWS], [*two, PREVIEWS])
+        self.assertTrue(passed, out)
+        self.assertTrue(out.startswith("previews: p3_jpeg 768 x 1024 "), out)
+        passed, out = run([*two, PREVIEWS], two)
+        self.assertFalse(passed, out)
+        self.assertIn("FAIL: no previews part", out)
 
 
 if __name__ == "__main__":

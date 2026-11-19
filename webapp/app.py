@@ -4,7 +4,8 @@ model, no state. /analyze runs `coffeecv.infer.classify_one`'s two steps,
 its scale/OOD logic, so this service and the CLI can never silently drift on
 what counts as a refusal (see `coffeecv/infer.py`'s own docstring on parity).
 Its answer streams back in two parts, the preview and then the classification
-(ticket OPS-7, ADR 0023).
+(ticket OPS-7, ADR 0023), and during ticket OPS-25's trial a third, the preview in
+three wide-gamut formats (D5).
 
 Model, config, class labels and the OOD reference are all loaded once here, at
 import time -- gunicorn is run with a single sync worker (see
@@ -28,6 +29,7 @@ import resource
 import subprocess
 import time
 import uuid
+from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from logging.handlers import WatchedFileHandler
 from pathlib import Path
@@ -46,6 +48,7 @@ from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PRO
                             reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv import canonical  # noqa: E402
+from coffeecv import preview_formats  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -193,6 +196,7 @@ class _JsonFormatter(logging.Formatter):
 
     _FIELDS = (
         "request_id", "endpoint", "status", "latency_ms", "preview_ms", "preview_build_ms", "outcome", "parts_sent",
+        "classification_ms", "previews_shrink_ms", "previews_build_ms", "previews_bytes",
         "model", "build",
         "verdict",
         "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
@@ -310,6 +314,7 @@ def _write_request_line(status: int) -> None:
         "build": BUILD,
     }
     for field in ("preview_ms", "preview_build_ms", "outcome", "parts_sent",
+                  "classification_ms", "previews_shrink_ms", "previews_build_ms", "previews_bytes",
                   "verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
                   "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
@@ -455,11 +460,12 @@ def _mask_png_b64(mask: np.ndarray) -> str:
 
 @app.post("/analyze")
 def analyze():
-    """One photo, one upload, one answer in two parts (ticket OPS-7, ADR 0023): `application/x-ndjson`, one JSON
+    """One photo, one upload, one answer in parts (ticket OPS-7, ADR 0023): `application/x-ndjson`, one JSON
     object per line. The photo is decoded and segmented once, before the answer starts, so an unreadable photo is
     still a plain 400 and a segmenter error the error handler's 500. Then the stream: the preview part
     (`_preview_part`), then the classification part, `_entry_to_response`'s body, or an error part if the
-    classification fails, since the 200 has gone out with the preview (R4).
+    classification fails, since the 200 has gone out with the preview (R4). After a classification, during ticket
+    OPS-25's trial, the previews part (`_previews_part`, D5).
 
     skip_crop=1 is the user's override (D1, "Use full photo instead"): the segmenter does not run and the whole
     photo is classified -- the server never takes a box from the client, only this one bit. Its preview has no
@@ -481,27 +487,47 @@ def analyze():
         return jsonify(error="not a canonical photo (the front canonicalizes uploads): " + "; ".join(problems)), 400
     t0 = time.monotonic()
     try:
-        photo = canonical.load_canonical(data)
+        rec = canonical.decode_canonical(data)
     except (ValueError, OSError) as exc:
         _log_decode_failure(exc)
         return jsonify(error=f"could not read this as an image: {exc}"), 400
     del data
+    photo = canonical.rec2020_to_srgb(rec)   # load_canonical's two steps: what the models read
     decode_ms = round((time.monotonic() - t0) * 1000)
+    small = _shrink_aside(rec)   # OPS-25 P1: the third part's samples, while the photo is segmented
+    del rec
     g.decoded_h, g.decoded_w = photo.shape[:2]
     seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter, decode_ms=decode_ms)
     t0 = time.monotonic()
     preview = _preview_part(seg)
     g.preview_build_ms = round((time.monotonic() - t0) * 1000)   # OPS-3 D6 step 12: the thumbnail, mask and box
     g.stream_logs_itself = True
-    return Response(stream_with_context(_analyze_stream(seg, preview)), mimetype="application/x-ndjson",
+    return Response(stream_with_context(_analyze_stream(seg, preview, small)), mimetype="application/x-ndjson",
                     # Both nginx servers stream it only if asked to; ours passes the header on (OPS-7 D11).
                     headers={"X-Accel-Buffering": "no"})
 
 
-def _analyze_stream(seg, preview: dict):
-    """/analyze's two lines, and its one request-log line when the stream ends, however it ends (OPS-7 R2, D19):
+def _shrink_aside(rec: np.ndarray) -> Future:
+    """The Rec.2020 samples at the preview's size (`preview_formats.shrink`) and the milliseconds it took, made on a
+    thread of its own (OPS-25 P1): the previews part needs them only after the classification, so neither the preview
+    part nor the classification waits for them; the full-size samples go once it is done. A pool per call, as
+    canonical's: no thread is left over across gunicorn's fork."""
+    def run() -> tuple[np.ndarray, int]:
+        t0 = time.monotonic()
+        return preview_formats.shrink(rec, PREVIEW_MAX_DIM), round((time.monotonic() - t0) * 1000)
+
+    pool = ThreadPoolExecutor(1)
+    try:
+        return pool.submit(run)
+    finally:
+        pool.shutdown(wait=False)
+
+
+def _analyze_stream(seg, preview: dict, small: Future):
+    """/analyze's lines, and its one request-log line when the stream ends, however it ends (OPS-7 R2, D19):
     `outcome` is complete, error, or client_gone (the generator closed at a yield: the client left, or the server
-    gave up writing to it), and `parts_sent` counts the lines handed to the server."""
+    gave up writing to it), and `parts_sent` counts the lines handed to the server. After a classification, the
+    previews part (OPS-25 D5): the answer is complete without it, so its failure is logged and the part left out."""
     g.parts_sent, g.outcome = 0, "client_gone"
     try:
         g.parts_sent, g.preview_ms = 1, round((time.monotonic() - g.t0) * 1000)   # D13: when the preview went out
@@ -516,15 +542,39 @@ def _analyze_stream(seg, preview: dict):
             _log_exception(exc)
             line, ending = {"part": "error", "message": "Something went wrong -- try a different photo."}, "error"
         g.parts_sent = 2
+        g.classification_ms = round((time.monotonic() - g.t0) * 1000)   # OPS-25 R4: latency_ms now ends later
         yield json.dumps(line) + "\n"
         g.outcome = ending
+        if ending == "complete":
+            try:
+                samples, g.previews_shrink_ms = small.result()
+                t0 = time.monotonic()
+                previews = _previews_part(samples)
+                g.previews_build_ms = round((time.monotonic() - t0) * 1000)
+            except Exception as exc:
+                _log_exception(exc)
+            else:
+                g.parts_sent = 3
+                yield json.dumps(previews) + "\n"
     finally:
         _write_request_line(200)
 
 
+def _previews_part(small: np.ndarray) -> dict:
+    """The answer's third part during ticket OPS-25's trial (D1, D5): the preview in three wide-gamut formats, made
+    from the canonical photo's Rec.2020 samples at the preview's size (`coffeecv.preview_formats`), each as
+    {"mime", "data": base64}, in the page's order. `previews_bytes` is their size before base64."""
+    files = preview_formats.encode_all(small)
+    g.previews_bytes = sum(len(b) for b in files.values())
+    return {"part": "previews", "previews": {name: {"mime": preview_formats.MIME[name],
+                                                    "data": base64.b64encode(b).decode("ascii")}
+                                             for name, b in files.items()}}
+
+
 def _preview_part(seg) -> dict:
     """The answer's first part (ticket OPS-7 D8): the photo as a JPEG thumbnail, so the browser never needs to
-    decode HEIC/AVIF/JXL/RAW itself, and guaranteed to be the pixels the model sees (`load_rgb_image`'s); the
+    decode HEIC/AVIF/JXL/RAW itself, and the canonical photo as the page shows it (OPS-25 D7): its 8-bit sRGB, the
+    pixels the model reads (`canonical.rec2020_to_srgb`'s); the
     whole photo's bean mask (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model);
     `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. Display only: nothing here is
     ever trusted back from the client.

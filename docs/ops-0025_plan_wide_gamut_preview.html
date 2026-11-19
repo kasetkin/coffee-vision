@@ -1,0 +1,227 @@
+<title>Implementation plan: wide-gamut preview tabs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · OPS-25 · coffee-vision · implementation</div>
+  <h1>Implementation plan: wide-gamut preview tabs</h1>
+  <p class="lede">The order of work for <a href="ops-0025_ticket_wide_gamut_preview.html">ticket OPS-25</a>. Three
+    strands: the inference host's third part (P1), the page's tabs (P2) and the deploy's checks of the part (P3), all
+    local and changing no answer; then the release, the first step a visitor sees (P4), the owner's look (P5) and
+    adoption or removal (P6).</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-19; P1&ndash;P3 implemented; Q1 open, P4 waits on it and on the owner's go</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ops-0025_ticket_wide_gamut_preview.html"><code>ops-0025_ticket_wide_gamut_preview.html</code></a> (OPS-25)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-19</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">Q1 (P4 only)</span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>6a28a84</code>, not from the ticket alone, and from P2's run in a
+      browser. Seven things the ticket does not cover turned up. They are folded in below; the seventh needs a
+      decision, Q1 (§2).</p>
+    <ol>
+      <li><b>The Rec.2020 samples are gone before the preview is made.</b> <code>load_canonical</code> decodes them
+        and keeps only the 8-bit sRGB. It is split in two (<code>decode_canonical</code>, <code>rec2020_to_srgb</code>;
+        <code>load_canonical</code> is still their composition, so training and the store read the same pixels), and
+        the app shrinks the 16-bit samples to the preview's size before it lets go of them. Pillow's own
+        <code>thumbnail</code> on each channel, as 32-bit integers (Pillow cannot reduce 16-bit grey), so the four tabs
+        share one size and one filter: 0.07 s for a 12 MP photo here, on three threads, idle; 0.18 s in the app, beside
+        the model's threads. In line, that would have come before the preview part, so it runs on a thread of its own
+        while the photo is segmented (<code>_shrink_aside</code>), and the previews part waits for it. The cost: the
+        full-size samples (72 MB at 12 MP, 90 MB at the front's 15 MP) live until the shrink ends, a fraction of a
+        second into segmentation, and the shrink shares the CPU with it. P4 holds the host's <code>preview_ms</code>
+        and <code>classification_ms</code> to today's on the smoke photo (P1).</li>
+      <li><b>The request line's <code>latency_ms</code> would grow by the third part.</b> It is written when the
+        stream ends. A new <code>classification_ms</code> says when the classification went out, as
+        <code>preview_ms</code> does for the preview; <code>previews_shrink_ms</code>,
+        <code>previews_build_ms</code> and <code>previews_bytes</code> are R4's measurement on every answer (P1).</li>
+      <li><b>The front's one-at-a-time gate holds until the stream ends.</b> A visitor who picks a photo right after
+        another's answer waits for the third part too: its encodes and its crossing. R4 is measured on the host in P4;
+        the page's controls stay disabled until the stream ends, as today, and the spinner goes at the
+        classification (P2).</li>
+      <li><b>The public API documents two parts.</b> <code>openapi.json</code>, <code>llms.txt</code> and
+        <code>webapp/README.md</code> say the third part comes, during a trial, and that a caller may ignore it
+        (P1).</li>
+      <li><b>The smoke's comparison wants exactly two parts.</b> <code>release_probe.py compare-smoke</code> fails
+        any other list, so a release with a third part fails its own smoke until P3 changes it.</li>
+      <li><b>No Display P3 profile is in the repo.</b> LittleCMS builds one at import: Display P3's primaries, D65,
+        the sRGB curve as a 256-point table (2,124 bytes, exact against LittleCMS's own sRGB curve on 8-bit
+        samples).</li>
+      <li><b>Chromium shows D1's BT.709 transfer darker than the canonical photo reads.</b> In headless Chromium 156
+        (this container's, <code>--force-color-profile=srgb</code>), on the smoke photo's previews shown bare, the sRGB
+        and P3 JPEGs average (127.7, 119.1, 105.4) and (127.8, 119.1, 105.4), the AVIF (116.4, 108.2, 92.5) and the
+        JPEG XL (117.2, 107.9, 93.2): about 11 levels darker. Decoding the samples with a 2.4 gamma, BT.1886's display
+        curve, predicts (116.2, 105.6, 90.4); the canonical photo's profile, LittleCMS and the models use the inverse
+        of BT.709's camera curve. So in Chrome the two tabs differ from today's in brightness as well as gamut, which
+        is not what the trial compares. Not seen on a phone yet; Safari may differ. Q1.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1&ndash;P3 add a part after the classification and change no part before it: the preview's and the
+    classification's bytes are held equal to today's by the existing tests. P4 is the first step anyone sees.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The third part on the inference host</td><td>local</td><td>no: the first two parts unchanged</td></tr>
+      <tr><td class="id">P2</td><td>The page's tabs</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P3</td><td>The smoke and <code>--verify</code> check the third part</td><td>local</td><td>no</td></tr>
+      <tr><td class="id">P4</td><td>Measure on the host, release, verify <span class="pill sm open">stop</span></td><td>both hosts</td><td>no: R4's measurement</td></tr>
+      <tr><td class="id">P5</td><td>The owner's look on a Pixel 9 Pro and an iPhone <span class="pill sm open">stop</span></td><td>owner</td><td>no</td></tr>
+      <tr><td class="id">P6</td><td>Adoption (D6) or removal</td><td>local, both hosts</td><td>no</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>From P2's run in a browser (finding 7), not from the ticket's decisions. The encoders' speed settings are this
+    plan's (P1) and P4 measures them.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>The AVIF's and the JPEG XL's transfer. D1 says BT.709 (CICP 1; the JPEG XL "as the
+        canonical photo is encoded"); Chromium shows it about 11 levels darker than the sRGB and P3 JPEGs (finding 7).
+        (a) keep BT.709, and the trial shows how a browser renders the canonical encoding, which bears on ML-34's one
+        canonical JPEG XL (b) the sRGB transfer (CICP 9/13/9; the JPEG XL's enum SRGB), the same curve as the two
+        JPEGs, so only gamut differs between the tabs.</td>
+        <td><span class="pill sm open">Open</span> (b): the trial compares gamut (D3), and a darker tab would decide
+          it on brightness. Two constants in <code>coffeecv/preview_formats.py</code> and its tests. (a)'s question
+          belongs to ML-34.</td><td>P4</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; The third part on the inference host</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-19, in the commit "OPS-25 P1&ndash;P3"</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>A new module, <code>coffeecv/preview_formats.py</code>, holds what D1 names: <code>shrink</code> (the 16-bit
+    Rec.2020 samples to the preview's size) and <code>encode_all</code> (the three files). The app starts
+    <code>shrink</code> right after the read-back, on its own thread beside segmentation (finding 1), and calls
+    <code>encode_all</code> after the classification part has gone out; the part is
+    <code>{"part": "previews", "previews": {"p3_jpeg" | "avif10" | "jxl": {"mime", "data"}}}</code>. A failure to make it
+    is logged and the part is left out: the answer is already complete.</p>
+  <ul>
+    <li>P3 JPEG: LittleCMS from Rec.2020 to Display P3, relative colorimetric, 8-bit, the profile embedded, quality 85.</li>
+    <li>AVIF: 10-bit, CICP 9/1/9 (Rec.2020 primaries, BT.709 transfer, BT.2020 matrix), quality 80, speed 8 (0.25 s
+      here against speed 6's 0.56 s, for 0.5% more bytes).</li>
+    <li>JPEG XL: <code>jxl_encode.encode_rec2020</code>, the canonical photo's own colour encoding, quality 90
+      (distance 1.0), effort 7.</li>
+  </ul>
+  <ol class="tasks">
+    <li><span class="box done"></span><span>Split <code>load_canonical</code>; <code>preview_formats</code> with its
+      tests (sizes, colour tags, colours inside sRGB equal to today's preview, a colour outside sRGB kept).
+      <span class="result">Done 2026-11-19.</span></span></li>
+    <li><span class="box done"></span><span>The app's third part, its log fields, the release manifest, the
+      docstrings' "the canonical photo as the page shows it" (D7); <code>docs/inference_path.html</code>, the API
+      docs. <span class="result">Done 2026-11-19.</span></span></li>
+    <li><span class="box done"></span><span>Checks: <code>tests.test_webapp_analyze</code> (three parts, the first
+      two as before; an error part has no third), <code>tests.test_release_manifest</code>.
+      <span class="result">Done 2026-11-19.</span></span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The page's tabs</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-19, in the commit "OPS-25 P1&ndash;P3"</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>A row of four tabs under the preview: <i>sRGB JPEG</i> (selected), <i>P3 JPEG</i>, <i>AVIF 10-bit</i>,
+    <i>JPEG XL</i>, each with its size in KB, the three new ones "loading" until the third part comes. A tab decodes its
+    image when the part comes; one that will not decode says "can't show" and stays disabled. Choosing a tab swaps
+    <code>#preview</code>'s <code>src</code>; every variant has the preview's size, so <code>renderOverlay</code>
+    draws over it unchanged (R5). The examples take the same path, so they get the tabs too (D7). The spinner goes at
+    the classification; the controls stay disabled until the stream ends, since the front's gate holds until then
+    (finding 3). A tab still loading when the stream ends (an error part, or previews that failed on the server)
+    says "not sent", and a stream cut after the classification keeps the answer on the page: before, the stream
+    ended with the classification, so such a cut could not happen.</p>
+  <ol class="tasks">
+    <li><span class="box done"></span><span>The tabs, their states, and a static test of them
+      (<code>tests/test_preview_tabs.py</code>). <span class="result">Done 2026-11-19.</span></span></li>
+    <li><span class="box done"></span><span>Checks: the page in headless Chromium 156 against a saved answer for the
+      smoke photo, driven over the DevTools protocol: the four tabs at 160, 161, 136 and 154 KB, each decoding, today's
+      selected first; on each tab <code>#preview</code> is 768 x 1024 and the overlay's rect the same (R5); the spinner
+      gone and the controls enabled once the stream ended. Finding 7 came from it. On the phones: the owner's, P5.
+      <span class="result">Done 2026-11-19.</span></span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The smoke and <code>--verify</code> check the third part</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-19, in the commit "OPS-25 P1&ndash;P3"</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p><code>release_probe.py</code> gains <code>check_previews</code>: each of the three is its format, at the
+    thumbnail's size, with its colour tags. <code>compare-smoke</code> wants the three parts and reports each file's
+    size; <code>--verify</code> wants them through the domain and runs the same check on the answer
+    (<code>release_probe.py check-previews</code>), with the request log's <code>previews_build_ms</code> beside it
+    for R4.</p>
+  <ol class="tasks">
+    <li><span class="box done"></span><span><code>check_previews</code>, <code>compare-smoke</code> and
+      <code>--verify</code>, with tests in <code>tests/test_release_probe.py</code>.
+      <span class="result">Done 2026-11-19.</span></span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Measure on the host, release, verify <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P3, Q1; the owner's go (a deploy stops the live service, ADR 0026)</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Push, then <code>--stage-only</code>: the host's smoke prints the third part's
+      build time and each file's size (R4, the ticket's §7), and its <code>preview_ms</code> and
+      <code>classification_ms</code>, held to the live release's on the same photo (finding 1). Record them in the
+      ticket.</span></li>
+    <li><span class="box"></span><span>Full deploy, <code>--verify</code>; the overlay checked on each tab, a visitor's
+      photo and an example.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the release, and the go for it.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; The owner's look <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Stop for the owner: the tabs on a Pixel 9 Pro and an iPhone, on a photo with
+      many pixels outside sRGB (ML-19's list); R2's browser facts and the choice into the ticket.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; Adoption or removal</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>As D6 says: the chosen format becomes the preview part's, the tabs and the
+      third part go; or, if none, the tabs and the part go and the idea goes to <code>.out-of-scope/</code> with what
+      was seen. A release, verified.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>P1: the first two parts unchanged; the third part's three files are their
+      formats at the preview's size; a colour outside sRGB survives in all three.</span></li>
+    <li><span class="box done"></span><span>P3: <code>compare-smoke</code> fails a missing or wrong third part.</span></li>
+    <li><span class="box"></span><span>P4: <code>--verify</code> passed; the third part's build time and size recorded.</span></li>
+    <li><span class="box done"></span><span>Full suite green at P1&ndash;P3's commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". The page's timeline (OPS-3) gains no time for the third part: it ends
+      at the classification, as today.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-19</div>Claude reads ticket OPS-25 at <code>6a28a84</code> and writes this plan.
+      Six findings not in the ticket. P1&ndash;P3 implemented and tested locally; the page run in headless Chromium
+      against a saved answer gave a seventh finding, and Q1. P4 waits on Q1 and the owner's go.</div>
+  </div>
+
+  <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25 ticket</a>,
+    <a href="ops-0007_ticket_photos_and_answers_optimization.html">OPS-7</a>.</footer>
+</main>

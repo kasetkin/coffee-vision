@@ -904,9 +904,17 @@ verify() {   # returns non-zero on a failed check
       check "public POST /analyze" "$code" 200
       check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
       check "    its Access-Control-Expose-Headers" "$expose" X-Request-Id
-      check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "preview, classification"
+      # The parts the staged app gave the same photo: since OPS-25 (D5) a previews part after the classification.
+      want=$(jq -r '.analyze.parts | map(.part) | join(", ")' <<<"$public_expected" 2>/dev/null)
+      check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "${want:-preview, classification}"
       want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$public_expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
+      # OPS-25 D5: each wide-gamut preview its format, at the thumbnail's size, with its colour tags.
+      local previews previews_rc=0
+      previews=$("$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" check-previews <(printf 'PROBE %s\n' "$public_expected") "$body") \
+        || previews_rc=$?
+      while IFS= read -r line; do [[ -n "$line" ]] && note "      public /analyze $line"; done <<<"$previews"
+      (( previews_rc == 0 )) || fails=$((fails + 1))
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
       # Its timeline (ticket OPS-3 D14): sent through the domain as the page sends one, then found in the check
       # service's log on the front, read as the deploy user. A release from before OPS-3 takes none.

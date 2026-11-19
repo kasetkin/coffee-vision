@@ -30,7 +30,7 @@ curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
   tone-mapped into standard range; a JPEG XL with an embedded ICC profile is refused.
 - `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
 
-The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
+The answer is `application/x-ndjson`: two JSON objects, one per line, streamed (a third during a trial, below).
 
 1. `{"part": "preview", ...}` after about 2 s: the photo as the model sees it (`thumbnail`, a base64 JPEG), the bean
    region (`mask`, a base64 PNG or null), the crop (`box`, fractions of the photo as `[x0, y0, x1, y1]`, or null).
@@ -42,6 +42,8 @@ The answer is `application/x-ndjson`: two JSON objects, one per line, streamed.
    - `refused_unreadable`: the photo could not be read as beans.
 
    Or `{"part": "error", "message": ...}` if the server failed after the preview went out.
+3. During a trial of wide-gamut previews, after a classification: `{"part": "previews", "previews": ...}`, the
+   preview in three more formats for the page. An agent can skip this line; it will go when the trial ends.
 
 Errors before the stream starts, each with `{"error": ...}`: `400` (no photo, or a file that is not an image), `413`
 (a photo over 40 MB, or over its megapixel limit), and `503`, which is one of two:
@@ -71,7 +73,7 @@ let text = "";
 for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
   text += chunk.value;
   for (let end; (end = text.indexOf("\n")) >= 0; text = text.slice(end + 1)) {
-    const part = JSON.parse(text.slice(0, end));   // "preview", then "classification" or "error"
+    const part = JSON.parse(text.slice(0, end));   // "preview", then "classification" or "error", maybe "previews"
     console.log(part.part, part.verdict);
   }
 }

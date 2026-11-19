@@ -16,7 +16,7 @@
       "post": {
         "operationId": "analyzeCoffeePhoto",
         "summary": "Classify the country of origin of the coffee beans in one photo",
-        "description": "The answer is two JSON objects, one per line (NDJSON), streamed: a preview after about 2 s, then the classification after about 9 s in all. Read to the end of the stream; the classification (or an error part) is always the second line.",
+        "description": "The answer is two JSON objects, one per line (NDJSON), streamed: a preview after about 2 s, then the classification after about 9 s in all. Read to the end of the stream; the classification (or an error part) is always the second line. During a trial of wide-gamut previews a third line follows a classification, a PreviewsPart, which a caller may ignore.",
         "requestBody": {
           "required": true,
           "content": {
@@ -42,7 +42,7 @@
         },
         "responses": {
           "200": {
-            "description": "Two lines: a PreviewPart, then a ClassificationPart (or an ErrorPart if the server failed after the preview went out).",
+            "description": "Two or three lines: a PreviewPart, then a ClassificationPart (or an ErrorPart if the server failed after the preview went out), then, during a trial and after a ClassificationPart only, a PreviewsPart, which a caller may ignore.",
             "content": {
               "application/x-ndjson": {
                 "schema": {
@@ -50,7 +50,8 @@
                   "oneOf": [
                     {"$ref": "#/components/schemas/PreviewPart"},
                     {"$ref": "#/components/schemas/ClassificationPart"},
-                    {"$ref": "#/components/schemas/ErrorPart"}
+                    {"$ref": "#/components/schemas/ErrorPart"},
+                    {"$ref": "#/components/schemas/PreviewsPart"}
                   ]
                 }
               }
@@ -127,6 +128,27 @@
           "part": {"const": "error"},
           "message": {"type": "string"}
         }
+      },
+      "PreviewsPart": {
+        "type": "object",
+        "description": "During a trial of wide-gamut previews, after the ClassificationPart: the preview in three more formats, each the thumbnail's size, as {mime, data (base64)}. Display only; a caller may ignore it, and it will go.",
+        "required": ["part", "previews"],
+        "properties": {
+          "part": {"const": "previews"},
+          "previews": {
+            "type": "object",
+            "properties": {
+              "p3_jpeg": {"$ref": "#/components/schemas/PreviewFile", "description": "An 8-bit JPEG with a Display P3 ICC profile."},
+              "avif10": {"$ref": "#/components/schemas/PreviewFile", "description": "A 10-bit AVIF: Rec.2020 primaries, the BT.709 transfer."},
+              "jxl": {"$ref": "#/components/schemas/PreviewFile", "description": "A 16-bit JPEG XL: Rec.2020 primaries, the BT.709 transfer."}
+            }
+          }
+        }
+      },
+      "PreviewFile": {
+        "type": "object",
+        "required": ["mime", "data"],
+        "properties": {"mime": {"type": "string"}, "data": {"type": "string"}}
       },
       "Error": {
         "type": "object",
