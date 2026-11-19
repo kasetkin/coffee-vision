@@ -12,7 +12,7 @@
     adoption or removal (P6).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-19; P1&ndash;P4 done, released in <code>20261119T1528Z-fc085e6</code>; P5 is the owner's</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-19; P1&ndash;P4 and P7 done, released in <code>20261119T1649Z-bf6e9df</code>; P5 is the owner's</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ops-0025_ticket_wide_gamut_preview.html"><code>ops-0025_ticket_wide_gamut_preview.html</code></a> (OPS-25)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -190,7 +190,7 @@
 
   <h2>7. P7 &mdash; Each preview names its format (D9, D10)</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-19: implemented and tested here; its release next, with the owner's go</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-19: <code>bf6e9df</code>, released in <code>20261119T1649Z-bf6e9df</code>, <code>--verify</code> passed</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4</span></div>
   </div>
   <p>Added after P4, from the owner, so numbered after P6 and done before P5. <code>preview_formats.label</code> burns
@@ -202,7 +202,9 @@
     <li><span class="box done"></span><span><code>label</code> and its tests: where it goes, pure white and black,
       nothing else changed, its scale, a too-small image left alone; each file decodes with its own label; the app's
       thumbnail and P3 JPEG carry theirs. <span class="result">Done 2026-11-19.</span></span></li>
-    <li><span class="box"></span><span>The release, <code>--verify</code>.</span></li>
+    <li><span class="box done"></span><span>The release, <code>--verify</code>: <code>20261119T1649Z-bf6e9df</code>; the smoke's
+      third part 469,790 bytes, built in 1415 ms, the classification out at 9847 ms; the four labels read back from a
+      live answer. <span class="result">Done 2026-11-19.</span></span></li>
   </ol>
 
   <h2>8. P5 &mdash; The owner's look <span class="pill sm open">stop</span></h2>
