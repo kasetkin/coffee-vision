@@ -10,10 +10,10 @@
     13.0.0. A visitor's upload reaches the WebP, GIF and BMP decoders and the EXIF parser, on the front and again on
     the inference host: the reachable advisories exhaust memory or CPU, none of them runs code. This ticket upgrades
     Pillow alone in all three locks (D1), shows that answers do not move beyond ADR 0020's bars, then deploys. The
-    ticket closes with that deploy. Implemented and tested here on 2026-11-19; the deploy waits for the owner.</p>
+    ticket closes with that deploy. Released on both hosts on 2026-11-19 and verified.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-19: Pillow 13.0.0 in all three locks, same canonical bytes, tested here; not deployed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-19: released in 20261119T1311Z-376928b, --verify passed; Pillow 13.0.0 on both hosts; for the owner to close</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Release: dependency security upgrade</span></div>
@@ -214,9 +214,9 @@
       advisories.</span></li>
     <li><span class="box done"></span><span>The front's check service RSS during the largest fixture photo, measured before
       and after (R4).</span></li>
-    <li><span class="box"></span><span><code>deploy_webapp.sh --compare</code> passes, a full deploy, then
+    <li><span class="box done"></span><span><code>deploy_webapp.sh --compare</code> passes, a full deploy, then
       <code>--verify</code> passes. Both hosts' venvs show the new versions.</span></li>
-    <li><span class="box"></span><span>OSV, queried again on the deployed venvs, lists no advisory against Pillow.
+    <li><span class="box done"></span><span>OSV, queried again on the deployed venvs, lists no advisory against Pillow.
       An advisory against any other package is noted in Activity and does not block this ticket.</span></li>
   </ul>
 
@@ -325,6 +325,40 @@
       Left: <code>deploy_webapp.sh --compare</code>, the full deploy, <code>--verify</code>, both hosts' venvs read,
       and OSV on them. They wait for the owner's go to merge, push and deploy (ADR 0026: photo answers stop for the
       smoke and the flip).</div>
+    <div><div class="when">2026-11-19</div>Released on the owner's go ("run full deploy, commit to the main when
+      necessary and upgrade both hosts"): <code>main</code> fast-forwarded to <code>376928b</code> and pushed;
+      <code>20261119T1311Z-376928b-dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code> on both hosts, the live model
+      unchanged. This checkout holds the owner's uncommitted work, which the pre-push hook and the deploy's full
+      check refuse (they test the working tree), so the push and the deploy ran from a clean clone of
+      <code>376928b</code> under <code>/tmp</code>, with the gitignored data linked in, and every check ran: the
+      pre-push fast tier and <code>scripts/check.sh --full</code> (1,277 tests) passed there. A first full check
+      failed only <code>test_release_manifest</code>, which reads opened files by path and saw the links' targets;
+      the model and the smoke photo were copied in instead and it passed. Nothing reached the hosts before the
+      check passed.
+      <ul>
+        <li><strong>Smoke</strong> (<code>--stage-only</code>): top-1 Colombia, the preview's mask and box the
+          same as here's, GPU proven, the four examples their answers. Photo answers down 32 s from 13:16:05
+          UTC.</li>
+        <li><strong><code>--compare</code></strong>: 12 photos, 0 verdict and 0 top-1 changes, p95 largest change
+          0.0080, within D7's bars. Down 147 s from 13:21:20 UTC.</li>
+        <li><strong>Full deploy</strong>, reusing the staged release: stopped at 13:28:03 UTC, flipped both hosts,
+          every check of its verify ok, the release before ML-29's pruned. A standalone <code>--verify</code> then
+          passed every check: both hosts' <code>current</code> the release, startup line commit
+          <code>376928b</code> and <code>model_sha</code> <code>0d7d4c334b94a28c</code>, the public page and
+          <code>/analyze</code> (top-1 Colombia), the timeline, the four examples, CORS.</li>
+        <li><strong>Both hosts' venvs</strong>, read from <code>/opt/coffee-cv/current/.venv</code>: Python 3.12.14;
+          Pillow 13.0.0; pillow-heif 1.8.0, rawpy 0.27.1, numpy 2.5.3, opencv-python-headless 5.0.0.93, imagecodecs
+          2026.10.10 as before; 25 packages on the inference host (pillow-avif-plugin 1.6.0, pillow-jxl-plugin
+          1.3.8 among them), 6 on the front.</li>
+        <li><strong>OSV</strong>, queried with each deployed venv's names and versions: no advisory against any of
+          the 25 or the 6.</li>
+        <li><strong>One slow answer, not the upgrade's.</strong> The deploy's own public check, the first photo
+          after the flip, took 98 s: the front canonicalized it in 9.6 s and the inference host answered in 9.8 s,
+          but its crossing (<code>crossing_ms</code>) took 76.7 s for 1.0 MB. Every later photo crossed at the usual
+          speed (totals 14-28 s, the standalone <code>--verify</code>'s 26 s). The front's canonicalizations after the
+          release: 1.6-9.6 s, peaks 291-479 MB, under MemoryMax=600M.</li>
+      </ul>
+      Every acceptance item met; the ticket is the owner's to close.</div>
   </div>
 
   <footer>Related: <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
