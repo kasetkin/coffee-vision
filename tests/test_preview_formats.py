@@ -1,5 +1,6 @@
 """The page's three wide-gamut previews (ticket OPS-25 D1): the canonical photo's 16-bit Rec.2020 samples, shrunk as the
-sRGB preview is, then a Display P3 JPEG, a 10-bit AVIF and a 16-bit JPEG XL. Plain unittest.
+sRGB preview is, then a Display P3 JPEG, a 10-bit AVIF and a 16-bit JPEG XL, the last two Rec.2020 with the sRGB
+curve (D8). Plain unittest.
 
     python -m unittest tests.test_preview_formats -v
 
@@ -16,7 +17,6 @@ from PIL import Image
 
 from coffeecv import canonical as cn
 from coffeecv import preview_formats as pf
-from coffeecv.jxl_encode import encode_rec2020
 
 INSIDE_SRGB = (150, 110, 80)        # a bean's brown, sRGB
 P3_GREEN = (0, 255, 0)              # Display P3's own green: outside sRGB, inside Rec.2020
@@ -89,32 +89,44 @@ class EncodeAll(unittest.TestCase):
         a = np.arange(256, dtype=np.uint8)[:, None, None].repeat(3, axis=2)
         np.testing.assert_array_equal(ic.cms_transform(a, cn.SRGB, same), a)
 
-    def test_the_avif_is_10_bit_rec2020_with_the_bt709_transfer(self):
+    def _as_shown(self, a: np.ndarray, full: int, right: bool) -> np.ndarray:
+        """A pixel of a file tagged Rec.2020 with the sRGB curve (D8), as a colour-managed browser shows it on an sRGB
+        screen: read through a profile built here, not the module's, then into sRGB unclipped (float)."""
+        x = np.linspace(0.0, 1.0, 4096)
+        curve = np.round(np.where(x <= 0.04045, x / 12.92, ((x + 0.055) / 1.055) ** 2.4) * 65535).astype(np.uint16)
+        tag = ic.cms_profile("rgb", whitepoint=pf.D65, primaries=(0.708, 0.292, 0.170, 0.797, 0.131, 0.046),
+                             transferfunction=curve)
+        px = (self._middle(a, right) / full).astype(np.float32)[None, None]
+        return ic.cms_transform(px, tag, pf.DISPLAY_P3, intent=cn.RELATIVE, outdtype=np.float32)[0, 0] * 255
+
+    def _want_p3(self, right: bool) -> np.ndarray:
+        """The photo's pixel in Display P3 levels: its P3 green, or its brown."""
+        return np.array(P3_GREEN if right else ic.cms_transform(np.array([[INSIDE_SRGB]], np.uint8), cn.SRGB,
+                                                                pf.DISPLAY_P3, intent=cn.RELATIVE,
+                                                                flags=cn.NOOPTIMIZE)[0, 0], float)
+
+    def test_the_avif_is_10_bit_rec2020_with_the_srgb_transfer(self):   # D8
         data = self.files["avif10"]
-        self.assertEqual(pf.avif_cicp(data), (9, 1, 9, True))
+        self.assertEqual(pf.avif_cicp(data), (9, 13, 9, True))
         a = ic.avif_decode(data)
         self.assertEqual((a.shape, a.dtype, int(a.max()) <= 1023), ((64, 96, 3), np.dtype(np.uint16), True))
-        for right in (False, True):
-            want = self._middle(self.rec, right) / 65535 * 1023
-            self.assertLessEqual(np.abs(self._middle(a, right) - want).max(), 12, right)
+        for right in (False, True):   # the same colours the P3 JPEG shows, so the tabs differ in nothing else
+            self.assertLessEqual(np.abs(self._as_shown(a, 1023, right) - self._want_p3(right)).max(), 3, right)
 
-    def test_the_jxl_is_the_canonical_photos_colour_encoding_at_16_bits(self):
+    def test_the_jxl_is_16_bit_lossy_rec2020_with_the_srgb_transfer(self):   # D8
         data = self.files["jxl"]
         h = cn.read_header(data)
-        self.assertEqual((h.width, h.height, h.bits_per_sample, h.colour.primaries, h.colour.transfer),
-                         (96, 64, 16, "BT2100", "BT709"))
+        self.assertEqual((h.width, h.height, h.bits_per_sample, h.xyb_encoded, h.colour.primaries, h.colour.transfer),
+                         (96, 64, 16, True, "BT2100", "sRGB"))
         a = ic.jpegxl_decode(data)
+        self.assertEqual(a.dtype, np.dtype(np.uint16))
+        # Within 5 levels: the conversion to the sRGB curve is exact on both colours, and distance 1.0 moves P3's
+        # flat, fully saturated green by 4.1 levels of red.
         for right in (False, True):
-            want = self._middle(self.rec, right)
-            self.assertLessEqual(np.abs(self._middle(a, right) - want).max(), 65535 * 0.01, right)
+            self.assertLessEqual(np.abs(self._as_shown(a, 65535, right) - self._want_p3(right)).max(), 5, right)
 
     def test_the_jxl_is_distance_1(self):
-        # quality 90 is libjxl's distance 1.0 (JxlEncoderDistanceFromQuality: 0.1 + (100 - q) * 0.09)
-        rec = self.rec
-        self.assertEqual(self.files["jxl"], encode_rec2020(rec.shape[0], rec.shape[1],
-                                                           lambda y, x, ys, xs: rec[y:y + ys, x:x + xs],
-                                                           level=pf.JXL_QUALITY, effort=pf.JXL_EFFORT, numthreads=1))
-        self.assertEqual(pf.JXL_QUALITY, 90)
+        self.assertEqual(pf.JXL_DISTANCE, 1.0)
 
 
 class AvifCicp(unittest.TestCase):

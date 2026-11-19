@@ -2,8 +2,12 @@
 shrunk to the preview's size as the sRGB preview is (`shrink`), then three files (`encode_all`):
 
     p3_jpeg   8-bit JPEG, Display P3, its ICC profile embedded, quality 85 (the sRGB preview's)
-    avif10    10-bit AVIF, CICP 9/1/9: Rec.2020 primaries, the BT.709 transfer, the BT.2020 matrix; quality 80
-    jxl       16-bit JPEG XL in the canonical photo's own colour encoding (Rec.2020, BT.709), distance 1.0
+    avif10    10-bit AVIF, CICP 9/13/9: Rec.2020 primaries, the sRGB transfer, the BT.2020 matrix; quality 80
+    jxl       16-bit lossy JPEG XL, Rec.2020 primaries, the sRGB transfer, distance 1.0
+
+The AVIF and the JPEG XL carry the sRGB curve, not the canonical photo's BT.709 (ticket OPS-25 D8): Chromium shows
+BT.709-tagged files with a display gamma, about 11 levels darker than the canonical photo reads, and the trial
+compares gamut only, so all three files carry the curve of today's sRGB preview.
 
 Display only, as the sRGB preview is (GLOSSARY.md, "Preview"): nothing here is what a model reads. Standard range only
 (D3): the canonical photo holds no light above white.
@@ -19,7 +23,6 @@ import numpy as np
 from PIL import Image
 
 from coffeecv.canonical import NOOPTIMIZE, REC2020, RELATIVE
-from coffeecv.jxl_encode import encode_rec2020
 
 D65 = (0.3127, 0.3290)
 # Display P3: DCI-P3's primaries, D65, the sRGB curve. LittleCMS builds it; the curve is a 256-point table, which
@@ -28,12 +31,19 @@ _x = np.linspace(0.0, 1.0, 256)
 SRGB_CURVE = np.round(np.where(_x <= 0.04045, _x / 12.92, ((_x + 0.055) / 1.055) ** 2.4) * 65535).astype(np.uint16)
 DISPLAY_P3 = ic.cms_profile("rgb", whitepoint=D65, primaries=(0.680, 0.320, 0.265, 0.690, 0.150, 0.060),
                             transferfunction=SRGB_CURVE)
+# D8: Rec.2020's primaries with the sRGB curve, what the AVIF and the JPEG XL are tagged as. Never embedded, so its
+# curve is a finer table, for the 10- and 16-bit samples converted into it.
+_x = np.linspace(0.0, 1.0, 4096)
+REC2020_SRGB = ic.cms_profile("rgb", whitepoint=D65, primaries=(0.708, 0.292, 0.170, 0.797, 0.131, 0.046),
+                              transferfunction=np.round(np.where(_x <= 0.04045, _x / 12.92,
+                                                                 ((_x + 0.055) / 1.055) ** 2.4) * 65535
+                                                        ).astype(np.uint16))
 
 JPEG_QUALITY = 85     # the sRGB preview's
 AVIF_QUALITY = 80
 AVIF_SPEED = 8        # 0.25 s for 1024 x 768 against libavif's default 6's 0.56 s, for 0.5% more bytes (plan P1)
-AVIF_CICP = (9, 1, 9)  # primaries BT.2020, transfer BT.709, matrix BT.2020 non-constant luminance (H.273)
-JXL_QUALITY = 90      # distance 1.0
+AVIF_CICP = (9, 13, 9)  # primaries BT.2020, transfer sRGB (D8), matrix BT.2020 non-constant luminance (H.273)
+JXL_DISTANCE = 1.0
 JXL_EFFORT = 7        # the store's (canonical.EFFORT)
 
 # The page's order of the tabs after the sRGB preview, and each file's type for its data: URL.
@@ -63,17 +73,23 @@ def p3_jpeg(small: np.ndarray) -> bytes:
     return buf.getvalue()
 
 
+def _srgb_curve(small: np.ndarray) -> np.ndarray:
+    """The canonical photo's Rec.2020 samples, BT.709 curve, as Rec.2020 with the sRGB curve (D8), 16-bit."""
+    return ic.cms_transform(np.ascontiguousarray(small), REC2020, REC2020_SRGB, intent=RELATIVE, flags=NOOPTIMIZE,
+                            outdtype=np.uint16)
+
+
 def avif10(small: np.ndarray) -> bytes:
-    ten = ((small.astype(np.uint32) * 1023 + 32767) // 65535).astype(np.uint16)
+    ten = ((_srgb_curve(small).astype(np.uint32) * 1023 + 32767) // 65535).astype(np.uint16)
     primaries, transfer, matrix = AVIF_CICP
     return ic.avif_encode(ten, level=AVIF_QUALITY, speed=AVIF_SPEED, bitspersample=10, primaries=primaries,
                           transfer=transfer, matrix=matrix)
 
 
 def jxl(small: np.ndarray) -> bytes:
-    a = np.ascontiguousarray(small)
-    return encode_rec2020(a.shape[0], a.shape[1], lambda y, x, ys, xs: a[y:y + ys, x:x + xs], level=JXL_QUALITY,
-                          effort=JXL_EFFORT, numthreads=2)   # libjxl's output does not depend on the count
+    """imagecodecs' own encoder: the preview is small, so jxl_encode's streaming (and its fixed BT.709) is not needed."""
+    return ic.jpegxl_encode(_srgb_curve(small), distance=JXL_DISTANCE, effort=JXL_EFFORT, primaries="BT2100",
+                            transfer="SRGB", numthreads=2)
 
 
 def encode_all(small: np.ndarray) -> dict[str, bytes]:

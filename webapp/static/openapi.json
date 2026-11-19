@@ -139,8 +139,8 @@
             "type": "object",
             "properties": {
               "p3_jpeg": {"$ref": "#/components/schemas/PreviewFile", "description": "An 8-bit JPEG with a Display P3 ICC profile."},
-              "avif10": {"$ref": "#/components/schemas/PreviewFile", "description": "A 10-bit AVIF: Rec.2020 primaries, the BT.709 transfer."},
-              "jxl": {"$ref": "#/components/schemas/PreviewFile", "description": "A 16-bit JPEG XL: Rec.2020 primaries, the BT.709 transfer."}
+              "avif10": {"$ref": "#/components/schemas/PreviewFile", "description": "A 10-bit AVIF: Rec.2020 primaries, the sRGB transfer."},
+              "jxl": {"$ref": "#/components/schemas/PreviewFile", "description": "A 16-bit JPEG XL: Rec.2020 primaries, the sRGB transfer."}
             }
           }
         }

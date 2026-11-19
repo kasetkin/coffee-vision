@@ -189,6 +189,12 @@
         <td>2026-11-19: the canvases stay sRGB; the examples get the same previews, which come for free since theirs
           is the same thumbnail; <code>_preview_part</code>'s "the pixels the model sees" becomes "the canonical photo
           as the page shows it", and GLOSSARY.md defines Preview.</td></tr>
+      <tr><td class="id">D8</td><td>The AVIF's and the JPEG XL's transfer? (the plan's Q1)</td>
+        <td>(a) BT.709, as D1 wrote it (b) the sRGB curve</td>
+        <td>(b), 2026-11-19: "Use sRGB transfer for both files, so I will see difference only in gamut." Chromium shows
+          BT.709-tagged files with a display gamma, about 11 levels darker than the JPEGs (the plan's finding 7). Amends
+          D1: both stay Rec.2020; the AVIF is CICP 9/13/9, the JPEG XL 16-bit Rec.2020 with the sRGB curve, no longer
+          the canonical photo's own encoding.</td></tr>
     </tbody>
   </table></div>
 
