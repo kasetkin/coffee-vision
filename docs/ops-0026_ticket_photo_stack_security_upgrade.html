@@ -1,0 +1,339 @@
+<title>Security upgrade of the photo stack: Pillow 13.0.0 on both hosts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-26 · coffee-vision · release environments</div>
+  <h1>Both releases move to Pillow 13.0.0, which fixes 43 advisories; no other package moves</h1>
+  <p class="lede">Both hosts' releases run Pillow 12.3.0, which has 43 published advisories (6 critical, 24 high), all fixed in
+    13.0.0. A visitor's upload reaches the WebP, GIF and BMP decoders and the EXIF parser, on the front and again on
+    the inference host: the reachable advisories exhaust memory or CPU, none of them runs code. This ticket upgrades
+    Pillow alone in all three locks (D1), shows that answers do not move beyond ADR 0020's bars, then deploys. The
+    ticket closes with that deploy. Implemented and tested here on 2026-11-19; the deploy waits for the owner.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-19: Pillow 13.0.0 in all three locks, same canonical bytes, tested here; not deployed</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, ready-for-agent</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">High</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Release: dependency security upgrade</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/pyproject.toml</code>, <code>webapp/front/pyproject.toml</code>, <code>pyproject.toml</code> and their three <code>uv.lock</code>s; <code>coffeecv/canonical.py</code> (only if the new Pillow's API demands it); the release on both hosts. Pillow only (D1)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-19</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">Both hosts' venvs change at the release that carries this ticket. Answers may move by at most ADR 0020's bars, which <code>--compare</code> shows before the flip. A deploy stops photo answers for its smoke (ADR 0026).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-19.</strong> Create an OPS ticket to upgrade Pillow, and maybe other packages
+      that are used during inference and at the front. This followed a package audit of both hosts on 2026-11-18.</p>
+    <p><strong>Owner decision, 2026-11-19.</strong> After the research in Activity: upgrade Pillow and only Pillow,
+      and close this ticket with that. No follow-up tickets from this one; the owner will write the ticket for
+      checking new versions later.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the front (<code>webproxy-deploy</code>) and the inference host (<code>yappy</code>) run Pillow 12.3.0, and
+    so does training. After this ticket all three run Pillow 13.0.0. Every other package stays at its pin (D1), and
+    <code>imagecodecs</code> could not move anyway (§4). The work splits into four parts:</p>
+  <ol>
+    <li>Raise the pins and re-lock all three projects (<code>coffeecv.lock_check</code> holds them equal).</li>
+    <li>Prove that canonicalization and answers are unchanged, or changed only within bounds.</li>
+    <li>Check the native libraries Pillow's wheel bundles, which OSV does not list under the Python package.</li>
+    <li>Deploy and verify.</li>
+  </ol>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>What runs.</strong> Read from each host's <code>/opt/coffee-cv/current/.venv</code> on 2026-11-18,
+      and the same as the locks.
+      <ul>
+        <li>The front has 6 packages: Pillow 12.3.0, pillow-heif 1.8.0, rawpy 0.27.1, numpy 2.5.3,
+          opencv-python-headless 5.0.0.93 and imagecodecs 2026.10.10.</li>
+        <li>The inference host has 25: the same six, plus Flask, Werkzeug, gunicorn, ai-edge-litert and their
+          dependencies.</li>
+        <li>Both run Python 3.12.14 from uv.</li>
+      </ul></li>
+    <li><strong>Advisories.</strong> OSV, queried 2026-11-18, lists 43 distinct advisories for Pillow 12.3.0, all
+      fixed in 13.0.0 (released 2026-10-16). It lists none for any other package in either venv.</li>
+    <li><strong>What a visitor reaches.</strong> ADR 0034 limits that to the accepted formats, each opened with its
+      one decoder (<code>coffeecv/data/accepted_formats.csv</code>, <code>canonical.decode</code>,
+      <code>Image.open(..., formats=(plugin,))</code>). JPEG, PNG, AVIF and JPEG XL are decoded by
+      <code>imagecodecs</code>, HEIC by pillow-heif and RAW by rawpy. In Pillow:
+      <ul>
+        <li><em>Header and EXIF parsing</em> for JPEG, PNG and AVIF (<code>_pillow_metadata</code>, and
+          <code>colour_declaration</code> for JPEG). Pillow does not decode their pixels.</li>
+        <li><em>Full decoding</em> for WebP, GIF and BMP.</li>
+      </ul>
+      Several advisories rated high are in that reach. All are ways to exhaust memory or CPU:
+      <ul>
+        <li>a GIF comment that makes <code>Image.open</code> quadratic;</li>
+        <li>a GIF seek after <code>DecompressionBombError</code>;</li>
+        <li>BMP RLE memory amplification;</li>
+        <li>a PNG <code>eXIf</code> chunk that makes EXIF parsing quadratic;</li>
+        <li>overlapping EXIF IFD tags.</li>
+      </ul>
+      On the front's 2 vCPU, whose <code>MemAvailable</code> fell to 158 MB during a photo (OPS-15), one such file
+      can stall the site. That keeps Priority High.
+      Outside the reach: the JPEG decoder heap overflow (CVE-2026-112403, GHSA-8g5g-8vmr-9782) needs Pillow to decode
+      a lossless JPEG at reduced scale (<code>draft</code>), and serving never decodes a JPEG with Pillow; the only
+      <code>draft</code> call is training's <code>coffeecv/find_duplicates.py</code>. The worst code-execution
+      advisories are outside it too: FlashPix, EPS through Ghostscript, saving TIFF, PDF. Without ADR 0034 they would
+      be reachable.</li>
+    <li><strong>Three locks, one version.</strong> <code>coffeecv.lock_check</code>, run on every commit, refuses a
+      package held at different versions in training's, the web service's and the front's locks (ADR 0033, ML-19 D40
+      and D41). So this upgrade moves training's Pillow too.</li>
+    <li><strong>Newer releases, none with a listed advisory</strong> (PyPI, 2026-11-19).
+      <ul>
+        <li><em>Patch releases:</em> pillow-heif 1.8.1, numpy 2.5.5, markupsafe 3.0.4, click 8.5.1.</li>
+        <li><em>Larger steps:</em> rawpy 0.28.0, opencv-python-headless 5.1.0.95, gunicorn 27.0.1 (major), ml-dtypes
+          0.7.0, imagecodecs 2026.11.11.</li>
+      </ul>
+      None of them moves here (D1). What the research found about each is in Activity, 2026-11-19.</li>
+    <li><strong>Pillow 13 and our code.</strong> The 13.0.0 removals (<code>ExifTags.IFD.Makernote</code>,
+      <code>ImageCmsProfile.product_name</code>/<code>product_info</code>, <code>Image._show</code>,
+      <code>GifImagePlugin._save_netpbm</code>, the deprecations scheduled for 13) appear nowhere in
+      <code>coffeecv</code>, <code>webapp</code>, <code>scripts</code> or <code>tests</code>. The nearest call is
+      <code>Image.fromarray(..., mode="P")</code> in <code>tests/test_release_probe.py</code>. pillow-heif,
+      pillow-avif-plugin and pillow-jxl-plugin require <code>pillow</code> with no upper bound, so the lock should
+      resolve with Pillow alone moving.</li>
+    <li><strong>Bundled native code is not in OSV.</strong> pillow-heif bundles libheif and libde265. rawpy bundles
+      LibRaw. Pillow bundles libjpeg-turbo, libwebp, libpng and others. OpenCV bundles its codecs. An advisory against
+      one of those C libraries appears under the Python package only when that package publishes one. Pillow did, for
+      libopenjp2 (GHSA-78g4-xqwv-q3g8); the others may not.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>Pillow 12.3.0 in all three locks, with 43 open advisories.</li>
+        <li>No record of which native libraries Pillow's wheel ships, at which versions.</li>
+        <li>Nothing tells us when a pinned package gains an advisory. This one was found by an audit done by hand.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>Pillow 13.0.0 in all three locks, deployed to both hosts and verified (<code>--verify</code>).</li>
+        <li>Every other package at its 2026-11-18 pin (D1).</li>
+        <li>The versions of the native libraries Pillow 13.0.0 bundles are recorded in this ticket's Activity, each
+          checked against its own advisories.</li>
+        <li>Advisories are still noticed by hand (D3 out of scope; the owner's later ticket).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>imagecodecs 2026.10.10.</strong> Under ADR 0033 a change to its version is a change to
+      canonicalization: it needs a re-canonicalization and a retrain, never a routine upgrade. It has no listed
+      advisory. 2026.11.11 also renames the JPEG8 codec that <code>imagecodecs.jpeg8</code> names. It decodes JPEG,
+      PNG, AVIF and JPEG XL, most uploads, so an advisory against a library it bundles (libjpeg-turbo, libpng,
+      libavif, libjxl) can be fixed only with a re-canonicalization and a retrain.</li>
+    <li><strong>pillow-heif 1.8.0, rawpy 0.27.1, numpy, opencv-python-headless, gunicorn, Flask and the rest
+      of both venvs</strong> (D1).</li>
+    <li><strong>The accepted formats and their decoders</strong> (ADR 0034). The upgrade changes versions only, not
+      which decoder opens what.</li>
+    <li><strong>ai-edge-litert 2.3.0.</strong> It is already the latest release, and a change to it is a new GPU
+      measurement (ADR 0020).</li>
+    <li><strong>The store's canonical photos.</strong> Canonicalization processes only new photos (ADR 0037), and
+      §5 R3 checks that the new Pillow would make the same ones.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Pillow 13 is a major release and removes deprecated APIs.</strong></td>
+        <td>Its removals were searched for on 2026-11-19 and none is called (§2). Run the full test suite in all three
+          environments, which also shows the AVIF, JPEG XL and HEIF plugins still register.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Pixels from WebP, GIF or BMP change, and answers move.</strong></td>
+        <td>Pillow fully decodes only those three. A bundled libwebp change can move WebP pixels. Mitigation: before
+          the deploy, canonicalize the release fixtures and the examples with both versions and compare the bytes. Run
+          <code>deploy_webapp.sh --compare</code> under ADR 0020's bars, and the examples check (OPS-22 D7).</td></tr>
+      <tr><td class="id">R3</td><td><strong>The store would canonicalize a WebP, GIF or BMP differently from the
+          photos already in it.</strong></td>
+        <td>Count the store's photos in those formats and re-canonicalize each with Pillow 13. If any differs, the
+          owner decides between re-canonicalizing those photos and accepting the difference (a new D-number).</td></tr>
+      <tr><td class="id">R4</td><td><strong>The front's memory.</strong></td>
+        <td>The proxy's <code>MemAvailable</code> fell to 158 MB during a photo (OPS-15). Measure the check
+          service's RSS during the largest fixture photo before and after the upgrade.</td></tr>
+      <tr><td class="id">R5</td><td><strong>A bundled C library is still vulnerable after the upgrade.</strong></td>
+        <td>Part 3 records the version of each library Pillow's wheel bundles and checks it against its own
+          project's advisories. One still open is written in Activity for the owner; it does not block this ticket
+          (D1).</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which packages move besides Pillow?</td>
+        <td>(a) Pillow alone.
+          (b) Pillow plus the patch releases: pillow-heif 1.8.1, numpy 2.5.5, markupsafe 3.0.4, click 8.5.1.
+          (c) (b), plus rawpy 0.28.0 (LibRaw parses every RAW upload) and opencv-python-headless 5.1.0.95.
+          (d) (c), plus gunicorn 27 and ml-dtypes 0.7.
+          imagecodecs is out under any option (§4).</td>
+        <td><strong>(a), 2026-11-19.</strong> Pillow alone, and the ticket closes with its deploy. The other packages'
+          next releases are not ready: pillow-heif 1.8.1 bundles libheif 1.23.6, which brings its own high-rated
+          use-after-free (GHSA-35mc-3887-rr37), and rawpy 0.28.0's LibRaw 0.22.2 still has CVE-2026-111272. The owner
+          will write a ticket for checking new versions later. gunicorn 27 has no ticket: it fixes no listed advisory
+          against 26.2.0.</td></tr>
+      <tr><td class="id">D2</td><td>What happens if a bundled native library has an open advisory that no wheel
+          fixes yet?</td>
+        <td>(a) Ship this upgrade anyway and open a ticket for that library.
+          (b) Refuse the affected accepted format at the front until a fixed wheel exists (an ADR 0034 change).</td>
+        <td><strong>Out of scope, 2026-11-19.</strong> No decoder package other than Pillow moves (D1). A library
+          Pillow bundles that is still open is recorded in Activity and does not block the ticket.</td></tr>
+      <tr><td class="id">D3</td><td>How should a new advisory against a pinned package be noticed?</td>
+        <td>(a) As now, by an audit done by hand.
+          (b) A <code>python -m coffeecv.dep_audit</code> that sends the three locks' names and versions to OSV, run
+          by the deploy's build, which refuses a release with an open advisory unless the release names it.
+          (c) (b), run by hand on a schedule instead of in the deploy.
+          It needs the network, so not in <code>scripts/check.sh</code>.</td>
+        <td><strong>Out of scope, 2026-11-19.</strong> The owner will write that ticket.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>Pillow's pin raised to 13.0.0, and no other. <code>uv lock</code> run for all three projects
+      with uv 0.12.19, and <code>python -m coffeecv.lock_check</code> passes.</span></li>
+    <li><span class="box done"></span><span>The full test suite passes in training's environment, and the web service's
+      and front's tests in theirs.</span></li>
+    <li><span class="box done"></span><span>The release fixtures and the examples canonicalize to the same bytes as with
+      Pillow 12.3.0, or each difference is listed here with its size.</span></li>
+    <li><span class="box done"></span><span>R3: the store's WebP, GIF and BMP photos counted and re-canonicalized with the
+      new version, and any difference brought to the owner.</span></li>
+    <li><span class="box done"></span><span>The versions of the native libraries Pillow 13.0.0's wheel bundles (libwebp,
+      libjpeg-turbo, libpng, zlib and the rest) recorded in Activity, each checked against its own
+      advisories.</span></li>
+    <li><span class="box done"></span><span>The front's check service RSS during the largest fixture photo, measured before
+      and after (R4).</span></li>
+    <li><span class="box"></span><span><code>deploy_webapp.sh --compare</code> passes, a full deploy, then
+      <code>--verify</code> passes. Both hosts' venvs show the new versions.</span></li>
+    <li><span class="box"></span><span>OSV, queried again on the deployed venvs, lists no advisory against Pillow.
+      An advisory against any other package is noted in Activity and does not block this ticket.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Every package but Pillow (D1), including imagecodecs, ai-edge-litert and the Python interpreter (§4). A
+      newer 3.12 patch release is its own release.</li>
+    <li>D2 and D3, and any follow-up ticket: the owner writes the ticket for checking new versions.</li>
+    <li>The hosts' operating-system packages, which are the owner's root work.</li>
+    <li>Training-only packages (torch and its stack) beyond what <code>lock_check</code> forces to move.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-19</div>Ticket written from the owner's request and the 2026-11-18 audit. The
+      audit read each host's release venv, queried OSV for every package, and compared the pins with PyPI's latest
+      releases. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-19</div>Research on the newer releases (web, 2026-11-19), and the native
+      libraries read from training's venv, which holds the releases' pins. For the owner's later ticket:
+      <ul>
+        <li><strong>Pillow's reach was overstated</strong> in the first §2: JPEG, PNG, AVIF and JPEG XL pixels are
+          decoded by imagecodecs, so CVE-2026-112403 is out of reach. §2 corrected; the GIF, BMP and EXIF
+          exhaustion advisories keep Priority High.</li>
+        <li><strong>pillow-heif 1.8.0</strong> bundles libheif 1.23.4. libheif 1.23.5 and 1.23.6 were security
+          releases (CPU and memory exhaustion in decoders, a reachable assertion in grid decoding). pillow-heif 1.8.1
+          bundles 1.23.6, which brought a high-rated use-after-free when grid tiles are decoded in parallel with
+          default options (GHSA-35mc-3887-rr37), fixed in libheif 1.23.7. No pillow-heif release bundles 1.23.7 yet
+          (bigcat88/pillow_heif PR 515; issue 518, tests fail against it). Setting
+          <code>pillow_heif.options.DECODE_THREADS = 1</code> would avoid the parallel path.</li>
+        <li><strong>rawpy 0.27.1</strong> bundles LibRaw 0.22.1. rawpy 0.28.0 (2026-10-31) moves to 0.22.2;
+          distributions list several LibRaw CVEs fixed in 0.22.2 builds, not checked against upstream.
+          CVE-2026-111272 (out-of-bounds read in Nikon makernote parsing, CVSS 5.5; NEF is accepted) affects LibRaw
+          through 0.22.2 and is fixed in 0.22.3, which no rawpy release bundles yet.</li>
+        <li><strong>imagecodecs 2026.10.10</strong> bundles libjpeg-turbo 3.2.0, libpng 1.6.59, libavif 1.4.2, libjxl
+          0.12.0 and zlib 1.3.1. libjpeg-turbo 3.2.1's CVE-2026-75466 is in <code>tj3LoadImage</code>, not a path
+          imagecodecs decodes with as far as was checked. 2026.11.11 lists no security fix and renames the JPEG8
+          codec.</li>
+        <li><strong>gunicorn 27.0</strong> (2026-11-10, 27.0.1 on 11-12) answers 400 to a Transfer-Encoding that does
+          not end in chunked, refuses control characters in the path and carries about fifty HTTP fixes. No advisory
+          against 26.2.0; not taken.</li>
+        <li><strong>opencv-python-headless 5.1.0.95</strong> (2026-11-17): OpenCV decodes no accepted format, so no
+          security gain, and no codec notes found. Not taken.</li>
+        <li><strong>numpy 2.5.5, markupsafe 3.0.4, click 8.5.1:</strong> patch releases, no advisories; no notes found
+          for numpy 2.5.4 or 2.5.5. Flask 3.1.3 already carries CVE-2026-27205's fix; no advisory found against
+          Werkzeug 3.1.9.</li>
+        <li><strong>pillow-avif-plugin 1.6.0 and pillow-jxl-plugin 1.3.8</strong> are the latest releases and decode
+          no visitor photo (imagecodecs does).</li>
+      </ul>
+      Owner decisions the same day: D1 (a), Pillow alone, the ticket closes with its deploy; D2 and D3 out of
+      scope; no gunicorn ticket. Triage set to ready-for-agent. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-19</div>Implemented here, not deployed. No plan: the ticket's four parts were
+      done in order, and the deploy waits for the owner (only pushed commits on <code>main</code> deploy).
+      <ul>
+        <li><strong>Pins and locks.</strong> <code>pillow==13.0.0</code> in <code>webapp/pyproject.toml</code> and
+          <code>webapp/front/pyproject.toml</code>; training's <code>pillow</code> stays unpinned and moved with
+          <code>uv lock --upgrade-package pillow</code>. All three locks re-locked with uv 0.12.19: each diff is
+          Pillow's version, sdist and wheels only. <code>python -m coffeecv.lock_check</code>: 24 shared packages,
+          each at one version. No change to <code>coffeecv/canonical.py</code> was needed (R1).</li>
+        <li><strong>Tests (R1).</strong> Training's <code>scripts/check.sh --full</code>: 1,277 tests, all passing
+          but the ticket board's, which failed on this working tree's uncommitted board (the commit's hook rewrites
+          it). The web service's venv (built from <code>webapp/uv.lock</code>) ran its 17 test modules, 375 tests,
+          and the front's venv 6 modules, 254 tests: the only errors are imports the release venvs do not have
+          (<code>torch</code>; <code>pillow_avif</code> and <code>yaml</code> on the front), identical in venvs
+          built from the 12.3.0 locks. The HEIF, AVIF and JPEG XL plugins register under 13.0.0. These venvs ran on this
+          container's Python 3.12.16, the hosts' 3.12.14 not being installable here; both Pillow versions were
+          compared on the same interpreter.</li>
+        <li><strong>Same bytes (R2, R3).</strong> <code>analysis/ops26/canonical_bytes.py</code>, run in the web
+          service's venvs at 12.3.0 and 13.0.0: the 13 release fixtures, the 8 examples (4 WebP, 4 JPEG XL) and the
+          store's one Pillow-decoded original (a GIF,
+          <code>random_date_raccoon/class_013__Brazil_SulDeMinas/20261108_101421_Pixel_9_Pro_Brazil.gif</code>),
+          each canonicalized with the store's and the front's settings: <strong>0 differences</strong> in 44
+          canonical photos, and all 14 store originals among them still make the store's bytes. The store holds no
+          WebP or BMP. Its 2,592 originals Pillow opens (all but HEIC, RAW and JPEG XL) were also read for what
+          canonicalization takes from Pillow (ICC profile, EXIF orientation, mode, size, and the colour declaration
+          made from them): 0 differences. Nothing to bring to the owner under R3.</li>
+        <li><strong>The front's memory (R4).</strong> The check service, three fresh processes per version, peak
+          RSS from its own log line (<code>peak_mb</code>): the largest fixture,
+          <code>PIC_20260924_150009.JPG</code> (19.2 MP, downscaled to 15 MP): 314-319 MB at 12.3.0, 313-319 MB at
+          13.0.0; the largest WebP example: 124-128 MB and 123-128 MB. Unchanged, and the same canonical bytes.</li>
+        <li><strong>Native libraries in Pillow 13.0.0's wheel (R5)</strong>, from
+          <code>PIL.features</code> and the files in <code>pillow.libs/</code>, each checked on the web on
+          2026-11-19 against its own project's advisories. Reached by a visitor's upload: <strong>libwebp
+          1.6.0</strong> (the same binary as 12.3.0's; WebP pixels), <strong>libavif 1.4.2</strong> (Pillow's AVIF
+          plugin, for an AVIF's header and EXIF), <strong>zlib-ng 2.3.3</strong> (zlib 1.3.1's API): no advisory
+          found against any of them. Not reached, since Pillow decodes no accepted format's pixels with them:
+          <ul>
+            <li>libjpeg-turbo 3.2.0 (newer than 12.3.0's 3.1 build): CVE-2026-75466, fixed in 3.2.1, in
+              <code>tj3LoadImage</code>'s PNG loader, which Pillow does not call. Serving never decodes a JPEG with
+              Pillow (§2).</li>
+            <li>libpng 1.6.58: CVE-2026-46675 (use-after-free in <code>png_read_end</code>, medium), fixed in
+              1.6.59. Pillow's PNG plugin does not use libpng: the wheel carries it for FreeType.</li>
+            <li>OpenJPEG 2.5.4: CVE-2026-6192 and CVE-2026-107080, both in the encoder; JPEG 2000 is not accepted
+              and nothing saves it.</li>
+            <li>FreeType 2.14.3: CVE-2026-50811 (variable fonts) and CVE-2026-95512 (CID fonts); HarfBuzz 14.5.0:
+              CVE-2026-113679 and CVE-2026-113680, both in the experimental WebAssembly shaper; brotli 1.2.0:
+              CVE-2026-111497, which reaches Pillow only through FreeType's WOFF2 fonts. Text rendering only.</li>
+            <li>libtiff 4.7.2 (was 4.7.1; it fixes CVE-2026-12912, CVE-2026-52490 and others), LittleCMS 2.19, xz
+              5.8.4 (was 5.8.3; it fixes GHSA-5qpq-xqfv-j9pg), zstd 1.5.7, raqm 0.11.0, FriBiDi 1.0.16, libxcb, libXau
+              1.0.9: no open advisory found. TIFF is not accepted. Canonicalization's colour management is
+              imagecodecs', not Pillow's LittleCMS.</li>
+          </ul>
+          None of these blocks the ticket (D1, D2).</li>
+        <li><strong>OSV</strong>, queried for the web service's lock (26 packages): no advisory against Pillow
+          13.0.0 or any other package. It returns 62 records for 12.3.0 today. To repeat on the deployed venvs.</li>
+      </ul>
+      Left: <code>deploy_webapp.sh --compare</code>, the full deploy, <code>--verify</code>, both hosts' venvs read,
+      and OSV on them. They wait for the owner's go to merge, push and deploy (ADR 0026: photo answers stop for the
+      smoke and the flip).</div>
+  </div>
+
+  <footer>Related: <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
+    <a href="adr/0020-converted-models-pass-d7-before-they-serve.md">ADR 0020</a>,
+    <a href="adr/0026-a-deploy-stops-the-live-service.md">ADR 0026</a>,
+    <a href="adr/0037-folder-stages-process-only-new-photos.md">ADR 0037</a>,
+    <a href="ops-0015_ticket_front_and_inference_host.html">OPS-15</a>,
+    <a href="ops-0022_ticket_front_fast_canonicalization.html">OPS-22</a>,
+    <code>coffeecv/lock_check.py</code>, <code>coffeecv/data/accepted_formats.csv</code>,
+    <a href="https://osv.dev/list?ecosystem=PyPI&amp;q=pillow">OSV: Pillow</a>.</footer>
+</main>

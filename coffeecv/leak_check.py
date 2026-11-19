@@ -57,6 +57,7 @@ _IPV4 = re.compile(rb"(?<![\d.])(\d{1,3}(?:\.\d{1,3}){3})(?!\.?\d)")
 _VERSION_BEFORE = re.compile(rb'(?:==|[-v]|version\s*=\s*")$')
 ALLOWED_IPS = {
     "5.0.0.93",   # opencv-python's version, in prose (docs/ops-0001_ticket_webapp_release_isolation.html)
+    "5.1.0.95",   # a later opencv-python-headless version, in prose (docs/ops-0026_ticket_photo_stack_security_upgrade.html)
 }
 
 # An address is found from its "@" (a literal, so fast), then grown to both sides.
