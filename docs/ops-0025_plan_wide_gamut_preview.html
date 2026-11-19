@@ -12,7 +12,7 @@
     adoption or removal (P6).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-19; P1&ndash;P3 implemented; Q1 answered (D8) and the owner's go for P4, 2026-11-19</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-19; P1&ndash;P4 done, released in <code>20261119T1528Z-fc085e6</code>; P5 is the owner's</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ops-0025_ticket_wide_gamut_preview.html"><code>ops-0025_ticket_wide_gamut_preview.html</code></a> (OPS-25)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -165,7 +165,7 @@
 
   <h2>6. P4 &mdash; Measure on the host, release, verify <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-19: released in <code>20261119T1528Z-fc085e6</code>, <code>--verify</code> passed (<code>2489cf5</code>'s deploy stopped at the smoke, fixed in <code>fc085e6</code>)</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P1&ndash;P3, Q1; the owner's go (a deploy stops the live service, ADR 0026)</span></div>
   </div>
   <ol class="tasks">
@@ -177,6 +177,16 @@
       photo and an example.</span></li>
     <li><span class="box"></span><span>Stop for the owner: the release, and the go for it.</span></li>
   </ol>
+  <p><b>As run (2026-11-19).</b> No separate <code>--stage-only</code>: the full deploy's smoke runs on the host before
+    the flip and prints the same numbers. The first deploy, <code>2489cf5</code>, stopped at the smoke (Activity); the
+    second, <code>fc085e6</code>, passed <code>check.sh --full</code>, the examples here, the smoke and every check of
+    <code>--verify</code>. The smoke on the host, the smoke photo: <code>preview_ms</code> 3448&ndash;3452 ms against
+    3452 and 3388 for the last two releases; the classification out at 9760 and 9855 ms against their latency of 9755
+    and 9693 ms; the shrink 1845 and 1857 ms, beside segmentation; the three files built in 1249 and 1288 ms,
+    460,360 bytes (P3 JPEG 165,451, AVIF 137,591, JPEG XL 157,318). Through the domain, from this container,
+    <code>--verify</code>'s lines came at 21.4, 27.1 and 28.8 s from the upload's start: the third part 1.7 s after
+    the classification. The overlay on each tab was checked in headless Chromium against a saved answer (P2), not on
+    the live site; the live page's tabs on the phones are P5.</p>
 
   <h2>7. P5 &mdash; The owner's look <span class="pill sm open">stop</span></h2>
   <div class="fields">
@@ -231,6 +241,9 @@
       releases' on the same photo: <code>preview_ms</code> 3448 (3452, 3388), the classification out at 9760 ms
       (latency 9755, 9693); the shrink took 1845 ms on the host, hidden beside segmentation; the three files 1249 ms
       and 460,360 bytes after the classification.</div>
+    <div><div class="when">2026-11-19</div>P4 done: <code>fc085e6</code> released in <code>20261119T1528Z-fc085e6</code>,
+      <code>--verify</code> passed, the third part checked through the domain. P5, the owner's look on the phones,
+      is next.</div>
   </div>
 
   <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25 ticket</a>,

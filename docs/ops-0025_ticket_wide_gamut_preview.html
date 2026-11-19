@@ -10,10 +10,10 @@
     sRGB. This ticket adds tabs under the live page's preview that flip between today's preview and three wide-gamut
     ones (P3 JPEG, 10-bit AVIF, JPEG XL); the owner compares them on a Pixel 9 Pro and an iPhone and keeps one. Gamut
     only: HDR brightness is <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>. Decisions settled
-    2026-11-19; planned, P1&ndash;P3 implemented 2026-11-19, not deployed.</p>
+    2026-11-19; the trial is live since 2026-11-19 (<code>20261119T1528Z-fc085e6</code>).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-18; decisions settled 2026-11-19; planned 2026-11-19 (<a href="ops-0025_plan_wide_gamut_preview.html">P1&ndash;P6</a>); P1&ndash;P3 implemented 2026-11-19, tested here, not deployed; the plan's Q1 open</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-18; decisions settled 2026-11-19; planned 2026-11-19 (<a href="ops-0025_plan_wide_gamut_preview.html">P1&ndash;P6</a>); D8 2026-11-19 (the plan's Q1); P1&ndash;P4 done, released 2026-11-19 in <code>20261119T1528Z-fc085e6</code>, <code>--verify</code> passed; the owner's look on the phones (P5) next</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, ready-for-agent</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Webapp: what the page shows</span></div>
@@ -231,6 +231,13 @@
       files 461 KB, built in 581 ms after the classification; the host's numbers are P4's. In headless Chromium 156 the
       tabs work and the overlay holds on each, and the AVIF and the JPEG XL, D1's BT.709 transfer, show about 11 levels
       darker than the two JPEGs: the plan's Q1, which P4 waits on. Not deployed.</div>
+    <div><div class="when">2026-11-19</div>D8 from the owner (the plan's Q1): the AVIF and the JPEG XL carry the sRGB
+      curve, so the tabs differ in gamut only; in headless Chromium the four now average within 1.3 levels of each
+      other on the smoke photo. Released in <code>20261119T1528Z-fc085e6</code> (<code>fc085e6</code>), <code>--verify</code> passed;
+      the first deploy, <code>2489cf5</code>, stopped at its smoke on two faults of the deploy's own check, fixed
+      in <code>fc085e6</code>. Measured on the host (§7): the third part's three files 460,360 bytes, built in 1.25&ndash;1.29 s
+      after the classification; the preview and the classification out when the last releases' were (the plan's
+      P4). Next: the owner's look on a Pixel 9 Pro and an iPhone.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
