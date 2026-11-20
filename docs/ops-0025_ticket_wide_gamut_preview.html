@@ -286,6 +286,12 @@
       with its reporter since 2026-04-29 for a video; its report says <code>chrome://flags</code>' "Force color profile"
       set to "Display P3 D65" shows wide gamut. Mozilla's bug 1879568 ("No color management on Android 14") is open and
       unassigned. No source says Android browsers will draw P3 by default soon.</div>
+    <div><div class="when">2026-11-20</div>R2, Chrome on the Pixel 9 Pro with its output forced to P3: with
+      <code>chrome://flags</code>' "Force color profile" set to "Display P3 D65" and Chrome relaunched, Chrome 157 on
+      the Pixel 9 Pro (Android 17) shows the live page's previews correctly, the owner: the out-of-gamut text on the P3
+      JPEG, AVIF and JPEG XL tabs, not on sRGB. So our files work in Chrome on Android too; only Chrome's default
+      output, sRGB (Chromium 492734022), keeps them from showing. The flag is a test setting, not for visitors: it
+      makes Chrome take every screen for P3.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
