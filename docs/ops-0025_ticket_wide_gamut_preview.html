@@ -268,6 +268,11 @@
       160, Chrome 157 and DuckDuckGo (Android's WebView) the owner sees the text in none of them: on this phone the
       browsers draw pages in sRGB, so no format can show wide gamut there. The Pixel cannot decide D4; the iPhone in
       Safari is the test.</div>
+    <div><div class="when">2026-11-20</div>R2, Firefox 160 on the Pixel 9 Pro, confirmed without our files: a page
+      typed as a <code>data:</code> address with CSS's <code>color(display-p3 1 0 0)</code> and
+      <code>color(display-p3 0 1 0)</code> text on sRGB's maximum red and green shows no text, and the owner's test
+      AVIF picked into that page shows no text either: Firefox draws in sRGB on this phone. Chrome 157 does not open a
+      typed <code>data:</code> address (it searches for it); its check is WebKit's wide-gamut test page.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
