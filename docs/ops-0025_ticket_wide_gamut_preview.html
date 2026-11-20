@@ -260,6 +260,14 @@
       browser, the out-of-gamut text invisible on every tab. The phones' screenshots are sRGB PNGs, so they cannot
       show a P3-only difference either way. Not yet told apart: the browsers drawing in sRGB, or the display's colour
       mode. Next: a known wide-gamut page in the same browsers, the original file in Google Photos, the iPhone.</div>
+    <div><div class="when">2026-11-20</div>R2 on the Pixel 9 Pro, settled as far as the owner's checks go. The
+      display and Google Photos show Display P3 (the owner's own test set, "P3" text at P3's maximum red and green on
+      sRGB's maximum: JPEG, PNG, AVIF with a standard P3 ICC profile, HEIC, JPEG XL with its own colour description).
+      Through our front and previews, all five keep the text: the canonical photo and the three wide-gamut previews
+      51 / 116 levels apart on a P3 screen (red / green, the expected 51 / 117), the sRGB preview 0 / 0. In Firefox
+      160, Chrome 157 and DuckDuckGo (Android's WebView) the owner sees the text in none of them: on this phone the
+      browsers draw pages in sRGB, so no format can show wide gamut there. The Pixel cannot decide D4; the iPhone in
+      Safari is the test.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
