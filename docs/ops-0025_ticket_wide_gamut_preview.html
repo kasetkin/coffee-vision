@@ -281,6 +281,11 @@
       the sRGB JPEG shows the out-of-gamut "P3" text; the P3 JPEG, the AVIF and the JPEG XL all show it, as the
       measurements said they would. The owner's computer monitor is sRGB only, so it cannot judge. The trial works end
       to end where the browser draws wide colour; the choice (D4) is the owner's next.</div>
+    <div><div class="when">2026-11-20</div>R2, the sources. Chromium issue 492734022, "Under Android 10, Chrome
+      displays wide gamut images as clamped to sRGB" (filed 2026-03-14, Chrome 145): open, P2, Needs-Feedback, back
+      with its reporter since 2026-04-29 for a video; its report says <code>chrome://flags</code>' "Force color profile"
+      set to "Display P3 D65" shows wide gamut. Mozilla's bug 1879568 ("No color management on Android 14") is open and
+      unassigned. No source says Android browsers will draw P3 by default soon.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>,
