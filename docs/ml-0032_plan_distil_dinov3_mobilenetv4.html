@@ -1,0 +1,348 @@
+<title>Implementation plan: distil DINOv3 into MobileNetV4</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-32 · coffee-vision · implementation</div>
+  <h1>Implementation plan: distil DINOv3 into MobileNetV4</h1>
+  <p class="lede">The order of work for <a href="ml-0032_ticket_distil_dinov3_mobilenetv4.html">ticket ML-32</a>. One
+    strand, cheapest proof first: time the untrained variants where they would serve, build the distillation code,
+    pilot one student at seed 42, screen the recipe on validation, then train three students and compare each with
+    its B/16 pair, and convert the best. Quality decides every tie: the larger variant, the teacher on every view,
+    the longer schedule. The first step that changes a number is P3&rsquo;s pilot.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-20, closed with its ticket, by the owner (the ticket&rsquo;s D9): no phase done, Q1&ndash;Q6 not answered</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0032_ticket_distil_dinov3_mobilenetv4.html"><code>ml-0032_ticket_distil_dinov3_mobilenetv4.html</code></a> (ML-32)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-16</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">P1 can start; P2 on waits on the ticket&rsquo;s D1&ndash;D5 and D8</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>8b862d3</code>, not from the ticket alone. Five things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q6 (§2).</p>
+    <ol>
+      <li><b>The photo split differs by seed.</b> <code>dataset.split_photos_by_class</code> shuffles on
+        (seed, class), so seed 42&rsquo;s training photos include seed 123&rsquo;s validation and test photos. One
+        student cannot be scored at three seeds; each seed needs its own student, distilled on that seed&rsquo;s
+        training photos (Q1, P5). A photo is in all three training splits with probability about 0.34, too few to
+        distil one shared student on.</li>
+      <li><b>A checkpoint holds no backbone.</b> <code>dino_classifier.save_frozen_checkpoint</code> stores the head
+        and the digest of a file under <code>models_pretrained/</code>; <code>is_frozen_model</code> accepts the
+        <code>dinov3</code> family only; <code>backbones.features</code> reads CLS and patch tokens. A student needs
+        a home for trained backbone weights, a family and a readout of its own (Q2, Q3, P2).</li>
+      <li><b>The export is written for DINOv3.</b> <code>litert_forms.DinoReadout</code> and the
+        <code>litert_export</code> stage wrap <code>FrozenBackbone.features</code> with rewrites made for a ViT; a
+        convolutional graph needs its own entry, its own range scan (ADR 0022) and its precision decided again
+        (ADR 0019) (Q5, P1, P6).</li>
+      <li><b>No training hardware.</b> torch is the CPU build and the machine has 12 threads and 13 GB of memory.
+        Measured ad hoc on 2026-11-16 (the ticket&rsquo;s §2): the teacher 0.225 s a view, a Conv-L training step
+        0.167 s, so a 100-pass student with the teacher on line is about 25 days here and the plan as written is
+        months. P1 repeats the measurement as a record; the ticket&rsquo;s D3 decides the machine, and on this one
+        P3&ndash;P5 shrink to the ticket&rsquo;s reduced plan (a stored teacher, 30 passes, P4 dropped).</li>
+      <li><b>The pool is moving.</b> ML-31&rsquo;s intake is in progress (<code>8b862d3</code>). A student and its
+        B/16 pair must read the same pool; exp283&ndash;285 are the baseline only while the pool is theirs
+        (Q6).</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>P1 trains nothing and can end the ticket: if no variant places on <code>yappy</code>&rsquo;s GPU well ahead of
+    B/16, there is nothing to distil for. P2 is code, proven at toy scale. P3 is the first number, at one seed, and
+    answers the ticket&rsquo;s R1 before the three-seed cost. P4 spends training time only on validation. P5 is the
+    evidence under ADR 0002. P6 is the only phase that says what the site would gain.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>Untrained variants converted and timed; a training step timed <span class="pill sm open">stop</span></td><td>local, <code>yappy</code></td><td>no: timings only</td></tr>
+      <tr><td class="id">P2</td><td>The student backbone and the distillation driver, test-first</td><td>local</td><td>no: toy scale</td></tr>
+      <tr><td class="id">P3</td><td>Pilot student at seed 42, beside B/16 and ViT-S/16 <span class="pill sm open">stop</span></td><td>D3&rsquo;s machine</td><td>yes</td></tr>
+      <tr><td class="id">P4</td><td>Recipe levers, one at a time, on validation</td><td>D3&rsquo;s machine</td><td>yes</td></tr>
+      <tr><td class="id">P5</td><td>Three students, heads, probes, the paired comparison <span class="pill sm open">stop</span></td><td>D3&rsquo;s machine, local</td><td>yes</td></tr>
+      <tr><td class="id">P6</td><td>The best student converted, checked and timed per photo <span class="pill sm open">stop</span></td><td>local, <code>yappy</code></td><td>no: a report</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code or the data, not from the ticket&rsquo;s decisions. Each has a recommendation, which this plan
+    assumes until it is answered.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>One student per seed, or one student scored at one seed? The split differs by
+        seed (finding 1), so three seeds of evidence cost three distillations.</td>
+        <td><span class="pill sm open">Open</span> One student per seed, seeds 42, 123, 7, the distillation seeded
+          with the run&rsquo;s seed. It is what ADR 0002 asks for, and it also shows how much a student varies from
+          one distillation to the next, which a single student hides.</td><td>P5</td></tr>
+      <tr><td class="id">Q2</td><td>What does the head read from the student? MobileNetV4 has no CLS token: timm
+        gives a pooled feature after its head convolution (1280-d). The student is trained through a linear
+        projector onto the teacher&rsquo;s 1536-d <code>cls_mean</code>.</td>
+        <td><span class="pill sm open">Open</span> The pilot fits the head and the probe on both, the pooled
+          feature and the projected 1536-d embedding, and the one with the higher validation macro-F1 becomes the
+          student&rsquo;s one readout from P4 on. The projector is then part of the student or dropped.</td><td>P4</td></tr>
+      <tr><td class="id">Q3</td><td>Where do a student&rsquo;s trained weights live? Today a backbone is a
+        downloaded file in <code>models_pretrained/</code> (finding 2).</td>
+        <td><span class="pill sm open">Open</span> <code>models/students/&lt;name&gt;.pt</code>, tracked by DVC,
+          written by the driver with the run&rsquo;s config and the teacher&rsquo;s digest inside; a head checkpoint
+          names it by digest as it names DINOv3&rsquo;s today. <code>models_pretrained/</code> keeps only what was
+          downloaded: the ImageNet initial weights (D4).</td><td>P2</td></tr>
+      <tr><td class="id">Q4</td><td>How much training may P4 spend? Schedule length is the main lever in the
+        sources, and each lever is one more distillation.</td>
+        <td><span class="pill sm open">Open</span> Set after P1&rsquo;s step time and D3, as a number of
+          distillations: the pilot, one at three times its schedule, and at most four further levers (P4&rsquo;s
+          list, in its order).</td><td>P4</td></tr>
+      <tr><td class="id">Q5</td><td>Which precision does the student serve in? The fp16 bar was accepted for
+        DINOv3 on <code>yappy</code>&rsquo;s GPU only (ADR 0020), and the convolutional encoder failed fp16 there
+        (ADR 0019).</td>
+        <td><span class="pill sm open">Open</span> fp32 is what P6 reports as the student&rsquo;s time. fp16 is
+          measured beside it against the same bar DINOv3&rsquo;s fp16 passed, and shown to the owner as an option,
+          not adopted here.</td><td>P6</td></tr>
+      <tr><td class="id">Q6</td><td>Which pool, and so which baseline? ML-31 adds photos (finding 5).</td>
+        <td><span class="pill sm open">Open</span> The pool that is current when P3 starts, held for the whole
+          ticket. If it is not exp283&ndash;285&rsquo;s, B/16 is refitted on it first at the three seeds (about
+          10 h, the recipe unchanged) and those runs are the baseline.</td><td>P3</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; Time the untrained variants, and a training step <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>Weights do not change a graph&rsquo;s time, so this needs no training, no download and no licence decision.
+    It replaces every published ratio with a number from the host that serves, and it is the proof ADR 0020 asks
+    of any graph: the delegate&rsquo;s own report of where each op ran. Scripts and records go to
+    <code>analysis/ml32/</code>, in the shape of <code>analysis/quantization/gpu_quantized_ops.{py,sh}</code>.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Read <code>docs/agents/deploy.md</code> and <code>analysis/ml7_gpu/README.md</code>
+      for how a graph is timed on <code>yappy</code> beside the live worker (memory headroom, the shared power
+      limit), and agree the time of day with the owner.</span></li>
+    <li><span class="box"></span><span>Convert, in <code>convert/.venv</code>, at batch 8 and 224 px, with random
+      weights: <code>mobilenetv4_conv_medium</code>, <code>mobilenetv4_conv_large</code>,
+      <code>mobilenetv4_hybrid_medium</code>, <code>mobilenetv4_hybrid_large</code>, each ending at its pooled
+      feature. Record per graph: whether it converts, its op list, and whether layout transposes remain.</span></li>
+    <li><span class="box"></span><span>On <code>yappy</code>: each graph on the WebGPU accelerator in fp32 and fp16
+      and on XNNPACK, beside the live model&rsquo;s <code>dino_b8</code> graph in the same session: the placement
+      report, the time for 5 calls of 8, the <code>MemAvailable</code> drop, and for fp16 any NaN or Inf and the
+      cosine to the fp32 output on real patches.</span></li>
+    <li><span class="box"></span><span>On this machine: the time of one training step (forward, backward, update)
+      for Conv-M and Conv-L at 224 px and batch 32, and of the B/16 teacher on the same batch; from them, the hours
+      per pass over 54,000 views with the teacher on line and from a store.</span></li>
+    <li><span class="box"></span><span>Checks: a table in <code>analysis/ml32/README.md</code> with every cell
+      filled or marked failed with its error; the records committed.</span></li>
+    <li><span class="box"></span><span>If D8 is (a) or (b): the published student fitted at seeds 42, 123 and 7 by
+      <code>fit_frozen_head</code> on the current pool (Q6), with its probe and <code>ood_eval</code>, and paired
+      with B/16 in <code>analysis/ml32/published_students.txt</code>; its untrained graph timed with the
+      others.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the variant (D1), the machine (D3), and D2, D4, D5; with
+      D8, whether the published student is accepted in place of a distillation. If no
+      variant is at least twice as fast as B/16 on the accelerator, whether the ticket goes on.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; The student backbone and the distillation driver</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1, D1, D3, D4, D5, Q3</span></div>
+  </div>
+  <p>Two pieces, written test-first and proven at toy scale (<code>CODING_STANDARDS.md</code>, &ldquo;Proving a
+    change&rdquo;).</p>
+  <p><b>The student as a backbone.</b> A <code>mobilenetv4</code> family in <code>coffeecv/backbones.py</code> beside
+    <code>dinov3</code>: built through timm, its weights verified by digest, <code>features(x)</code> returning its
+    readouts from one forward pass, frozen and in eval mode once distilled. <code>is_frozen_model</code>,
+    <code>load_frozen_checkpoint</code> and <code>fit_frozen_head --backbone</code> accept it, so the head fit, the
+    probe fit, <code>ood_eval</code> and <code>infer.py</code> run on a student through the code they run on B/16
+    today. That is what keeps the parity rule.</p>
+  <p><b>The driver</b>, <code>coffeecv/distill.py</code>, the second training driver beside
+    <code>fit_frozen_head</code>, with its refusals (dirty tree, stale stages) and its archive. The baseline recipe,
+    each choice the quality-first one:</p>
+  <ul>
+    <li><b>Target.</b> The teacher&rsquo;s <code>cls_mean</code>, 1536-d, from the B/16 the live model uses, in
+      fp32.</li>
+    <li><b>Loss.</b> Cosine distance plus smooth-L1 between the student&rsquo;s projected embedding and the
+      target, both standardised with the teacher&rsquo;s statistics over the transfer set, so no dimension
+      dominates. One linear projector. No label enters.</li>
+    <li><b>Same view.</b> The teacher and the student receive the same tensor: one augmentation draw, then both
+      forwards. Views come from <code>head_augment</code>&rsquo;s pipelines (ADR 0025, ADR 0027), so the student is
+      matched on the views the head is fitted on.</li>
+    <li><b>Transfer set</b> (D5 (a)). Patches drawn afresh each pass from the seed&rsquo;s training-split photos by
+      the D17 rule the head fit uses, not a fixed 600 a class; and patches from the guard&rsquo;s training and
+      validation negatives, a fixed share of each batch.</li>
+    <li><b>Teacher on line or stored</b> (D3). On a GPU the teacher runs on every view. On the CPU the driver first
+      builds a store of teacher embeddings keyed by (photo, box, view seed) and replays each view from its seed, as
+      many views as the budget allows; a stored embedding is never paired with a view it was not computed on.</li>
+    <li><b>Student.</b> D1&rsquo;s variant from D4&rsquo;s ImageNet weights, every layer trained, at 224 px.
+      AdamW, warm-up then cosine decay, an exponential moving average of the weights; the average is what is
+      evaluated and saved.</li>
+    <li><b>Watched during training.</b> The mean cosine to the teacher on the seed&rsquo;s validation patches and
+      on held-back negatives, unaugmented. It is logged, and the last weights are kept, not the best on validation:
+      picking a checkpoint on validation would spend it.</li>
+  </ul>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The initial weights downloaded once into <code>models_pretrained/mobilenetv4/</code>,
+      listed in <code>manifest.json</code> with their digest and source, added to DVC and pushed
+      (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box"></span><span>Tests for the backbone family: its readouts&rsquo; shapes; frozen and in
+      eval mode after loading; a checkpoint whose student digest does not match is refused; the existing DINOv3
+      tests unchanged and green.</span></li>
+    <li><span class="box"></span><span>Tests for the driver: the transfer set holds no validation or test photo of
+      its seed and no test-split negative (R4); the teacher and the student are called on identical tensors; a
+      replayed view reproduces the tensor its stored embedding was computed on; two runs at one seed give the same
+      weights on this machine; a run resumed after an interruption gives what an uninterrupted one gives.</span></li>
+    <li><span class="box"></span><span>A <code>--smoke</code> run end to end: distil for a few steps, save the
+      student, fit a head and a probe on it, classify one photo with <code>infer.py</code>.</span></li>
+    <li><span class="box"></span><span>On D3&rsquo;s machine, if it is not this one:
+      <code>docs/agents/remote-sweeps.md</code> followed, the environment synced, the smoke run repeated
+      there.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/check.sh --full</code> green; the driver and its
+      checkpoint format described in <code>docs/agents/experiments.md</code>; &ldquo;student&rdquo;,
+      &ldquo;teacher&rdquo; and &ldquo;transfer set&rdquo; in <code>GLOSSARY.md</code>.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; The pilot at seed 42 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, D2, Q6</span></div>
+  </div>
+  <p>One student, the baseline recipe, a schedule sized from P1 (on a GPU, at least 100 passes over a
+    54,000-view draw). It answers R1: can this architecture hold the embedding well enough to be worth three
+    seeds.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The baseline settled (Q6): exp283, or B/16 refitted on the current
+      pool.</span></li>
+    <li><span class="box"></span><span>The reference arm: the published DINOv3 ViT-S/16 through
+      <code>fit_frozen_head</code> at seed 42, with its probe. No distillation; the weights are on disk.</span></li>
+    <li><span class="box"></span><span>The pilot distilled as a recorded run, committed code, the config archived.</span></li>
+    <li><span class="box"></span><span>The head and the probe fitted on the student, on each candidate readout
+      (Q2), by <code>fit_frozen_head</code> and <code>fit_ood_probe</code> unchanged.</span></li>
+    <li><span class="box"></span><span>The report, <code>analysis/ml32/pilot.txt</code>, three columns (B/16,
+      ViT-S/16, the student): val and test macro-F1 and per-class F1; the guard&rsquo;s test-split figures;
+      per-photo top-1 through the serving path on the seed&rsquo;s validation and test photos; the
+      student&rsquo;s top-1 agreement with B/16 per patch and per photo; its cosine to the teacher on validation
+      patches and on negatives, with the distribution&rsquo;s low tail, not only the mean.</span></li>
+    <li><span class="box"></span><span>The 20 validation patches with the lowest cosine opened at full size, to see
+      what the student misses.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the pilot beside B/16 and ViT-S/16; go on to P4, change
+      the variant (D1), or close. Q2 and Q4 answered here.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; Recipe levers, on validation</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3, Q2, Q4</span></div>
+  </div>
+  <p>Each lever is one distillation at seed 42 that differs from the best so far in one thing, judged on validation
+    macro-F1, the guard&rsquo;s validation-side figures and the cosine; test is not read until P5. One seed cannot
+    separate small effects (ADR 0002), so a lever is kept only when it moves validation by more than the head
+    fit&rsquo;s own seed spread or repairs the guard; otherwise the simpler recipe stays. In this order, within
+    Q4&rsquo;s budget:</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><b>Schedule length</b>, three times the pilot&rsquo;s: the main lever in
+      the sources [S9].</span></li>
+    <li><span class="box"></span><span><b>A spatial term</b>: the student&rsquo;s last feature map (7&times;7 at
+      224 px) matched, through a 1&times;1 projector, to the teacher&rsquo;s patch tokens averaged 2&times;2 to the
+      same grid [S7]. It gives the student 49 targets a view where the baseline gives one.</span></li>
+    <li><span class="box"></span><span><b>A logit term</b>: the teacher&rsquo;s head output on its own embedding as
+      a soft target for the student&rsquo;s projected embedding through the same frozen head [S10, S11]. It weights
+      the 10-class directions; the head is still refitted afterwards.</span></li>
+    <li><span class="box"></span><span><b>Mixed views</b>: mixup or CutMix of two patches with the teacher run on
+      the mixed image [S9]. Teacher on line only. Mixup was closed for the fine-tuned ResNet18
+      (<code>.out-of-scope/resnet18-recipe-levers.md</code>), which allows a lever again on the DINOv3 pipeline as a
+      paired screen; here it is a distillation input, never a label mix.</span></li>
+    <li><span class="box"></span><span><b>Only if the guard&rsquo;s figures fall:</b> a similarity-preserving loss
+      in place of the plain match [S12], then a generic unlabelled image set in the transfer set (D5 (b), the
+      owner&rsquo;s choice of set).</span></li>
+    <li><span class="box"></span><span>Checks: <code>analysis/ml32/levers.txt</code> with every run, kept or not,
+      and the recipe P5 uses stated in full.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; Three students and the paired comparison <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, Q1</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The chosen recipe distilled at seeds 42, 123 and 7, each on its own
+      seed&rsquo;s training photos. Seed 42 is run again with the final recipe, not reused from P4, so the three
+      differ only in seed.</span></li>
+    <li><span class="box"></span><span>Per student: the head by <code>fit_frozen_head</code> at its seed, the probe
+      by <code>fit_ood_probe</code>, <code>ood_eval</code> on the segmenter dataset&rsquo;s test split.</span></li>
+    <li><span class="box"></span><span>Config diffed against each B/16 pair&rsquo;s, key by key
+      (<code>experiments.md</code>): only the backbone may differ.</span></li>
+    <li><span class="box"></span><span>The comparison, <code>analysis/ml32/compare.txt</code>, per seed pair and as
+      mean and range: everything P3&rsquo;s report holds, with test now read; the confusion matrices side by side;
+      the photos the student answers wrong and B/16 right, listed, and opened at full size.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the evidence under ADR 0002. Convert the best student
+      (P6), iterate on the recipe, or close.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; The best student converted and timed <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not done, 2026-11-20: the ticket closed (D9)</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5, Q5</span></div>
+  </div>
+  <p>The student with the highest validation macro-F1 is shipped as a candidate, as a B/16 head is today, and taken
+    through the conversion path. D7 holds the converted graph to the student&rsquo;s own PyTorch model, not to the
+    teacher (ADR 0020).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>A student entry in <code>litert_forms.py</code> beside
+      <code>DinoReadout</code>, and in the <code>litert_export</code> stage; batch-norm folding checked against the
+      unfolded model at float rounding as an exact form (ADR 0022); the range scan over every photo before any
+      fp16 form.</span></li>
+    <li><span class="box"></span><span><code>dvc repro -s litert_export@&lt;name&gt;</code>: D7&rsquo;s fp32 bars on
+      the deploy fixtures; the artefacts pushed and checked on the remote.</span></li>
+    <li><span class="box"></span><span>On <code>yappy</code>, beside the live worker: the placement report with
+      the trained weights; fp32 and fp16 against PyTorch on served photos (least cosine, top-1 changes, guard
+      verdict changes, the largest probability change), fp16 read against DINOv3&rsquo;s accepted bar (Q5).</span></li>
+    <li><span class="box"></span><span>ML-7 P4&rsquo;s photo replay with the student in place of DINOv3: seconds
+      per photo, models only, and the <code>MemAvailable</code> drop, beside the live model&rsquo;s in the same
+      session.</span></li>
+    <li><span class="box"></span><span><code>analysis/ml32/README.md</code>: the ticket&rsquo;s answer in one
+      table, quality and time, B/16 against the student.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: adopt (a release ticket, and an ADR superseding
+      ADR 0006), keep B/16, or iterate.</span></li>
+  </ol>
+
+  <h2>9. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: every variant has a conversion result, a placement report and times on
+      the accelerator and on XNNPACK, or a recorded failure.</span></li>
+    <li><span class="box"></span><span>P2: the leakage, same-view, replay, determinism and resume tests pass; the
+      smoke run classifies a photo with a student.</span></li>
+    <li><span class="box"></span><span>P3: the pilot&rsquo;s report has all three columns, and the student&rsquo;s
+      head and probe were fitted by the unchanged fit code.</span></li>
+    <li><span class="box"></span><span>P4: no test figure appears in <code>levers.txt</code>.</span></li>
+    <li><span class="box"></span><span>P5: each student&rsquo;s archived transfer set is disjoint from its
+      seed&rsquo;s validation and test photos and from the guard&rsquo;s test split; each config differs from its
+      pair&rsquo;s in the backbone only.</span></li>
+    <li><span class="box"></span><span>P6: D7&rsquo;s fp32 bars pass against the student&rsquo;s PyTorch model; the
+      per-photo time is from <code>yappy</code>, not from another machine.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase&rsquo;s last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket&rsquo;s &ldquo;Out of scope&rdquo;. No change to <code>webapp/</code>, to the
+      live model&rsquo;s name in code, to <code>docs/status.md</code> or to <code>docs/inference_path.html</code>:
+      those move with a release.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-16</div>Claude reads ticket ML-32 at <code>8b862d3</code> and writes this
+      plan. Five findings not in the ticket; Q1&ndash;Q6 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-16</div>The ticket gains a measured training cost, the reduced plan for this
+      machine and D8 (a published student first). Finding 4 rewritten with the numbers; P1 gains D8&rsquo;s task and
+      its stop the question it raises.</div>
+    <div><div class="when">2026-11-20</div>Closed with its ticket, by the owner (D9): no distillation on this
+      hardware and no pre-trained student. No phase started; Q1&ndash;Q6 not answered.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0032_ticket_distil_dinov3_mobilenetv4.html">ML-32 ticket</a>,
+    <a href="../analysis/distillation/research_distillation.md">the distillation research note</a> (the [S<i>n</i>]
+    sources), <a href="ml-0027_plan_classifier_on_new_photos.html">ML-27 plan</a>,
+    <a href="ml-0007_plan_inference_runtime.html">ML-7 plan</a>, <code>docs/agents/experiments.md</code>,
+    <code>docs/agents/remote-sweeps.md</code>, <code>docs/agents/deploy.md</code>.</footer>
+</main>
