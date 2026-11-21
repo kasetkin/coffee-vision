@@ -12,7 +12,7 @@
     2026-11-21 from the files; nothing in <code>dataset/</code> changed yet. The owner decided D1 the same day: both files of the near pair kept.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; stages not re-run; not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; the segmenter dataset built (<code>de335b3</code>); the store re-run started and aborted at the owner's word 2026-11-21; re-started the same day at the owner's word, this ticket's two folders first: done 23:01 UTC: every output byte-identical but the new photos' and one test mask (Pillow 13, R3); the crop review open; not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -107,6 +107,15 @@
         <td>pass17 (2026-11-17) labelled the photos added before it; these 46 have no corrected masks. The dataset
           is append-only (ML-5 D11), so their splits are fixed when they are added; ML-33 reads which ones it
           gets.</td></tr>
+      <tr><td class="id">R3</td><td><strong>Pillow 13 changes a recorded test mask.</strong></td>
+        <td>Found in the re-run, 2026-11-21: <code>seg_ml19_predict</code> changed one of its 459 earlier masks,
+          <code>ood_negatives/…/other_nuts_seeds_022</code> (test, negative), by 1,011 of 2,041,920 pixels (area
+          0.1954 &rarr; 0.1952), on the same canonical photo, weights, threads and box. Recomputed four times, the
+          new mask each time. The cause is OPS-26's Pillow 12.3.0 &rarr; 13.0.0 (<code>376928b</code>, 2026-11-19,
+          after this stage's last run): <code>model_io.sam_resize</code>'s bilinear resize to the encoder's 1024 px
+          gives 13% of its values one apart on this photo; OPS-26 checked canonical bytes, not masks. Every segcrop
+          mask in the store came back the same. The new mask is recorded as what the current stack makes; OPS-26's
+          owner may want the finding.</td></tr>
     </tbody>
   </table></div>
 
@@ -126,9 +135,9 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The 46 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>All 46 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
-    <li><span class="box"></span><span>Both folders in DVC; their canonicalize and segcrop stages, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
+    <li><span class="box done"></span><span>Both folders in DVC; their canonicalize and segcrop stages, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the 46; the owner's crop review.</span></li>
-    <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh --full</code> green.</span></li>
     <li><span class="box"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
   </ul>
 
@@ -152,6 +161,39 @@
       bytes), as 20 earlier Pixel photos in class 013 do. Both folders dvc-added: <code>random_date_raccoon</code>
       513 &rarr; 536 files, <code>tasty_coffee</code> 57 &rarr; 80; against the listings at <code>HEAD</code>, 23
       added to each, none removed or changed. Not pushed.</div>
+    <div><div class="when">2026-11-21</div>The segmenter dataset built (<code>de335b3</code>): 46 added, 1,861 photos
+      (27 train, 7 validation, 12 test); nothing moved or dropped; the D1 pair one group, in test;
+      <code>test_seg_dataset</code>'s pinned pool count 861 &rarr; 907.</div>
+    <div><div class="when">2026-11-21</div><code>dvc status</code> lists every canonicalize and segcrop stage, not only
+      this ticket's two folders: OPS-25 P1 (<code>7cbf9a0</code>) split <code>load_canonical</code> in
+      <code>canonical.py</code>, a dep of every canonicalize stage, after <code>dvc.lock</code> was last written
+      (<code>a4ec366</code>), and did not re-run them. A changed dep rebuilds every folder in full (ADR 0037), so
+      the store is re-run once, as for ML-31: every canonicalize and segcrop stage, then
+      <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>, each by <code>dvc repro -s</code>;
+      the listings to be compared with <code>dvc.lock</code> at <code>1f66d2e</code>. Every output but the new
+      photos' should come back byte-identical, which also checks OPS-25's "same pixels" on the whole store.</div>
+    <div><div class="when">2026-11-21</div>The re-run aborted at the owner's word, 2 minutes into its first stage
+      (<code>canonicalize@2026-08-07__box_pictures_all_classes</code>, 25 of 180 photos rebuilt). That folder
+      restored from the cache by <code>dvc checkout</code>; <code>dvc.lock</code> unchanged, and no stage's output
+      differs from it (<code>dvc status</code>: changed deps only). No crop or mask of the new photos yet.</div>
+    <div><div class="when">2026-11-21</div>The full re-run re-started at the owner's word (18:06 UTC), the same 43
+      stages, this ticket's two folders first so their crops reach the review early. Those four stages done by
+      19:27: each rebuilt in full (<code>canonical.py</code> changed), and against <code>dvc.lock</code> at
+      <code>1f66d2e</code>, listing by listing, only the new photos added: canonical <code>random_date_raccoon</code>
+      513 &rarr; 536, <code>tasty_coffee</code> 57 &rarr; 80; segcropped 1,027 &rarr; 1,073 and 117 &rarr; 163 (a
+      crop and a mask each); nothing else changed but each folder's <code>segcrop_report.json</code> and
+      <code>segcrop_manifest.json</code>, which count them. The crop review items:
+      <code>outputs/intake_2026-11-21/review/items.csv</code>, by <code>analysis/ml19/p6_review_items.py --before
+      HEAD --new-only</code> (<code>analysis/ml3/new_crops_items.py</code> predates canonicalization and fails on an
+      original), 46 new, no fallback, each mask checked against the stage's hash; 11 cover the whole frame (area
+      &ge; 0.999), the smallest 0.12. The other 37 stages running.</div>
+    <div><div class="when">2026-11-21</div>The re-run done (43 stages, 18:06&ndash;23:01 UTC, none failing). Against
+      <code>dvc.lock</code> at <code>1f66d2e</code>, output by output: 84 outputs byte-identical (every other
+      canonicalize and segcrop stage, so OPS-25's split of <code>load_canonical</code> holds on the whole store);
+      the two folders as above; <code>merge_segpool</code>'s pool 3,527 &rarr; 3,619 (the 46's crops and masks) and
+      its manifest; <code>seg_ml19_predict@xl0_v7r_s123</code> 460 &rarr; 472 (the 12 new test photos), its
+      <code>index.csv</code>, and one earlier mask changed, R3. <code>dvc status</code>: up to date.</div>
+    <div><div class="when">2026-11-21</div><code>scripts/check.sh --full</code> green (unittest 797 s). Not pushed: git and the DVC remote wait for the owner, as does the crop review.</div>
   </div>
 
   <footer>Related: <a href="ml-0031_ticket_intake_2026_11_15.html">ML-31</a> and
