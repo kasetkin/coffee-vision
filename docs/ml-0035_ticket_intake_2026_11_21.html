@@ -12,7 +12,7 @@
     2026-11-21 from the files; nothing in <code>dataset/</code> changed yet. The owner decided D1 the same day: both files of the near pair kept.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; not stripped, not in DVC</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; stages not re-run; not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -125,7 +125,7 @@
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The 46 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
-    <li><span class="box"></span><span>All 46 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
+    <li><span class="box done"></span><span>All 46 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
     <li><span class="box"></span><span>Both folders in DVC; their canonicalize and segcrop stages, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the 46; the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
@@ -145,6 +145,13 @@
       <code>dataset/</code> changed. D1 open.</div>
     <div><div class="when">2026-11-21</div>The owner decided D1 (a): the Pixel JPEG and DNG two seconds apart both
       kept, one group by the 3 s rule. Branch <code>ml35-intake-2026-11-21</code>.</div>
+    <div><div class="when">2026-11-21</div>The 46 stripped (<code>strip_metadata</code> on both folders; the 616
+      photos already in the manifest left alone): every check passing, 46 manifest rows; GPS, the thumbnails, Sony's
+      maker notes and Google's HDR+ maker note gone, the 30 gain maps kept. A second look (exiftool, all groups)
+      finds no deny-listed tag left; 18 Pixel photos keep an empty <code>XMP-GCamera:GFileMetadata</code> (zero
+      bytes), as 20 earlier Pixel photos in class 013 do. Both folders dvc-added: <code>random_date_raccoon</code>
+      513 &rarr; 536 files, <code>tasty_coffee</code> 57 &rarr; 80; against the listings at <code>HEAD</code>, 23
+      added to each, none removed or changed. Not pushed.</div>
   </div>
 
   <footer>Related: <a href="ml-0031_ticket_intake_2026_11_15.html">ML-31</a> and
