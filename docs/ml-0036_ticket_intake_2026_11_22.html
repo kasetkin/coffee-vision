@@ -12,7 +12,7 @@
     open. Not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -111,7 +111,7 @@
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box done"></span><span>The 4 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
-    <li><span class="box"></span><span>All 4 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
+    <li><span class="box done"></span><span>All 4 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
     <li><span class="box"></span><span><code>massimo</code> in DVC; <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the 4; the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
@@ -129,6 +129,13 @@
     <div><div class="when">2026-11-22</div>Ticket written from the files, exiftool, the strip's dry run and the
       duplicate check on copies (<code>tmp/ml36_intake/</code>), and <code>dvc status</code>, at <code>ff298fc</code>.
       Nothing in <code>dataset/</code> changed. No decision open. Not implemented.</div>
+    <div><div class="when">2026-11-22</div>At the owner's word, the intake started on branch
+      <code>ml36-intake-2026-11-22</code>. The 4 stripped (<code>strip_metadata</code> on <code>massimo</code>; its 2
+      photos already in the manifest left alone): every check passing, 4 manifest rows; GPS, the thumbnails and
+      Google's HDR+ maker note gone, the 4 gain maps kept. A second look (exiftool, all groups) finds no deny-listed
+      tag left; each keeps an empty <code>XMP-GCamera:GFileMetadata</code> (zero bytes), as ML-35's Pixel photos do.
+      <code>massimo</code> dvc-added: 2 &rarr; 6 files; against the listing at <code>HEAD</code>, 4 added, none
+      removed or changed. Not pushed.</div>
   </div>
 
   <footer>Related: <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a> (the last intake),
