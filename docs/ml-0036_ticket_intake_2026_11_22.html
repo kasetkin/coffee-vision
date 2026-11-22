@@ -1,0 +1,184 @@
+<title>The owner's 4 photos of 2026-11-22: Pixel 9 Pro JPEGs in classes 016 and 017, nothing new to intake</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-36 · coffee-vision · new photos</div>
+  <h1>The owner's 4 photos of 2026-11-22 stripped and in the dataset</h1>
+  <p class="lede">The owner added 4 files to <code>massimo</code>: 2 to class 016 (Ethiopia, Guji) and 2 to class 017
+    (Peru, Amazonas), all Pixel 9 Pro JPEGs, a phone and format intake already takes. The strip's dry run passes on
+    all 4, and no photo is a copy of one already in the dataset. Written 2026-11-22 from the files; no decision
+    open. All 4 stripped and in the dataset, the store re-run, the owner's crop review done (one photo out of the
+    pool), pushed to DVC, merged into <code>main</code> and pushed to origin; closed 2026-11-22.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added (<code>2944a61</code>); <code>scripts/check.sh --full</code> green; the owner's crop review done 2026-11-22 (3 accepted, the fallback declined, out of the pool); pushed to DVC 2026-11-22, every object checked on the remote; closed by the owner 2026-11-22, merged into main and pushed to origin</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">dataset/massimo (classes 016, 017) and its .dvc,
+      labels/ml3/strip_manifest.csv, labels/ml5/seg_dataset.yaml, dvc.yaml (canonicalize@massimo, segcrop@massimo,
+      seg_ml19_predict, merge_segpool)</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions, the crop review)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-22</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">no decision open</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-22.</strong> "Create ML-36 ticket for new 4 photos intake."</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>4 files new to the dataset since the folders' <code>.dvc</code> listings (found by comparing every folder in
+    <code>dataset/</code>, <code>ood_negatives/</code>'s included, with its recorded <code>.dir</code>; nothing
+    removed or changed elsewhere):</p>
+  <ul>
+    <li><code>massimo/class_016__Ethiopia</code>, 2026-11-22: 2 Pixel 9 Pro JPEGs (<code>20261122_113359</code>,
+      <code>20261122_113533</code>). The folder: 1 &rarr; 3 files.</li>
+    <li><code>massimo/class_017__Peru</code>, 2026-11-22: 2 Pixel 9 Pro JPEGs (<code>20261122_113407</code>,
+      <code>20261122_113517</code>). The folder: 1 &rarr; 3 files.</li>
+  </ul>
+  <p>No new class, no new phone, no new format: this is <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a>'s
+    intake, for one folder. <code>massimo</code> came in with <a href="ml-0025_ticket_intake_2026_11_10.html">ML-25</a>
+    and already has its stages and a place in the pool and in the segmenter dataset's whole folders. The work: the
+    strip with its manifest rows, DVC, the incremental stages (<a href="adr/0037-folder-stages-process-only-new-photos.md">ADR 0037</a>) for <code>massimo</code>, the
+    segmenter dataset, the owner's crop review.</p>
+
+  <h2>2. Background</h2>
+  <p><strong>The files</strong> (exiftool, 2026-11-22). All 4 are 3072&times;4080 (12.5 MP), Orientation normal,
+    with a Display P3 profile and an Ultra HDR gain map (<code>hdrgm</code> 1.0), like the folder's two earlier photos
+    and the Pixel 9 Pro JPEGs of ML-35.</p>
+  <p><strong>What the strip removes</strong> (<code>strip_metadata --dry-run</code> on copies in
+    <code>tmp/ml36_intake/new/</code>, 2026-11-22): 4 checked, 4 would be stripped, 0 failing. GPS (44 tags, in every
+    file), the embedded thumbnail (IFD1, 32 tags), Google's HDR+ maker note in extended XMP (4
+    <code>XMP-GCamera</code> and 4 <code>XMP-xmpNote</code> tags).</p>
+  <p><strong>The duplicate check</strong> (<code>find_duplicates</code>, threshold 0.97, each class's new photos
+    against every earlier photo of its class in <code>dataset/</code>: one each, the folder's 2026-11-07 photo): no
+    copy; the nearest are 0.21 (class 016) and 0.44 (class 017). Within the batch, nothing above the 0.85 look
+    threshold; the nearest pair is 0.58, across the two classes.</p>
+  <p><strong>Twins and groups.</strong> No two new files share a stem, so no crop overwrites another (ML-25 R2). The
+    four shots are 8 s or more apart, so the segmenter dataset's 3 s rule (ADR 0029) puts each in a group of its
+    own.</p>
+  <p><strong>The store.</strong> <code>dvc status</code> at <code>ff298fc</code> with the 4 files in place: only
+    <code>dataset/massimo.dvc</code> and <code>canonicalize@massimo</code> changed; every other stage up to date
+    (ML-35 re-ran the store after OPS-25's change to <code>canonical.py</code>).</p>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>4 files in <code>massimo</code>, not in DVC, not stripped (GPS, thumbnails, maker notes in them).</li>
+        <li><code>massimo.dvc</code> and its stages' outputs describe the folder without them.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>All 4 stripped, every check passing, with their manifest rows; <code>massimo</code> in DVC and pushed.</li>
+        <li>Their canonical photos, crops and masks in the store, only the new photos' outputs added.</li>
+        <li>The segmenter dataset with the 4; the owner's crop review recorded.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The class list.</strong> Classes 016 and 017 exist.</li>
+    <li><strong>Intake's code.</strong> The phone and format were taken in before.</li>
+    <li><strong>The strip's rules</strong> (ML-3 D13, ADR 0013): the same deny list, the same checks.</li>
+    <li><strong>Every other folder's stage outputs.</strong> ADR 0037: a re-run adds the new photos' outputs only.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>A stage re-run changes outputs of photos already in the store.</strong></td>
+        <td>ML-35's re-run left every earlier canonical photo and crop byte-identical. Mitigation: compare the
+          listings with <code>dvc.lock</code> at <code>ff298fc</code> before anything is pushed.</td></tr>
+      <tr><td class="id">R2</td><td><strong>The new photos land in the segmenter's test split after ML-33's labels
+          were made.</strong></td>
+        <td>As ML-35 R2: these 4 have no corrected masks; the dataset is append-only (ML-5 D11), so their splits are
+          fixed when they are added; ML-33 reads which ones it gets.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <p>None open: no copy, no near pair, no new format or phone.</p>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box done"></span><span>The 4 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
+    <li><span class="box done"></span><span>All 4 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
+    <li><span class="box done"></span><span><code>massimo</code> in DVC; <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
+    <li><span class="box done"></span><span>The segmenter dataset with the 4; the owner's crop review.</span></li>
+    <li><span class="box done"></span><span><code>scripts/check.sh --full</code> green.</span></li>
+    <li><span class="box done"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Labelling the new photos' masks and fine-tuning on them: ML-33's question.</li>
+    <li>Retraining the classifier on them.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-22</div>Ticket written from the files, exiftool, the strip's dry run and the
+      duplicate check on copies (<code>tmp/ml36_intake/</code>), and <code>dvc status</code>, at <code>ff298fc</code>.
+      Nothing in <code>dataset/</code> changed. No decision open. Not implemented.</div>
+    <div><div class="when">2026-11-22</div>At the owner's word, the intake started on branch
+      <code>ml36-intake-2026-11-22</code>. The 4 stripped (<code>strip_metadata</code> on <code>massimo</code>; its 2
+      photos already in the manifest left alone): every check passing, 4 manifest rows; GPS, the thumbnails and
+      Google's HDR+ maker note gone, the 4 gain maps kept. A second look (exiftool, all groups) finds no deny-listed
+      tag left; each keeps an empty <code>XMP-GCamera:GFileMetadata</code> (zero bytes), as ML-35's Pixel photos do.
+      <code>massimo</code> dvc-added: 2 &rarr; 6 files; against the listing at <code>HEAD</code>, 4 added, none
+      removed or changed. Not pushed.</div>
+    <div><div class="when">2026-11-22</div>The segmenter dataset built: 4 added, 1,865 photos; nothing moved or
+      dropped; each photo its own group, <code>20261122_113533</code> and <code>20261122_113407</code> in train,
+      <code>20261122_113517</code> in validation, <code>20261122_113359</code> in test;
+      <code>test_seg_dataset</code>'s pinned pool count 907 &rarr; 911.</div>
+    <div><div class="when">2026-11-22</div>The store re-run (11:39&ndash;11:41 UTC), one stage at a time by
+      <code>dvc repro -s</code>: <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>,
+      <code>seg_ml19_predict@xl0_v7r_s123</code>, <code>merge_segpool</code>, none failing; the only stages
+      <code>dvc status</code> named. Against <code>dvc.lock</code> at <code>c80897c</code>, output by output: 86
+      outputs byte-identical; canonical <code>massimo</code> 2 &rarr; 6; segcropped 7 &rarr; 14 (the 4 crops, 3
+      masks) and the pool 3,617 &rarr; 3,624 (the same 7), with only their reports and manifests changed besides;
+      <code>seg_ml19_predict</code> 472 &rarr; 473 (the one new test photo) and its <code>index.csv</code>. No
+      earlier file in any listing changed (R1). <code>dvc status</code>: up to date. One D18 fallback:
+      <code>class_016__Ethiopia/20261122_113533</code>, beans in a grinder's hopper seen through its glass and
+      filling the frame, an empty mask (area 0), so the crop is the whole frame and no mask is written; the other 3
+      masks cover 0.26&ndash;0.50 of the frame. The crop review items:
+      <code>outputs/intake_2026-11-22/review/items.csv</code>, by <code>analysis/ml19/p6_review_items.py --before
+      HEAD --new-only --session massimo</code>, 4 new, each mask checked against the stage's hash.</div>
+    <div><div class="when">2026-11-22</div><code>scripts/check.sh --full</code> green (unittest 835 s). Not pushed: git
+      and the DVC remote wait for the owner, as does the crop review.</div>
+    <div><div class="when">2026-11-22</div>The owner's crop review
+      (<code>labels/ml2/review/ml36_new_crops_2026-11-22.decisions.jsonl</code>, 4 items, each on the mask the items
+      recorded): 3 accepted, 1 declined, the fallback <code>massimo/class_016__Ethiopia/20261122_113533</code> (the
+      grinder hopper through glass; no reason given). <code>analysis/ml3/mask_review.py</code> reads the review, the
+      fallback judged on its frame as ML-28's were; <code>exclude</code> adds that photo to
+      <code>labels/ml3/pool_exclude.csv</code> as "D18 fallback with background" (56 &rarr; 57 rows;
+      <code>test_seg_parity</code>'s count follows). <code>merge_segpool</code> re-run: the pool 3,624 &rarr; 3,623
+      files, that photo's crop removed (it had no mask), nothing else changed but its manifest.
+      <code>dvc status</code>: up to date. The photo stays in the dataset and the segmenter dataset.</div>
+    <div><div class="when">2026-11-22</div>At the owner's word, pushed to DVC (not git) by explicit targets,
+      <code>dataset/massimo.dvc</code> and the outputs of <code>canonicalize@massimo</code>,
+      <code>segcrop@massimo</code>, <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>: 26
+      files. Checked on the remote object by object (<code>docs/agents/dvc.md</code>): all 3,379 the targets and their
+      listings name are there at their local sizes; the 26 that arrived are the push's, and each of the 19 that are
+      files, not <code>.dir</code> listings, hashes to its name.</div>
+    <div><div class="when">2026-11-22</div>Closed by the owner, every acceptance item met; the branch merged into
+      <code>main</code> and pushed to origin. Left for others: the new photos' masks for ML-33.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a> (the last intake),
+    <a href="ml-0025_ticket_intake_2026_11_10.html">ML-25</a> (<code>massimo</code>'s first photos),
+    <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a> (the segmenter's next labels),
+    <a href="adr/0013-strip-private-photo-metadata.md">ADR 0013</a>,
+    <a href="adr/0029-segmenter-dataset-groups-shots-3-s-apart.md">ADR 0029</a>,
+    <a href="adr/0037-folder-stages-process-only-new-photos.md">ADR 0037</a>.</footer>
+</main>

@@ -1888,12 +1888,36 @@ photos:
   folder: massimo
   split: train
   group: dataset/massimo/class_016__Ethiopia/20261107_101219_Pixel_9_Pro_Ethiopia_Massimo.jpg
+- path: dataset/massimo/class_016__Ethiopia/20261122_113359_Pixel_9_Pro_Ethiopia_Massimo.jpg
+  sha256: 89316c07ef14b1589ca369b566a652f2fb3ab00e4d40c46da8699d7877c67bd1
+  source: pool
+  folder: massimo
+  split: test
+  group: dataset/massimo/class_016__Ethiopia/20261122_113359_Pixel_9_Pro_Ethiopia_Massimo.jpg
+- path: dataset/massimo/class_016__Ethiopia/20261122_113533_Pixel_9_Pro_Ethiopia_Massimo.jpg
+  sha256: 0d40776820d6a6543dfa696faa2b929c8262f1785e98bc22982bdbd717f14d8a
+  source: pool
+  folder: massimo
+  split: train
+  group: dataset/massimo/class_016__Ethiopia/20261122_113533_Pixel_9_Pro_Ethiopia_Massimo.jpg
 - path: dataset/massimo/class_017__Peru/20261107_101201_Pixel_9_Pro_Peru_Massimo.jpg
   sha256: 2253bc2d3a3d39a1f8cc161c2f61a6c1fc43bb1409f77611585d617e6570be60
   source: pool
   folder: massimo
   split: test
   group: dataset/massimo/class_017__Peru/20261107_101201_Pixel_9_Pro_Peru_Massimo.jpg
+- path: dataset/massimo/class_017__Peru/20261122_113407_Pixel_9_Pro_Peru_Massimo.jpg
+  sha256: ff5b88d9e68112e0009151e61496c72bed7e178b2c775f6fa95fb17b41229a5d
+  source: pool
+  folder: massimo
+  split: train
+  group: dataset/massimo/class_017__Peru/20261122_113407_Pixel_9_Pro_Peru_Massimo.jpg
+- path: dataset/massimo/class_017__Peru/20261122_113517_Pixel_9_Pro_Peru_Massimo.jpg
+  sha256: 39e9c5d5168b11075e8fd099570b7aeda3aa7685cd9a7e1d5e78023ff85be013
+  source: pool
+  folder: massimo
+  split: validation
+  group: dataset/massimo/class_017__Peru/20261122_113517_Pixel_9_Pro_Peru_Massimo.jpg
 - path: dataset/ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_132408.JPG
   sha256: c85b57466f4bc14eb8ac2444818532581544bde5bcd079d7facec799a0ca2a47
   source: negative
