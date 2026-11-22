@@ -9,10 +9,11 @@
   <p class="lede">The owner added 4 files to <code>massimo</code>: 2 to class 016 (Ethiopia, Guji) and 2 to class 017
     (Peru, Amazonas), all Pixel 9 Pro JPEGs, a phone and format intake already takes. The strip's dry run passes on
     all 4, and no photo is a copy of one already in the dataset. Written 2026-11-22 from the files; no decision
-    open. Not implemented.</p>
+    open. All 4 stripped and in the dataset, the store re-run, the owner's crop review done (one photo out of the
+    pool), pushed to DVC, merged into <code>main</code> and pushed to origin; closed 2026-11-22.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added (<code>2944a61</code>); <code>scripts/check.sh --full</code> green; the owner's crop review done 2026-11-22 (3 accepted, the fallback declined, out of the pool); pushed to DVC 2026-11-22, every object checked on the remote; git not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added (<code>2944a61</code>); <code>scripts/check.sh --full</code> green; the owner's crop review done 2026-11-22 (3 accepted, the fallback declined, out of the pool); pushed to DVC 2026-11-22, every object checked on the remote; closed by the owner 2026-11-22, merged into main and pushed to origin</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -115,7 +116,7 @@
     <li><span class="box done"></span><span><code>massimo</code> in DVC; <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box done"></span><span>The segmenter dataset with the 4; the owner's crop review.</span></li>
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> green.</span></li>
-    <li><span class="box"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box done"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -170,6 +171,8 @@
       files. Checked on the remote object by object (<code>docs/agents/dvc.md</code>): all 3,379 the targets and their
       listings name are there at their local sizes; the 26 that arrived are the push's, and each of the 19 that are
       files, not <code>.dir</code> listings, hashes to its name.</div>
+    <div><div class="when">2026-11-22</div>Closed by the owner, every acceptance item met; the branch merged into
+      <code>main</code> and pushed to origin. Left for others: the new photos' masks for ML-33.</div>
   </div>
 
   <footer>Related: <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a> (the last intake),
