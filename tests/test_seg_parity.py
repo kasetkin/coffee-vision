@@ -197,14 +197,15 @@ class TestMergeCarriesMasks(unittest.TestCase):
         xl0_v7r_s123: 11 of the 87 photos added to random_date_raccoon on 2026-11-06 and the 6 fallbacks it made in
         2026-10-21__new_green, 2026-11-07; then ML-25's 3 declines of the 175 photos new to the crops on 2026-11-10 and
         2026-11-11, and the fallback of its third batch's 17; then ML-28's 20 declines of the 82 photos new to the
-        crops on 2026-11-13, 19 of them the Canon CR3s and their JPEG XL twins, 2 of them fallbacks). The decisions hold for their photos across re-crops: XL0-v4's changed nearly every mask."""
+        crops on 2026-11-13, 19 of them the Canon CR3s and their JPEG XL twins, 2 of them fallbacks; ML-31's review of 20, declining none; then ML-35's 1 decline of the 46 photos new to the crops on
+        2026-11-21). The decisions hold for their photos across re-crops: XL0-v4's changed nearly every mask."""
         import importlib.util
         spec = importlib.util.spec_from_file_location("mask_review", REPO_ROOT / "analysis/ml3/mask_review.py")
         mask_review = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mask_review)
         want = {(r["session"], r["class_folder"], r["file"]) for r in mask_review.exclusions()}
         self.assertEqual(read_exclusions(mask_review.POOL_EXCLUDE), want)
-        self.assertEqual(len(want), 55)
+        self.assertEqual(len(want), 56)
 
 
 class TestSegPoolsWiring(unittest.TestCase):
