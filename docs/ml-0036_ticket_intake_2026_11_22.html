@@ -12,7 +12,7 @@
     open. Not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added (<code>2944a61</code>); <code>scripts/check.sh --full</code> green; the owner's crop review done 2026-11-22 (3 accepted, the fallback declined, out of the pool); not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added (<code>2944a61</code>); <code>scripts/check.sh --full</code> green; the owner's crop review done 2026-11-22 (3 accepted, the fallback declined, out of the pool); pushed to DVC 2026-11-22, every object checked on the remote; git not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -164,6 +164,12 @@
       <code>test_seg_parity</code>'s count follows). <code>merge_segpool</code> re-run: the pool 3,624 &rarr; 3,623
       files, that photo's crop removed (it had no mask), nothing else changed but its manifest.
       <code>dvc status</code>: up to date. The photo stays in the dataset and the segmenter dataset.</div>
+    <div><div class="when">2026-11-22</div>At the owner's word, pushed to DVC (not git) by explicit targets,
+      <code>dataset/massimo.dvc</code> and the outputs of <code>canonicalize@massimo</code>,
+      <code>segcrop@massimo</code>, <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>: 26
+      files. Checked on the remote object by object (<code>docs/agents/dvc.md</code>): all 3,379 the targets and their
+      listings name are there at their local sizes; the 26 that arrived are the push's, and each of the 19 that are
+      files, not <code>.dir</code> listings, hashes to its name.</div>
   </div>
 
   <footer>Related: <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a> (the last intake),
