@@ -12,7 +12,7 @@
     2026-11-21 from the files; nothing in <code>dataset/</code> changed yet. The owner decided D1 the same day: both files of the near pair kept.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; the segmenter dataset built (<code>de335b3</code>); the store re-run started and aborted at the owner's word 2026-11-21; re-started the same day at the owner's word, this ticket's two folders first: done 23:01 UTC: every output byte-identical but the new photos' and one test mask (Pillow 13, R3); the crop review open; not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; the segmenter dataset built (<code>de335b3</code>); the store re-run started and aborted at the owner's word 2026-11-21; re-started the same day at the owner's word, this ticket's two folders first: done 23:01 UTC: every output byte-identical but the new photos' and one test mask (Pillow 13, R3); the owner's crop review done 2026-11-22 (45 accepted, 1 declined, out of the pool); not pushed</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -136,7 +136,7 @@
     <li><span class="box done"></span><span>The 46 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>All 46 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
     <li><span class="box done"></span><span>Both folders in DVC; their canonicalize and segcrop stages, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
-    <li><span class="box"></span><span>The segmenter dataset with the 46; the owner's crop review.</span></li>
+    <li><span class="box done"></span><span>The segmenter dataset with the 46; the owner's crop review.</span></li>
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> green.</span></li>
     <li><span class="box"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
   </ul>
@@ -194,6 +194,14 @@
       its manifest; <code>seg_ml19_predict@xl0_v7r_s123</code> 460 &rarr; 472 (the 12 new test photos), its
       <code>index.csv</code>, and one earlier mask changed, R3. <code>dvc status</code>: up to date.</div>
     <div><div class="when">2026-11-21</div><code>scripts/check.sh --full</code> green (unittest 797 s). Not pushed: git and the DVC remote wait for the owner, as does the crop review.</div>
+    <div><div class="when">2026-11-22</div>The owner's crop review
+      (<code>labels/ml2/review/ml35_new_crops_2026-11-21.decisions.jsonl</code>, 46 items, each on the mask the items
+      recorded): 45 accepted, 1 declined, <code>tasty_coffee/…/20261120_124157_G8441</code> (Sony, a mask over the
+      whole frame, area 0.9993; no reason given). <code>analysis/ml3/mask_review.py</code> reads the review;
+      <code>exclude</code> adds that photo to <code>labels/ml3/pool_exclude.csv</code> as "mask declined" (55
+      &rarr; 56 rows; <code>test_seg_parity</code>'s count follows). <code>merge_segpool</code> re-run: the pool
+      3,619 &rarr; 3,617 files, that photo's crop and mask removed, nothing else changed but its manifest; 1,808
+      crops (1,763 before this ticket, +46, &minus;1).</div>
   </div>
 
   <footer>Related: <a href="ml-0031_ticket_intake_2026_11_15.html">ML-31</a> and
