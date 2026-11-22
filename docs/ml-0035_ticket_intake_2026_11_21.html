@@ -12,7 +12,7 @@
     2026-11-21 from the files; nothing in <code>dataset/</code> changed yet. The owner decided D1 the same day: both files of the near pair kept.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; the segmenter dataset built (<code>de335b3</code>); the store re-run started and aborted at the owner's word 2026-11-21; re-started the same day at the owner's word, this ticket's two folders first: done 23:01 UTC: every output byte-identical but the new photos' and one test mask (Pillow 13, R3); the owner's crop review done 2026-11-22 (45 accepted, 1 declined, out of the pool); not pushed</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-21; the files analysed (dry run, duplicate check); D1 decided 2026-11-21; all 46 stripped and both folders dvc-added 2026-11-21; the segmenter dataset built (<code>de335b3</code>); the store re-run started and aborted at the owner's word 2026-11-21; re-started the same day at the owner's word, this ticket's two folders first: done 23:01 UTC: every output byte-identical but the new photos' and one test mask (Pillow 13, R3); the owner's crop review done 2026-11-22 (45 accepted, 1 declined, out of the pool); pushed to git and DVC 2026-11-22, every object checked on the remote</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -138,7 +138,7 @@
     <li><span class="box done"></span><span>Both folders in DVC; their canonicalize and segcrop stages, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box done"></span><span>The segmenter dataset with the 46; the owner's crop review.</span></li>
     <li><span class="box done"></span><span><code>scripts/check.sh --full</code> green.</span></li>
-    <li><span class="box"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
+    <li><span class="box done"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
   </ul>
 
   <h2>Out of scope</h2>
@@ -202,6 +202,13 @@
       &rarr; 56 rows; <code>test_seg_parity</code>'s count follows). <code>merge_segpool</code> re-run: the pool
       3,619 &rarr; 3,617 files, that photo's crop and mask removed, nothing else changed but its manifest; 1,808
       crops (1,763 before this ticket, +46, &minus;1).</div>
+    <div><div class="when">2026-11-22</div>At the owner's word, pushed: the branch to git (new on the remote, at
+      <code>36482be</code>), and to DVC by explicit targets, <code>dataset/random_date_raccoon.dvc</code>,
+      <code>dataset/tasty_coffee.dvc</code> and the outputs of <code>canonicalize@</code> and <code>segcrop@</code>
+      both folders, <code>seg_ml19_predict@xl0_v7r_s123</code> and <code>merge_segpool</code>: 200 files in 47
+      minutes. Checked on the remote object by object (<code>docs/agents/dvc.md</code>): all 4,689 the targets and
+      their listings name are there at their local sizes; the last 28 to arrive hashed on the remote, each its
+      name.</div>
   </div>
 
   <footer>Related: <a href="ml-0031_ticket_intake_2026_11_15.html">ML-31</a> and
