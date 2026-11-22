@@ -12,7 +12,7 @@
     open. Not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">written 2026-11-22; the files analysed (dry run, duplicate check); all 4 stripped and <code>massimo</code> dvc-added 2026-11-22; the segmenter dataset built (<code>c80897c</code>); the store re-run 2026-11-22, only the new photos' outputs added; the owner's crop review open</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: new photos</span></div>
@@ -112,7 +112,7 @@
   <ul class="checks">
     <li><span class="box done"></span><span>The 4 files analysed: formats, metadata, the strip's dry run, the duplicate check.</span></li>
     <li><span class="box done"></span><span>All 4 stripped, every check passing, with their manifest rows; no private tag left by a second look.</span></li>
-    <li><span class="box"></span><span><code>massimo</code> in DVC; <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
+    <li><span class="box done"></span><span><code>massimo</code> in DVC; <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>, <code>seg_ml19_predict</code> and <code>merge_segpool</code> re-run, only the new photos' outputs added.</span></li>
     <li><span class="box"></span><span>The segmenter dataset with the 4; the owner's crop review.</span></li>
     <li><span class="box"></span><span><code>scripts/check.sh --full</code> green.</span></li>
     <li><span class="box"></span><span>Pushed to git and DVC at the owner's word, the objects checked on the remote (<code>docs/agents/dvc.md</code>).</span></li>
@@ -140,6 +140,19 @@
       dropped; each photo its own group, <code>20261122_113533</code> and <code>20261122_113407</code> in train,
       <code>20261122_113517</code> in validation, <code>20261122_113359</code> in test;
       <code>test_seg_dataset</code>'s pinned pool count 907 &rarr; 911.</div>
+    <div><div class="when">2026-11-22</div>The store re-run (11:39&ndash;11:41 UTC), one stage at a time by
+      <code>dvc repro -s</code>: <code>canonicalize@massimo</code>, <code>segcrop@massimo</code>,
+      <code>seg_ml19_predict@xl0_v7r_s123</code>, <code>merge_segpool</code>, none failing; the only stages
+      <code>dvc status</code> named. Against <code>dvc.lock</code> at <code>c80897c</code>, output by output: 86
+      outputs byte-identical; canonical <code>massimo</code> 2 &rarr; 6; segcropped 7 &rarr; 14 (the 4 crops, 3
+      masks) and the pool 3,617 &rarr; 3,624 (the same 7), with only their reports and manifests changed besides;
+      <code>seg_ml19_predict</code> 472 &rarr; 473 (the one new test photo) and its <code>index.csv</code>. No
+      earlier file in any listing changed (R1). <code>dvc status</code>: up to date. One D18 fallback:
+      <code>class_016__Ethiopia/20261122_113533</code>, beans in a grinder's hopper seen through its glass and
+      filling the frame, an empty mask (area 0), so the crop is the whole frame and no mask is written; the other 3
+      masks cover 0.26&ndash;0.50 of the frame. The crop review items:
+      <code>outputs/intake_2026-11-22/review/items.csv</code>, by <code>analysis/ml19/p6_review_items.py --before
+      HEAD --new-only --session massimo</code>, 4 new, each mask checked against the stage's hash.</div>
   </div>
 
   <footer>Related: <a href="ml-0035_ticket_intake_2026_11_21.html">ML-35</a> (the last intake),

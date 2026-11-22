@@ -1528,9 +1528,9 @@ stages:
       nfiles: 79
     - path: data/segcropped/massimo
       hash: md5
-      md5: 32b1d576a474eec9c707b2926bfd6e95.dir
-      size: 8189413
-      nfiles: 7
+      md5: d01a609edfdb9abe30048bbf212cfd81.dir
+      size: 27563523
+      nfiles: 14
     - path: data/segcropped/random_date_raccoon
       hash: md5
       md5: 3c38c45d5e5225b6f1f301b9e4d72e79.dir
@@ -1548,9 +1548,9 @@ stages:
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: 24010a794e63231057dc56137fe2e81e.dir
-      size: 13187036636
-      nfiles: 3617
+      md5: 98f0f19cc25ebf108a40c24ef033f65b.dir
+      size: 13206408250
+      nfiles: 3624
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v3_country_aug8_s123.pt --profile gpu_split && 
@@ -5222,13 +5222,13 @@ stages:
       size: 13467
     - path: data/canonical
       hash: md5
-      md5: f4d2febaaa9b234baca36f284d8db515.dir
-      size: 7189117233
-      nfiles: 2819
+      md5: 2f885af120cfa1a10b2a3f880aa3b2b2.dir
+      size: 7197156371
+      nfiles: 2823
     - path: labels/ml5/seg_dataset.yaml
       hash: md5
-      md5: 5c7ccd9519a09ee5908cd2a697757b1d
-      size: 586355
+      md5: c53c0d258955a474cfd57769836f66ea
+      size: 587567
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -5249,9 +5249,9 @@ stages:
     outs:
     - path: data/seg_masks_ml19/xl0_v7r_s123
       hash: md5
-      md5: dcf03534de7d00a4e2e8213889e12515.dir
-      size: 4387378
-      nfiles: 472
+      md5: 5a33d7289c31d85126cf8255cfab647f.dir
+      size: 4401896
+      nfiles: 473
   litert_export@dino3b16_segxl0v7r_country_aug8_s42:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v7r_country_aug8_s42.pt --profile gpu_split && 
@@ -5346,15 +5346,15 @@ stages:
       size: 13467
     - path: dataset/massimo
       hash: md5
-      md5: 1211c5b9ccbd2066f496fbb21bf10fab.dir
-      size: 5263389
-      nfiles: 2
+      md5: 7e9722fce02452a1183195860ba9e27d.dir
+      size: 15161153
+      nfiles: 6
     outs:
     - path: data/canonical/massimo
       hash: md5
-      md5: 8e88b38e32cce552c6a68a1d52006ff2.dir
-      size: 4299608
-      nfiles: 2
+      md5: d0ecd45822803cad2b18ad63a18f1f02.dir
+      size: 12338746
+      nfiles: 6
   canonicalize@tasty_coffee:
     cmd: python -m coffeecv.canonicalize_folder tasty_coffee --jobs 4
     deps:
@@ -5450,9 +5450,9 @@ stages:
       size: 13467
     - path: data/canonical/massimo
       hash: md5
-      md5: 8e88b38e32cce552c6a68a1d52006ff2.dir
-      size: 4299608
-      nfiles: 2
+      md5: d0ecd45822803cad2b18ad63a18f1f02.dir
+      size: 12338746
+      nfiles: 6
     - path: models/seg/xl0_v7r_s123.pt
       hash: md5
       md5: 33f460a8fba55e7cea9e56157cb97b39
@@ -5481,9 +5481,9 @@ stages:
     outs:
     - path: data/segcropped/massimo
       hash: md5
-      md5: 32b1d576a474eec9c707b2926bfd6e95.dir
-      size: 8189413
-      nfiles: 7
+      md5: d01a609edfdb9abe30048bbf212cfd81.dir
+      size: 27563523
+      nfiles: 14
   segcrop@tasty_coffee:
     cmd: python -m coffeecv.segcrop_session --session tasty_coffee --threads 4
     deps:
