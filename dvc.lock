@@ -1543,14 +1543,14 @@ stages:
       nfiles: 163
     - path: labels/ml3/pool_exclude.csv
       hash: md5
-      md5: 7303b010778b7ffc91a9c8d5a5d318fb
-      size: 5954
+      md5: 5aa40c577eddc3fc5a6f2ed4105a9a0c
+      size: 6061
     outs:
     - path: data/segcropped/pool
       hash: md5
-      md5: 98f0f19cc25ebf108a40c24ef033f65b.dir
-      size: 13206408250
-      nfiles: 3624
+      md5: 95d5dbea06dbf41362ab7043913f6317.dir
+      size: 13198643778
+      nfiles: 3623
   litert_export@dino3b16_segxl0v3_country_aug8_s123:
     cmd: convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint
       models/dino3b16_segxl0v3_country_aug8_s123.pt --profile gpu_split && 
