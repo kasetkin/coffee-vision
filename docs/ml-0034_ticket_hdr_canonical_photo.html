@@ -12,7 +12,7 @@
     models, the PU21 curve, where it would sit; &sect;3), not planned, not implemented; no decision taken.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-19; researched 2026-11-22, experiments A and B; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Closed</span> <span class="tag">2026-11-23 by the owner: superseded by <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a>; written 2026-11-19; researched 2026-11-22, experiments A and B; not planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: what canonicalization keeps</span></div>
@@ -198,6 +198,10 @@
       (<a href="../analysis/ml34/research_pu21_papers.md">research_pu21_papers.md</a>), and the one setting they
       suggest that experiment B had not tried, full-range scaling, run on three seeds: no gain (&sect;3). D4's
       recommendation unchanged.</div>
+    <div><div class="when">2026-11-23</div>Closed by the owner, superseded by <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a>: the canonical photo stores
+      linear Rec.2020 light in half-float, keeping the light above white, and one float read-back to sRGB feeds both
+      models and the preview. This ticket's aim, a preview with HDR brightness, is dropped. Its D1&ndash;D4 are
+      answered in ML-37's &sect;2, and its research and experiments A and B carry over.</div>
   </div>
 
   <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a>,
