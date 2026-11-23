@@ -1,0 +1,63 @@
+ML-37 D11 resize parity. Pillow 13.0.0, OpenCV 5.0.0, torch 2.14.0+cpu
+photos: 13; patches 12 per photo, side log-uniform 224-1100 px
+
+Impulse test, 64 -> 16 px (4x down), float32:
+  pil_f      output 8 of 16 reads inputs [30, 31, 32, 33, 34, 35, 36, 37] (8 taps)
+  cv_linear  output 8 of 16 reads inputs [33, 34] (2 taps)
+  cv_area    output 8 of 16 reads inputs [32, 33, 34, 35] (4 taps)
+  torch_aa   output 8 of 16 reads inputs [30, 31, 32, 33, 34, 35, 36, 37] (8 taps)
+
+  2026-10-21__new_green                3072x4080
+  2026-09-11__oneplus                  4000x3000
+  2026-09-11__pixel                    4080x3072
+  massimo                              3072x4080
+  2026-08-30__oneplus                  4000x3000
+  2026-08-07__box_pictures_all_classes 3072x4080
+  2026-08-09__pixel_cam                4080x3072
+  ood_positives_internet               959x635
+  2026-09-24__pixel                    4080x3072
+  2026-08-09__sony_cam                 5056x3792
+  2026-08-25__oneplus                  3000x4000
+  2026-09-24__sony                     3792x5056
+  2026-08-30__sony                     5056x3792
+
+Differences in 8-bit levels (float x 255 minus uint8, or float minus float x 255):
+  readback f32 vs u8                           max   0.500  mean|d|  0.2426  mean d  -0.0001  >1 level  0.000%
+  sam: pil_f(u8 as float) vs pil_u8            max   1.000  mean|d|  0.2512  mean d  -0.0010  >1 level  0.000%
+  sam: pil_f(f32) vs pil_u8                    max   1.430  mean|d|  0.2627  mean d  -0.0011  >1 level  0.037%
+  sam: cv_linear(f32) vs pil_u8                max  89.714  mean|d|  2.0878  mean d  -0.0006  >1 level 47.235%
+  sam: cv_area(f32) vs pil_u8                  max  29.435  mean|d|  0.8594  mean d  -0.0010  >1 level 24.512%
+  sam: torch_aa(f32) vs pil_u8                 max   1.430  mean|d|  0.2627  mean d  -0.0011  >1 level  0.037%
+  sam: cv_linear(f32) vs pil_f(f32)            max  89.929  mean|d|  2.0372  mean d  +0.0005  >1 level 46.248%
+  sam: cv_area(f32) vs pil_f(f32)              max  29.312  mean|d|  0.7753  mean d  +0.0001  >1 level 22.811%
+  sam: torch_aa(f32) vs pil_f(f32)             max   0.005  mean|d|  0.0000  mean d  +0.0000  >1 level  0.000%
+  store: pil_f(u8 as float) vs pil_u8          max   1.000  mean|d|  0.2596  mean d  -0.0027  >1 level  0.000%
+  store: pil_f(f32) vs pil_u8                  max   1.446  mean|d|  0.3013  mean d  -0.0026  >1 level  0.375%
+  store: cv_linear(f32) vs pil_u8              max  62.978  mean|d|  0.5076  mean d  -0.0024  >1 level  9.272%
+  store: cv_area(f32) vs pil_u8                max  53.752  mean|d|  0.4653  mean d  -0.0024  >1 level  8.918%
+  store: torch_aa(f32) vs pil_u8               max   1.447  mean|d|  0.3013  mean d  -0.0026  >1 level  0.375%
+  store: cv_linear(f32) vs pil_f(f32)          max  63.102  mean|d|  0.3003  mean d  +0.0001  >1 level  7.805%
+  store: cv_area(f32) vs pil_f(f32)            max  52.735  mean|d|  0.2973  mean d  +0.0002  >1 level  6.794%
+  store: torch_aa(f32) vs pil_f(f32)           max   0.006  mean|d|  0.0000  mean d  -0.0000  >1 level  0.000%
+  eval: pil_f(u8 as float) vs pil_u8           max   1.000  mean|d|  0.2831  mean d  -0.1360  >1 level  0.000%
+  eval: pil_f(f32) vs pil_u8                   max   2.015  mean|d|  0.3126  mean d  -0.1386  >1 level  0.613%
+  eval: cv_linear(f32) vs pil_u8               max  32.331  mean|d|  0.8766  mean d  -0.1386  >1 level 23.862%
+  eval: cv_area(f32) vs pil_u8                 max  32.331  mean|d|  0.8766  mean d  -0.1386  >1 level 23.862%
+  eval: torch_aa(f32) vs pil_u8                max   2.015  mean|d|  0.3126  mean d  -0.1386  >1 level  0.613%
+  eval: cv_linear(f32) vs pil_f(f32)           max  32.372  mean|d|  0.7495  mean d  -0.0000  >1 level 20.999%
+  eval: cv_area(f32) vs pil_f(f32)             max  32.372  mean|d|  0.7495  mean d  -0.0000  >1 level 20.999%
+  eval: torch_aa(f32) vs pil_f(f32)            max   0.000  mean|d|  0.0000  mean d  +0.0000  >1 level  0.000%
+  chain: pil_f(u8 as float) vs pil_u8          max   1.869  mean|d|  0.3005  mean d  -0.1387  >1 level  0.458%
+  chain: pil_f(f32) vs pil_u8                  max   2.015  mean|d|  0.3126  mean d  -0.1386  >1 level  0.613%
+  chain: cv_linear(f32) vs pil_u8              max  46.081  mean|d|  1.0276  mean d  -0.1385  >1 level 26.748%
+  chain: cv_area(f32) vs pil_u8                max  38.132  mean|d|  0.9763  mean d  -0.1385  >1 level 26.607%
+  chain: torch_aa(f32) vs pil_u8               max   2.015  mean|d|  0.3126  mean d  -0.1386  >1 level  0.613%
+  chain: cv_linear(f32) vs pil_f(f32)          max  45.897  mean|d|  0.9076  mean d  +0.0001  >1 level 24.001%
+  chain: cv_area(f32) vs pil_f(f32)            max  38.173  mean|d|  0.8602  mean d  +0.0001  >1 level 23.665%
+  chain: torch_aa(f32) vs pil_f(f32)           max   0.002  mean|d|  0.0000  mean d  -0.0000  >1 level  0.000%
+
+The patch store split by direction (pil_f(f32) vs pil_u8; torch_aa(f32) vs pil_f(f32)):
+  store downscale (side > 448): pil_f vs pil_u8 max   1.439  mean|d|  0.2931  mean d  -0.0035  >1 level  0.211%
+  store upscale (side <= 448): pil_f vs pil_u8 max   1.446  mean|d|  0.3124  mean d  -0.0013  >1 level  0.599%
+  store downscale: torch_aa vs pil_f           max   0.006  mean|d|  0.0000  mean d  -0.0000  >1 level  0.000%
+  store upscale: torch_aa vs pil_f             max   0.002  mean|d|  0.0000  mean d  +0.0000  >1 level  0.000%

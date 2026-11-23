@@ -1,0 +1,43 @@
+ML-37 D14: xl0_v7r_s123's masks under ML-37's input changes. analysis/ml37/d14_mask_sensitivity.py,
+20 test photos of the segmenter dataset, torch at 2 threads, box prompt, multi3.
+IoU against A (today: load_canonical uint8 -> predict_mask). S: the stored mask (4 threads).
+B: A's values, float resize. C: float read-back, no rounding. D: linear half-float lossy JXL re-encode.
+Level differences in 8-bit levels (x255): per pixel mean / p99 / max; 32x32 block means mean / max.
+
+photo                                                         why         area A       S       B       C       D     D/C boxΔD  C-A px  D-A px D-A p99 D-A blk D-A bmax size D/now
+_016__Ethiopia__20261122_113359_Pixel_9_Pro_Ethiopia_Massimo  drawn       0.3698  1.0000  0.9999  0.9999  0.9999  0.9999     0   0.242   0.344    1.86   0.047    0.904       1.00
+ny_cam__class_003__Colombia_PinkBourbon__PIC_20260809_202720  drawn       0.9999  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.248   0.356    1.78   0.046    0.729       1.00
+-24__pixel__class_012__Rwanda_Gisuma__PXL_20260924_073859032  drawn       1.0000  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.228   0.296    1.28   0.040    0.464       1.00
+segmenter_positives__PXL_20261026_042625865                   drawn       0.1541  1.0000  0.9998  0.9998  0.9998  0.9999     0   0.245   0.317    1.45   0.040    0.707       1.00
+__oneplus__class_010__Indonesia_Java__PXL_20260830_175328819  drawn       0.9974  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.241   0.322    1.38   0.042    0.415       1.00
+2026-08-25__iphone__class_001__Ethiopia_Sidamo__IMG_6308      drawn       0.4238  1.0000  0.9998  0.9998  0.9997  0.9999     0   0.237   0.296    1.16   0.034    0.343       1.00
+30__pixel__class_010__Indonesia_Java__PXL_20260830_124429621  drawn       1.0000  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.249   0.312    1.20   0.040    0.334       1.00
+lash__class_004__CostaRica_LaPastora__PXL_20260827_183549809  drawn       0.8751  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.240   0.302    1.18   0.039    0.421       1.00
+Ethiopia_Sidamo__20261110_113757_Pixel_9_Pro_Ethiopia_Sidamo  drawn       0.3891  1.0000  0.9998  0.9998  0.9998  0.9998     0   0.235   0.293    1.29   0.041    0.552       0.99
+-09-11__pixel__class_011__Peru_Minca__PXL_20260911_052519526  drawn       0.9865  1.0000  1.0000  1.0000  1.0000  1.0000     0   0.247   0.317    1.25   0.041    0.426       1.00
+01__Ethiopia_Sidamo__20261111_123749_OnePlus_Ethiopia_Sidamo  drawn       0.4467  1.0000  0.9999  0.9999  0.9999  1.0000     1   0.242   0.336    1.72   0.040    0.538       1.00
+ood_positives_internet__internet_beans__internet_beans_002    drawn       0.0000  1.0000  1.0000  1.0000  1.0000  1.0000  None   0.244   0.324    1.41   0.047    0.277       1.00
+Colombia_Excelso__20261109_170905-jxl_Canon_EOS_90D_Colombia  hard        0.2229  1.0000  0.9947  0.9947  0.9951  0.9976     1   0.250   0.322    1.14   0.037    0.445       1.00
+__class_013__Brazil_SulDeMinas__20261105_133845_G8441_Brazil  hard        0.5763  1.0000  0.9996  0.9995  0.9989  0.9993     2   0.246   0.424    2.69   0.053    1.242       1.01
+segmenter_positives__PXL_20260924_104055590                   hard        0.2248  1.0000  0.9908  0.9904  0.9890  0.9925     1   0.228   0.287    1.21   0.036    0.425       1.00
+14__Colombia_Excelso__20261109_170905_Canon_EOS_90D_Colombia  hard        0.2667  1.0000  0.9987  0.9987  0.9985  0.9994     2   0.248   0.741    5.78   0.051    0.906       1.00
+6-09__internet_proxy__confusable_grain__confusable_grain_040  negative    0.9896  1.0000  0.9999  0.9999  0.9999  0.9999     0   0.241   0.500    3.73   0.094    1.167       1.00
+s__2026-09__internet_proxy__ground_coffee__ground_coffee_003  negative    0.0869  1.0000  0.9997  0.9998  0.9991  0.9992     1   0.250   0.301    1.13   0.028    0.269       1.00
+es__user_realworld__20260409_233521_Pixel_9_Pro_ood_negative  negative    0.0000  1.0000  1.0000  1.0000  1.0000  1.0000  None   0.245   0.298    1.26   0.035    0.867       1.00
+gatives__user_realworld__20240511_120915_GM1910_ood_negative  negative    0.0000  1.0000  1.0000  1.0000  1.0000  1.0000  None   0.248   0.339    1.67   0.037    1.111       1.00
+
+positives  IoU S vs A: median 1.0000, min 1.0000, < 0.99: 0, < 0.9: 0
+positives  IoU B vs A: median 0.9999, min 0.9908, < 0.99: 0, < 0.9: 0
+positives  IoU C vs A: median 0.9999, min 0.9904, < 0.99: 0, < 0.9: 0
+positives  IoU D vs A: median 0.9999, min 0.9890, < 0.99: 1, < 0.9: 0
+positives  empty (A, D): {(False, False): 15, (True, True): 1}
+negatives  IoU S vs A: median 1.0000, min 1.0000, < 0.99: 0, < 0.9: 0
+negatives  IoU B vs A: median 0.9999, min 0.9997, < 0.99: 0, < 0.9: 0
+negatives  IoU C vs A: median 0.9999, min 0.9998, < 0.99: 0, < 0.9: 0
+negatives  IoU D vs A: median 0.9999, min 0.9991, < 0.99: 0, < 0.9: 0
+negatives  empty (A, D): {(False, False): 2, (True, True): 2}
+levels C_vs_A: per-pixel mean median 0.244 (max 0.250); block-mean mean median 0.007 (max 0.014); largest block 0.446
+levels D_vs_A: per-pixel mean median 0.320 (max 0.741); block-mean mean median 0.040 (max 0.094); largest block 1.242
+levels D_vs_C: per-pixel mean median 0.182 (max 0.646); block-mean mean median 0.039 (max 0.093); largest block 1.222
+file size, linear half-float re-encode / today's canonical: median 1.00 (0.99 to 1.01); encode at 2 threads median 5.0 s
+C rounded to 8 bits differs from A in at most 503 pixels of a photo (LittleCMS float vs 8-bit output)

@@ -1,0 +1,8 @@
+| photo | px < 0 before encode | decoded px < 0 | decoded px < -1e-3 | decoded lowest | read-back levels changed by clipping the decoded negatives (max) |
+|---|---|---|---|---|---|
+| JPEG Google, ICC: Display P3, gain map | 0.189% | 0.431% | 0.086% | -0.0080 | 1.72 |
+| JPEG GM1911 (OnePlus7Pro), ICC: sRGB IEC61966-2.1, gain map | 0.000% | 0.259% | 0.019% | -0.0033 | 1.36 |
+| JPEG Sony, sRGB (no ICC) | 0.000% | 0.219% | 0.005% | -0.0019 | 0.62 |
+| HEIC Apple, ICC: Display P3, gain map | 0.060% | 0.286% | 0.134% | -0.0168 | 2.34 |
+| JPEG -, sRGB (no ICC) | 0.000% | 5.816% | 1.885% | -0.0110 | 3.62 |
+| .jpg (after the ML-29 scan) | 0.000% | 0.677% | 0.102% | -0.0035 | 1.40 |

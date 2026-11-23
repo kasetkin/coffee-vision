@@ -1,0 +1,7 @@
+24 patches (448 px, float read-back), dinov3_vitb16 cls_mean, float32 on CPU, 2 threads
+form          1-cos median   1-cos max     rel. L2 median   (vs the float32 patch's embedding)
+uint16           0.000e+00    1.192e-07      1.071e-05
+float16          1.192e-07    2.980e-07      3.124e-04
+uint8            3.397e-06    2.199e-05      2.616e-03
+fp16 input       1.192e-07    2.980e-07      3.287e-04
+yardstick: two patches of the same crop, 1-cos median 8.419e-02; experiments.md's cross-CPU limit 1-cos <= 2e-7

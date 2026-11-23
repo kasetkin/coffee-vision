@@ -1,0 +1,101 @@
+# 1. exact, float64 (SMPTE RP 177 construction from BT.2020 / BT.709 primaries, D65 0.3127, 0.3290)
+NPM(709) row Y (BT.709 item 3.2: 0.2126 0.7152 0.0722): [0.2126390059 0.7151686788 0.0721923154]
+NPM(2020) row Y (BT.2020 Table 4: 0.2627 0.6780 0.0593): [0.262700212  0.6779980715 0.0593017165]
+M exact = inv(NPM709) @ NPM2020:
+ [[ 1.6604910021 -0.5876411388 -0.0728498633]
+ [-0.1245504745  1.1328998971 -0.0083494226]
+ [-0.0181507634 -0.100578898   1.1187296614]]
+M exact @ (1,1,1): [1. 1. 1.]  row sums - 1: [ 0.  0. -0.]
+M exact as float32:
+ [[ 1.660491    -0.5876411   -0.07284986 ]
+ [-0.12455048   1.1328999   -0.008349422]
+ [-0.018150764 -0.1005789    1.1187297  ]]
+max |float32 - float64| element: 4.921600593732478e-08
+
+# 2. from IEC 61966-2-1's 7-digit XYZ -> sRGB matrix
+IEC matrix vs inv(NPM709), max |diff|: 0.00034444190452287415
+M_iec = IEC @ NPM2020:
+ [[ 1.6603176262 -0.5875726817 -0.0729165723]
+ [-0.1244066825  1.1328007688 -0.0083489579]
+ [-0.0181113897 -0.1005965687  1.1187664305]]
+max |M_iec - exact|: 0.00017337585845478287  M_iec @ 1: [0.9998283722 1.0000451284 1.0000584722]
+
+# 3. BT.2087 convention: 709 -> 2020 rounded to 4 decimals (its NOTE 3), inverted
+709 -> 2020, exact:
+ [[0.6274038959 0.3292830384 0.0433130657]
+ [0.0690972894 0.9195403951 0.0113623156]
+ [0.0163914389 0.0880133079 0.8955952532]] 
+rounded to 4 decimals:
+ [[0.6274 0.3293 0.0433]
+ [0.0691 0.9195 0.0114]
+ [0.0164 0.088  0.8956]]
+inverse of the rounded one:
+ [[ 1.6605112079 -0.5877105887 -0.0728006192]
+ [-0.124561406   1.1329605139 -0.0083991078]
+ [-0.0181676866 -0.100560598   1.1187282846]]
+max |diff| vs exact: 6.944986367396488e-05  white -> [1. 1. 1.]
+2020 -> 709 rounded to 4 decimals:
+ [[ 1.6605 -0.5876 -0.0728]
+ [-0.1246  1.1329 -0.0083]
+ [-0.0182 -0.1006  1.1187]] 
+ white -> [1.0001 1.     0.9999]
+
+# 4. LittleCMS 2.19 ( lcms2 2.19.0 )
+colorant tags (D50-adapted, s15.16), columns R G B:
+SRGB (LittleCMS built-in):
+ [[0.4360351562 0.3851165771 0.1430511475]
+ [0.2224884033 0.7169036865 0.0606079102]
+ [0.0139160156 0.0970611572 0.7139129639]] 
+ sum: [0.9642028809 1.           0.8248901367]
+LINEAR_SRGB (imagecodecs rgb, gamma 1) equal to SRGB's: True
+LINEAR_REC2020 (imagecodecs rgb, gamma 1):
+ [[ 0.6734771729  0.1656646729  0.1250457764]
+ [ 0.2790374756  0.6753387451  0.0456085205]
+ [-0.0019378662  0.0299835205  0.7968444824]] 
+ sum: [0.9641876221 0.9999847412 0.8248901367]
+REC2020 (committed libjxl profile):
+ [[ 0.6734619141  0.1656646729  0.1251068115]
+ [ 0.2790374756  0.6753387451  0.0456237793]
+ [-0.0019378662  0.0299835205  0.797164917 ]] 
+ sum: [0.9642333984 1.           0.8252105713]
+TRCs: SRGB (3, [2.399993896484375, 0.9478607177734375, 0.0521392822265625, 0.077392578125, 0.0404510498046875])  LINEAR_REC2020 (0, [1.0])  REC2020 (3, [2.22222900390625, 0.909912109375, 0.090087890625, 0.22222900390625, 0.08099365234375])  LINEAR_SRGB (0, [1.0])
+Bradford D65 -> D50 (computed as LittleCMS does):
+ [[ 1.0478860032  0.0229187652 -0.0502160953]
+ [ 0.0295817825  0.9904835185 -0.0170787077]
+ [-0.0092518808  0.0150726075  0.7516781336]]
+theory: inv(B @ NPM709) @ (B @ NPM2020) - exact, max: 2.3592239273284576e-16
+unquantized B@NPM709 vs SRGB tags, max |diff|: 6.095366050840045e-06 (s15.16 step 1.5e-5)
+unquantized B@NPM2020 vs LINEAR_REC2020 tags: 6.533806094721761e-06  vs committed REC2020 tags: 0.0003142841785459538
+REC2020's curve at 1.0 (via LINEAR_REC2020): [0.9999938011 0.9999979734 1.0004022121]
+
+LINEAR_REC2020 -> LINEAR_SRGB: from the tags inv(C_srgb) @ C_src:
+ [[ 1.6605331182 -0.5876832346 -0.0728730313]
+ [-0.124580411   1.1329093896 -0.0083432817]
+ [-0.018145002  -0.1005721572  1.118719555 ]] 
+ read back from the float transform:
+ [[ 1.6605330706 -0.5876832604 -0.0728730336]
+ [-0.1245804131  1.1329094172 -0.0083432812]
+ [-0.0181450024 -0.1005721539  1.1187195778]]
+ max |transform - tags|: 4.7667499947223746e-08  max |transform - exact|: 4.2121652276683186e-05  white -> [0.9999767765 0.9999857228 1.0000024214]
+
+REC2020 (committed) -> LINEAR_SRGB: from the tags inv(C_srgb) @ C_src:
+ [[ 1.660485293  -0.5876832346 -0.0728636564]
+ [-0.1245654757  1.1329093896 -0.0083630645]
+ [-0.0181461003 -0.1005721572  1.1191709045]] 
+ read back from the float transform:
+ [[ 1.6604852676 -0.5876832604 -0.0728636533]
+ [-0.1245654747  1.1329094172 -0.0083630644]
+ [-0.0181460995 -0.1005721539  1.1191709042]]
+ max |transform - tags|: 2.7559624804496252e-08  max |transform - exact|: 0.00044124279663337873  white -> [0.9999383539 0.9999808781 1.0004526507]
+
+linear in, 4.0 units: matrix same as at 1.0, max |diff|: 0.0 (values above 1 pass through unclipped)
+Rec.2020 green (0,1,0) -> linear sRGB: [-0.5876832604  1.1329094172 -0.1005721539] (negatives kept)
+
+# 5. effect on sRGB levels: 2,000,000 random linear Rec.2020 colours in [0,1]^3, and the subset inside sRGB
+inside sRGB: 0.297251
+float32(exact)                 max |M - exact| 4.92e-08; sRGB-encoded max 0.0000 levels (8-bit), 0.01 codes (16-bit); mean 0.000 codes; inside sRGB max 0.0000 levels; linear max 5.01e-08
+IEC 7-digit                    max |M - exact| 1.73e-04; sRGB-encoded max 0.4375 levels (8-bit), 112.45 codes (16-bit); mean 1.864 codes; inside sRGB max 0.2876 levels; linear max 1.78e-04
+BT.2087 4-digit inverted       max |M - exact| 6.94e-05; sRGB-encoded max 0.2051 levels (8-bit), 52.70 codes (16-bit); mean 0.820 codes; inside sRGB max 0.1689 levels; linear max 6.22e-05
+2020->709 4-digit              max |M - exact| 4.99e-05; sRGB-encoded max 0.3073 levels (8-bit), 78.96 codes (16-bit); mean 1.510 codes; inside sRGB max 0.2925 levels; linear max 9.91e-05
+LittleCMS LINEAR_REC2020       max |M - exact| 4.21e-05; sRGB-encoded max 0.1576 levels (8-bit), 40.51 codes (16-bit); mean 0.399 codes; inside sRGB max 0.1498 levels; linear max 4.78e-05
+LittleCMS REC2020 committed    max |M - exact| 4.41e-04; sRGB-encoded max 0.1934 levels (8-bit), 49.69 codes (16-bit); mean 2.559 codes; inside sRGB max 0.1880 levels; linear max 4.51e-04

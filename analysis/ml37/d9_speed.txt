@@ -1,0 +1,10 @@
+12 CPUs here (Ryzen 5 5600U); 2 threads per read-back; output kept whole (uint8 today, float32 otherwise)
+15 MP today  best   1.85 s (runs 1.98, 1.85, 1.86); input 90 MB; peak RSS 171 MB, after loading the input 128 MB
+15 MP lcms1  best   1.99 s (runs 1.99, 2.18, 2.03); input 90 MB; peak RSS 300 MB, after loading the input 128 MB
+15 MP lcms2  best   2.76 s (runs 3.19, 2.93, 2.76); input 90 MB; peak RSS 310 MB, after loading the input 128 MB
+15 MP numpy  best   0.89 s (runs 0.89, 0.92, 0.97); input 90 MB; peak RSS 335 MB, after loading the input 127 MB
+50 MP today  best   4.81 s (runs 6.22, 4.92, 4.81); input 301 MB; peak RSS 472 MB, after loading the input 328 MB
+50 MP lcms1  best   5.14 s (runs 5.35, 5.14, 5.80); input 301 MB; peak RSS 902 MB, after loading the input 328 MB
+50 MP lcms2  best   8.58 s (runs 8.58, 8.65, 8.89); input 301 MB; peak RSS 921 MB, after loading the input 329 MB
+50 MP numpy  best   2.54 s (runs 3.07, 2.54, 2.78); input 301 MB; peak RSS 964 MB, after loading the input 328 MB
+# lcms2 rerun alone (`run 15 lcms2`, `run 50 lcms2`) after its first version failed: imagecodecs refuses an in-place transform; it now uses a strip-sized temporary

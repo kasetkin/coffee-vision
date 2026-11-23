@@ -1,0 +1,25 @@
+== JPEG Google Pixel 9 Pro  4080x3072 (12.5 MP)  file 2.3 MB, decoded float16 75 MB
+   encode (effort 3, 2 threads) 1.5 s; decode (2 threads) 0.09 s
+   peak on the original light: Rec.2020 1.5528, sRGB 1.6957
+   peak pass on the decoded photo (float32 maxima, 50 MB): Rec.2020 1.5527 in 0.62 s; sRGB (matrix first) 1.6972 in 0.68 s
+   1-in-16 subsample: 1.5553 in 0.04 s; streaming histogram: 1.5555 in 0.57 s
+   knee at the decoded peak 0.7998, at the original's 0.7998
+   read-back, float32 strips, 1 thread: (b) clip 0.50 s, (a) EETF 1.21 s; output float32 150 MB; (a) vs (b): 7.228% of pixels differ by over half a level
+   crop (bean box 4080x3072, 100% of the photo): its own peak 1.5527 (knee 0.7998) against the photo's 1.5527; read-back at its own peak vs the photo's: 0.000% of its pixels differ by over half a level
+== HEIC Apple iPhone 15 Pro Max  4032x3024 (12.2 MP)  file 2.4 MB, decoded float16 73 MB
+   encode (effort 3, 2 threads) 1.4 s; decode (2 threads) 0.09 s
+   peak on the original light: Rec.2020 2.6059, sRGB 2.6302
+   peak pass on the decoded photo (float32 maxima, 49 MB): Rec.2020 2.6055 in 0.55 s; sRGB (matrix first) 2.6399 in 0.62 s
+   1-in-16 subsample: 2.6055 in 0.03 s; streaming histogram: 2.6110 in 0.56 s
+   knee at the decoded peak 0.6102, at the original's 0.6101
+   read-back, float32 strips, 1 thread: (b) clip 0.49 s, (a) EETF 1.85 s; output float32 146 MB; (a) vs (b): 36.185% of pixels differ by over half a level
+   crop (bean box 2124x1603, 28% of the photo): its own peak 1.9531 (knee 0.7101) against the photo's 2.6055; read-back at its own peak vs the photo's: 52.525% of its pixels differ by over half a level
+== HEIC Apple iPhone 15 Pro  4284x5712 (24.5 MP)  file 3.6 MB, decoded float16 147 MB
+   encode (effort 3, 2 threads) 2.8 s; decode (2 threads) 0.16 s
+   peak on the original light: Rec.2020 2.7311, sRGB 3.0188
+   peak pass on the decoded photo (float32 maxima, 98 MB): Rec.2020 2.7285 in 1.12 s; sRGB (matrix first) 3.0174 in 1.27 s
+   1-in-16 subsample: 2.7189 in 0.07 s; streaming histogram: 2.7331 in 1.18 s
+   knee at the decoded peak 0.5954, at the original's 0.5951
+   read-back, float32 strips, 1 thread: (b) clip 0.92 s, (a) EETF 3.50 s; output float32 294 MB; (a) vs (b): 29.809% of pixels differ by over half a level
+   crop (bean box 2173x2060, 18% of the photo): its own peak 1.9346 (knee 0.7137) against the photo's 2.7285; read-back at its own peak vs the photo's: 2.880% of its pixels differ by over half a level
+peak RSS 945 MB

@@ -1,0 +1,70 @@
+skipped: [('JPEG  ', 'IndexError: index 250 is out of bounds for axis 0 with size 250'), ('JPEG OnePlus GM1911', 'IndexError: index 250 is out of bounds for axis 0 with size 250')]
+gain-map photos: 23 (23 with a bean mask); standard-range: 4
+
+1. Against today's models' input T (load_canonical, 8-bit), ML-29 D27's 32x32 block means, levels of 255.
+   median photo (worst photo): mean |d|, worst block, signed shift (+ brighter than T)
+   bean blocks, gain-map photos (n=23)
+     a2020   mean  0.049 ( 0.119)  worst   0.78 (  2.43)  shift -0.002 (from -0.073 to +0.006)
+     aSRGB   mean  0.606 ( 5.760)  worst  10.35 ( 20.71)  shift -0.576 (from -5.760 to -0.006)
+     aSRGBp  mean  0.533 ( 5.709)  worst   9.69 ( 20.63)  shift -0.502 (from -5.709 to -0.005)
+     b       mean  0.502 ( 7.974)  worst  28.39 ( 74.68)  shift +0.476 (from -0.051 to +7.963)
+     c2      mean  0.372 ( 4.460)  worst  12.52 ( 20.66)  shift -0.350 (from -4.460 to +0.039)
+     c4      mean  1.619 ( 8.787)  worst  18.78 ( 24.36)  shift -1.616 (from -8.787 to -0.194)
+   whole photo, gain-map photos (n=23)
+     a2020   mean  0.045 ( 0.084)  worst   0.83 (  2.83)  shift -0.001 (from -0.042 to +0.013)
+     aSRGB   mean  1.200 ( 5.351)  worst  13.14 ( 20.71)  shift -1.192 (from -5.348 to -0.013)
+     aSRGBp  mean  1.192 ( 5.078)  worst  13.01 ( 20.63)  shift -1.185 (from -5.074 to -0.013)
+     b       mean  1.971 ( 7.741)  worst  43.72 ( 82.17)  shift +1.943 (from -0.006 to +7.730)
+     c2      mean  0.967 ( 3.287)  worst  13.64 ( 20.66)  shift -0.935 (from -3.282 to +0.277)
+     c4      mean  3.005 ( 7.821)  worst  20.24 ( 24.36)  shift -2.984 (from -7.817 to -0.671)
+   whole photo, standard-range photos (n=4)
+     a2020   mean  0.045 ( 0.058)  worst   1.25 (  2.28)  shift -0.011
+     aSRGB   mean  0.045 ( 0.058)  worst   1.25 (  2.28)  shift -0.012
+     aSRGBp  mean  0.045 ( 0.058)  worst   1.25 (  2.28)  shift -0.012
+     b       mean  0.045 ( 0.058)  worst   1.25 (  2.28)  shift -0.011
+     c2      mean  0.248 ( 0.937)  worst   9.56 ( 11.45)  shift -0.217
+     c4      mean  1.143 ( 2.408)  worst  20.66 ( 22.69)  shift -1.123
+
+2. Bean pixels, each option against a2020 (today's maths without its lossy integer photo); a2020_vs_T is that
+   photo's own per-pixel coding noise. median photo (worst photo)
+     a2020_vs_T  mean 0.959 (2.124)  p99 5.9 (19.0)  max 31.4 (72.7)  over2 30.8195% (75.0687%)
+     aSRGB       mean 0.525 (5.758)  p99 10.1 (19.7)  max 17.3 (21.9)  over2 9.9983% (65.7992%)
+     aSRGBp      mean 0.459 (5.707)  p99 9.9 (19.4)  max 17.3 (21.9)  over2 9.3441% (65.6408%)
+     b           mean 0.477 (7.973)  p99 19.6 (64.7)  max 54.7 (97.4)  over2 5.8243% (53.0176%)
+     c2          mean 0.346 (4.451)  p99 10.2 (19.5)  max 17.1 (21.9)  over2 5.8992% (60.9411%)
+     c4          mean 1.620 (8.815)  p99 18.8 (24.2)  max 22.3 (27.9)  over2 22.5629% (75.4065%)
+
+3. The ordering: max(R,G,B) of linear sRGB over that of linear Rec.2020, per bean pixel (5th/50th/95th percentile), the share of bean pixels a2020 leaves above 1.0 in sRGB (clipped per channel), and the peaks
+     HEIC Apple iPhone 15           peak 2020 2.268 sRGB 2.336  ratio 1.02/1.07/1.14  a2020 clipped 0.8876%  beans above white 2.6900%  above c2's knee 9.938%, c4's 25.662%
+     HEIC Apple iPhone 15           peak 2020 2.450 sRGB 2.558  ratio 1.03/1.08/1.15  a2020 clipped 0.9736%  beans above white 2.9199%  above c2's knee 9.811%, c4's 23.387%
+     HEIC Apple iPhone 15           peak 2020 2.484 sRGB 2.535  ratio 1.01/1.06/1.14  a2020 clipped 0.4843%  beans above white 2.0841%  above c2's knee 7.634%, c4's 21.721%
+     HEIC Apple iPhone 15 Pro       peak 2020 2.731 sRGB 3.019  ratio 1.25/1.33/1.44  a2020 clipped 0.6766%  beans above white 0.9323%  above c2's knee 3.857%, c4's 13.053%
+     HEIC Apple iPhone 15 Pro Max   peak 2020 1.877 sRGB 2.101  ratio 1.30/1.36/1.44  a2020 clipped 17.9099%  beans above white 18.0069%  above c2's knee 35.888%, c4's 52.691%
+     HEIC Apple iPhone 15 Pro Max   peak 2020 2.606 sRGB 2.630  ratio 1.22/1.36/1.47  a2020 clipped 48.4267%  beans above white 50.3664%  above c2's knee 67.207%, c4's 79.371%
+     HEIC Apple iPhone 15 Pro Max   peak 2020 2.606 sRGB 2.627  ratio 1.16/1.29/1.40  a2020 clipped 18.8221%  beans above white 22.7432%  above c2's knee 41.351%, c4's 60.994%
+     HEIC Apple iPhone 16 Pro Max   peak 2020 2.842 sRGB 2.853  ratio 1.01/1.13/1.27  a2020 clipped 16.7813%  beans above white 29.7262%  above c2's knee 42.269%, c4's 54.376%
+     HEIC Apple iPhone 16 Pro Max   peak 2020 3.272 sRGB 3.423  ratio 1.16/1.28/1.40  a2020 clipped 37.3236%  beans above white 44.3403%  above c2's knee 60.803%, c4's 73.244%
+     JPEG GM1911 (OnePlus7Pro) OneP peak 2020 1.348 sRGB 1.350  ratio 1.01/1.06/1.11  a2020 clipped 0.0460%  beans above white 0.1092%  above c2's knee 2.965%, c4's 14.889%
+     JPEG GM1911 (OnePlus7Pro) OneP peak 2020 1.353 sRGB 1.356  ratio 1.01/1.08/1.17  a2020 clipped 0.3059%  beans above white 0.6100%  above c2's knee 4.415%, c4's 16.082%
+     JPEG GM1911 (OnePlus7Pro) OneP peak 2020 1.494 sRGB 1.497  ratio 1.05/1.17/1.26  a2020 clipped 1.9677%  beans above white 2.4608%  above c2's knee 9.507%, c4's 24.826%
+     JPEG GM1911 (OnePlus7Pro) OneP peak 2020 1.633 sRGB 1.635  ratio 1.08/1.20/1.30  a2020 clipped 11.7609%  beans above white 13.8514%  above c2's knee 37.451%, c4's 58.526%
+     JPEG GM1911 (OnePlus7Pro) OneP peak 2020 1.692 sRGB 1.694  ratio 1.02/1.06/1.14  a2020 clipped 15.6580%  beans above white 29.1620%  above c2's knee 65.945%, c4's 84.614%
+     JPEG Google Pixel 7            peak 2020 2.567 sRGB 2.569  ratio 1.17/1.27/1.37  a2020 clipped 1.0441%  beans above white 2.7681%  above c2's knee 14.196%, c4's 38.428%
+     JPEG Google Pixel 9 Pro        peak 2020 1.210 sRGB 1.407  ratio 1.21/1.27/1.38  a2020 clipped 1.4829%  beans above white 1.4829%  above c2's knee 17.979%, c4's 44.974%
+     JPEG Google Pixel 9 Pro        peak 2020 1.322 sRGB 1.392  ratio 1.10/1.16/1.26  a2020 clipped 1.7148%  beans above white 1.8093%  above c2's knee 8.465%, c4's 25.912%
+     JPEG Google Pixel 9 Pro        peak 2020 1.553 sRGB 1.696  ratio 1.09/1.14/1.23  a2020 clipped 4.5245%  beans above white 5.3406%  above c2's knee 26.282%, c4's 60.281%
+     JPEG Google Pixel 9 Pro        peak 2020 1.608 sRGB 1.826  ratio 1.19/1.29/1.39  a2020 clipped 25.0239%  beans above white 25.1393%  above c2's knee 47.715%, c4's 65.616%
+     JPEG Google Pixel 9 Pro        peak 2020 1.847 sRGB 1.992  ratio 1.27/1.34/1.43  a2020 clipped 0.0830%  beans above white 0.0950%  above c2's knee 1.138%, c4's 7.127%
+     JPEG samsung Galaxy Z Fold8 Ul peak 2020 2.527 sRGB 2.745  ratio 1.29/1.38/1.45  a2020 clipped 2.1031%  beans above white 2.5145%  above c2's knee 9.303%, c4's 21.850%
+     JPEG samsung Galaxy Z Fold8 Ul peak 2020 2.892 sRGB 2.921  ratio 1.17/1.27/1.38  a2020 clipped 18.0446%  beans above white 25.5823%  above c2's knee 50.232%, c4's 74.279%
+     JPEG samsung Galaxy Z Fold8 Ul peak 2020 3.050 sRGB 3.051  ratio 1.25/1.32/1.39  a2020 clipped 0.9867%  beans above white 1.6280%  above c2's knee 8.944%, c4's 27.467%
+   sRGB peak / Rec.2020 peak: median 1.020, range 1.000-1.162
+
+4. Standard-range photos: the region (bean mask, else the whole photo) above c2's and c4's knee
+     JPEG Sony G8441                peak 1.000  above white 0.3588%  above c2's knee 4.682%  c4's 25.630%  mask False
+     JPEG OnePlus GM1910            peak 1.000  above white 0.0053%  above c2's knee 2.481%  c4's 28.293%  mask True
+     JPEG Google Pixel 9 Pro        peak 1.000  above white 0.4144%  above c2's knee 13.540%  c4's 17.263%  mask False
+     JPEG OnePlus KB2005            peak 1.000  above white 0.0000%  above c2's knee 0.000%  c4's 0.000%  mask False
+
+5. Time (this machine, shared; numpy, 2 threads at most)
+   the Rec.2020 peak pass (max over channels + 99.99th percentile): median 53 ms per MP (range 40-75)
