@@ -8,11 +8,11 @@
   <h1>The canonical photo keeps a photo's light above white, so the page can show it with HDR brightness</h1>
   <p class="lede">Split off from OPS-25 (D3), which shows the canonical photo's wide gamut but no brightness. The
     owner's aim is one canonical JPEG XL that carries both. Since ML-29 the canonical photo is standard range, so this
-    is a change to canonicalization and to how the models read it. Written, not planned, not implemented; no decision
-    taken.</p>
+    is a change to canonicalization and to how the models read it. Written, researched (2026-11-22: HDR input for the
+    models, the PU21 curve, where it would sit; &sect;3), not planned, not implemented; no decision taken.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-19; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-19; researched 2026-11-22, experiments A and B; not planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Low</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Data: what canonicalization keeps</span></div>
@@ -49,9 +49,61 @@
       shows an HDR JPEG XL is not researched.</li>
     <li><strong>The front's cost.</strong> Applying a map already takes the front to 392&ndash;487 MB and 12&ndash;15 s
       for the largest photos, against its 600 MB (ADR 0041, ML-29 R6).</li>
+    <li><strong>The storage forms the pinned libjxl can write.</strong> imagecodecs 2026.10.10 bundles libjxl 0.12.0: PQ,
+      HLG and float linear encode and decode (checked), with no intensity target set, so 10,000 cd/m&sup2; for PQ. A
+      <code>jhgm</code> gain map has no ready-made writer in the wheel (<code>JxlGainMap*Bundle</code> not exported); it
+      would be serialised by our own code and added with <code>JxlEncoderAddBox</code>, and libjxl does not apply it on
+      decode (<a href="../analysis/ml34/research_hdr_pu21.md">research_hdr_pu21.md</a> &sect;4).</li>
   </ul>
 
-  <h2>3. Before and after</h2>
+  <h2>3. Research: HDR light for the models, and PU21 (2026-11-22)</h2>
+  <p>The owner asked whether the models could gain from the HDR light too, through the PU21 curve, and where the curve
+    would sit. Research note: <a href="../analysis/ml34/research_hdr_pu21.md">analysis/ml34/research_hdr_pu21.md</a>
+    (primary sources, &sect;1&ndash;5; the experiments, &sect;6). A finding, not a decision.</p>
+  <ul>
+    <li><strong>The literature.</strong> HDR or RAW input helped detectors under extreme light (&asymp;18-stop scenes,
+      exposures 4&ndash;10&times; off, the dark) and when the network or a learned input stage was trained on the new
+      encoding. Under ordinary light it was within about 1 mAP of SDR; linear light into an sRGB-pretrained network was
+      clearly worse (&minus;5 to &minus;19 AP). No study tests a frozen ViT with a linear probe, our case; the nearest
+      (Chubarau et al. 2024) found sRGB-pretrained networks without fine-tuning good on PU21-encoded SDR and weak on
+      PU21-encoded HDR.</li>
+    <li><strong>PU21</strong> (Mantiuk &amp; Azimi 2021, reference code <code>gfxdisp/pu21</code>): one closed-form curve,
+      V = p7&middot;(((p1 + p2&middot;Y<sup>p4</sup>)/(1 + p3&middot;Y<sup>p4</sup>))<sup>p5</sup> &minus; p6), on
+      <em>absolute</em> luminance Y from 0.005 to 10,000 cd/m&sup2;; the authors recommend the
+      <code>banding_glare</code> parameters only. 100 cd/m&sup2; maps to 256, 10,000 to 595. It is a perceptually
+      uniform encoding for metrics and networks, not a transfer function any codec, browser or screen knows. On an SDR
+      photo it is not sRGB: midtones sit 20&ndash;36 levels higher.</li>
+    <li><strong>Where it would sit.</strong> Only at the models' read-back, never in the store or the preview:
+      canonical photo &rarr; linear light (1.0 = SDR white) &rarr; linear sRGB primaries, negatives clipped &rarr;
+      &times; 100 cd/m&sup2; &rarr; PU21 per channel &rarr; divided by PU21 of the chosen top &rarr; the crop's fill
+      &rarr; ImageNet normalisation as today. It replaces D33's tone map and the sRGB curve in
+      <code>load_canonical</code> for the models only. So it needs the store to keep the light above white (D1 (a) or
+      (b), or a float/linear form), and it changes every photo's input, SDR photos included: it is D2 (b), both models
+      retrained, never D2 (a). For the classifier only bean pixels count: outside the mask the crop is grey.</li>
+    <li><strong>Experiment A: is there HDR light on the beans?</strong> 206 gain-map photos with a segmenter mask, light
+      read before the tone map (<code>analysis/ml34/a_light_above_white.py</code>). The median photo has 1.5% of its bean
+      pixels above the EETF's knee (changed by the tone map) and 0.3% above white; 72 photos have over 5% above the knee,
+      33 over 5% above white; the iPhones most (9&ndash;29% above the knee in each model's median photo), the Pixel 9
+      Pro least (0.5%). The knee is well below white (0.60 at Apple's median 2.7&times; headroom).</li>
+    <li><strong>Experiment B: the frozen head on PU21 crops</strong> (<code>analysis/ml34/b_pu21_probe.py</code>;
+      unaugmented heads only, C = 0.1, seeds 42/123/7, the same patches; a screen, not a recorded run). Paired against
+      today's crops on test macro-F1, mean of three seeds, lower at every seed: PU21 in place of sRGB &minus;0.004; PU21
+      with 2 stops of headroom reserved &minus;0.008; the same with the true HDR light in that headroom &minus;0.004. Against a control with the same originals, boxes and
+      curve, tone-mapped as the store does, the HDR light alone gives +0.002 on test and +0.004 on val (by seed: test
+      +0.004, +0.001, +0.002), inside the seed range and nothing at one seed; the rest of the HDR arm's edge over the
+      store's crops was the lossless original against the store's lossy JPEG XL (+0.0015) (&sect;6 of the note).
+      Chubarau et al.'s full-range scaling (PU21 of 10,000 cd/m&sup2; = the top), tried after the papers' review,
+      does no better: &minus;0.004 on test against today's crops, &minus;0.0003 against 4&times; white.</li>
+    <li><strong>The papers that report PU21 helping sRGB-pretrained networks</strong> (X2HDR, Chubarau et al. 2024,
+      LumaGuide, FDIM; <a href="../analysis/ml34/research_pu21_papers.md">research_pu21_papers.md</a>): HDR generation
+      and quality metrics, not classification with a frozen backbone. Their gain is over <em>linear</em> HDR input on
+      true HDR content, or comes from training on PU input; our baseline is sRGB of a tone-mapped photo and our crops
+      are almost all standard range. Where a paper feeds a frozen network both, the SDR input wins, as it did here.</li>
+    <li><strong>So:</strong> the bright preview (this ticket's aim) needs no PU21. HDR input for the models is a
+      separate question (D4): on this dataset the curve costs more than the light gives, under an unaugmented head.</li>
+  </ul>
+
+  <h2>4. Before and after</h2>
   <div class="compare">
     <div>
       <h3>Now</h3>
@@ -70,27 +122,34 @@
     </div>
   </div>
 
-  <h2>4. What does not change</h2>
+  <h2>5. What does not change</h2>
   <ul>
     <li><strong>What the models read,</strong> if D2 holds: the 8-bit sRGB of ML-29's canonical photo.</li>
     <li><strong>One canonical photo per photo</strong> (ADR 0033): kept in one file, not two.</li>
   </ul>
 
-  <h2>5. Risks</h2>
+  <h2>6. Risks</h2>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>The read-back's tone map differs from today's, so the models' input changes.</strong></td>
         <td>Unmeasured. Compare the read-back with today's canonical photos on the dataset before anything else; a
-          difference means a re-canonicalization and a retrain.</td></tr>
+          difference means a re-canonicalization and a retrain. Experiment A says where it would show: in the median
+          gain-map photo 1.5% of bean pixels lie above the EETF's knee, up to 61%, so the read-back must reproduce the
+          EETF at the whole picture's peak (D33), not a clip, and a store that drops light (a PQ intensity target, an
+          8-bit map) moves those pixels.</td></tr>
       <tr><td class="id">R2</td><td><strong>The front runs out of memory or time.</strong></td>
         <td>It is already near its 600 MB for the largest gain-map photos (ADR 0041). Measured as ML-29 R6 was.</td></tr>
       <tr><td class="id">R3</td><td><strong>The browsers do not show the chosen HDR form.</strong></td>
         <td>Unresearched for JPEG XL. Tested on the Pixel 9 Pro and an iPhone before the canonical form is chosen.</td></tr>
+      <tr><td class="id">R4</td><td><strong>An HDR input to the models (D4 (b)) lowers accuracy.</strong></td>
+        <td>Measured on unaugmented heads (&sect;3, experiment B; both scalings, 4&times; white and full range): PU21 &minus;0.004 to &minus;0.008 on test against
+          today's sRGB crops, the HDR light alone giving back +0.002. Only a recorded, augmented, paired three-seed run under
+          ADR 0002's bar may change the models' input.</td></tr>
     </tbody>
   </table></div>
 
-  <h2>6. Decisions</h2>
+  <h2>7. Decisions</h2>
   <div class="table-wrap"><table>
     <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
     <tbody>
@@ -104,12 +163,17 @@
       <tr><td class="id">D3</td><td>Does the store change too, or only the front?</td>
         <td>(a) both (b) the front only (a further departure in ADR 0036)</td>
         <td>Open.</td></tr>
+      <tr><td class="id">D4</td><td>Do the models read the light above white too?</td>
+        <td>(a) no: the light is for the preview; the models' read-back tone-maps it as today (D2 (a)) (b) yes: a
+          PU21 read-back (&sect;3: 1.0 = 100 cd/m&sup2;, per channel on linear sRGB primaries, a top of N&times; white),
+          D2 (b), adopted only by a recorded run that beats today's under ADR 0002</td>
+        <td>Open. Research recommends (a): experiment B found no gain on this dataset (&sect;3).</td></tr>
     </tbody>
   </table></div>
 
-  <h2>7. Scope and acceptance</h2>
+  <h2>8. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>D1&ndash;D3 decided, and the ADRs they amend (0033, 0036, 0041) amended.</span></li>
+    <li><span class="box"></span><span>D1&ndash;D4 decided, and the ADRs they amend (0033, 0036, 0041) amended.</span></li>
     <li><span class="box"></span><span>The models' read-back measured against today's canonical photos on the dataset (R1).</span></li>
     <li><span class="box"></span><span>The front's memory and time measured on the largest gain-map photos (R2).</span></li>
     <li><span class="box"></span><span>The owner has seen the bright preview on a Pixel 9 Pro and an iPhone.</span></li>
@@ -125,6 +189,15 @@
   <div class="log">
     <div><div class="when">2026-11-19</div>Ticket written from the owner's answer while grilling OPS-25 (D3), on
       <code>990064f</code>. Decisions open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-22</div>Researched at the owner's request, on <code>a44c635</code>: whether HDR light
+      can help the models, the PU21 curve, and where it would sit (&sect;3, D4, R4;
+      <a href="../analysis/ml34/research_hdr_pu21.md">research_hdr_pu21.md</a>). Experiment A (bean light above the
+      tone map's knee) and experiment B (the frozen head on PU21 crops, unaugmented, three seeds) run; scratch pools in
+      <code>outputs/ml34_b/</code>, not tracked. Decisions still open.</div>
+    <div><div class="when">2026-11-23</div>The owner's four PU21 papers reviewed against this pipeline
+      (<a href="../analysis/ml34/research_pu21_papers.md">research_pu21_papers.md</a>), and the one setting they
+      suggest that experiment B had not tried, full-range scaling, run on three seeds: no gain (&sect;3). D4's
+      recommendation unchanged.</div>
   </div>
 
   <footer>Related: <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a>,
@@ -132,5 +205,6 @@
     <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
     <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
     <a href="adr/0041-a-photos-gain-map-is-applied-at-canonicalization.md">ADR 0041</a>,
-    <a href="../analysis/ml29/research_browser_hdr_preview.md">the browser research</a>.</footer>
+    <a href="../analysis/ml29/research_browser_hdr_preview.md">the browser research</a>,
+    <a href="../analysis/ml34/research_hdr_pu21.md">the HDR and PU21 research</a>.</footer>
 </main>

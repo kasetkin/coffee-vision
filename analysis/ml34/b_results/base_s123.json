@@ -1,0 +1,50 @@
+{
+ "arm": "base",
+ "seed": 123,
+ "sizes": {
+  "train": 6000,
+  "val": 1600,
+  "test": 1600
+ },
+ "class_ids": [
+  "Ethiopia",
+  "Kenya",
+  "Colombia",
+  "CostaRica",
+  "Guatemala",
+  "Brazil",
+  "Vietnam",
+  "Indonesia",
+  "Peru",
+  "Rwanda"
+ ],
+ "val_macro_f1": 0.9405990522119299,
+ "test_macro_f1": 0.945799064512521,
+ "per_class_f1": {
+  "val": {
+   "Ethiopia": 0.8936170212765957,
+   "Kenya": 0.95625,
+   "Colombia": 0.8825396825396825,
+   "CostaRica": 0.9565217391304348,
+   "Guatemala": 0.9150326797385621,
+   "Brazil": 0.9240121580547113,
+   "Vietnam": 1.0,
+   "Indonesia": 0.9655172413793104,
+   "Peru": 0.925,
+   "Rwanda": 0.9875
+  },
+  "test": {
+   "Ethiopia": 0.8942598187311178,
+   "Kenya": 0.9411764705882353,
+   "Colombia": 0.8668730650154799,
+   "CostaRica": 0.9843260188087775,
+   "Guatemala": 0.8552188552188552,
+   "Brazil": 0.9683544303797469,
+   "Vietnam": 1.0,
+   "Indonesia": 0.975609756097561,
+   "Peru": 0.9784615384615385,
+   "Rwanda": 0.9937106918238994
+  }
+ },
+ "seconds": 6350
+}
