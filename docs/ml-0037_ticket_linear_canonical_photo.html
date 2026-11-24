@@ -140,6 +140,58 @@
       strip encoder, <code>jxl_encode.encode_rec2020</code>, which keeps the front's memory down (ML-19 D52), writes
       uint16 only (<code>JXL_TYPE_UINT16</code>) and needs a float16 form. The intensity target was not checked
       (D8).</li>
+    <li><strong>How many bits the classifier's input needs</strong>, researched 2026-11-23 at the owner's request
+      (<a href="../analysis/ml37/research_bits_classifier.md">research_bits_classifier.md</a>): 8-, 10-, 12-bit and
+      float16 sRGB against float32, each rounded once at the crop with the resizes after it in float. Going above 8
+      bits gives no measurable gain.
+      <ul>
+        <li>DINOv3's feature moves by a median 1&nbsp;&minus;&nbsp;cosine of 3.5e-7 at 8 bits, 2.2e-8 at 10, 1.5e-9 at
+          12 and 3.8e-9 at float16, on 1,600 test patches of 266 photos. For scale: the fp16 cast serving applies,
+          3.8e-8; the store's own lossy coding, 1.1e-5; a 1-pixel shift of the patch, 6.6e-4. From 10 bits up the
+          input is as close to float as serving's own cast.</li>
+        <li>The live head (exp290) gives the same answer in every arm on all 1,600 patches and 266 photos: test
+          macro-F1 0.9554 and the same F1 in all 10 classes.</li>
+        <li>Head refitted on seeds 42/123/7, 8-bit against float16: macro-F1 &minus;0.0007, +0.0000, &minus;0.0006,
+          mean &minus;0.0004, photo-bootstrap 95% CI [&minus;0.0015, +0.0006], inside D13's proposed bar; the lowest
+          class, Colombia, &minus;0.0024. Unaugmented heads (the 8 views would have taken about 14 hours); 10 and 12
+          bits not refitted.</li>
+        <li>Where the rounding sits matters more than how many bits: today's path rounds three times (crop, 448 px
+          patch, 224 px input), moves the feature 130&times; more than one 8-bit rounding at the crop, and is the
+          only bit-depth arm that changes answers (4 patches, 2 photos; macro-F1 0.9559). The 8-bit effect is
+          largest on boxes under 300 px, which are upsampled, but stays below a 1-pixel shift.</li>
+        <li>At the pixel, 8-bit rounding (0.29 levels RMS) is below the store's coding error (1.03) but not below the
+          noise in the flattest bean regions (0.15); the downscale to the model's input averages it away (0.033
+          against the coding's 0.20).</li>
+      </ul>
+      So D3 is a correctness and parity choice for the classifier, not an accuracy one; float16 crops and patches
+      (D10 (b)) are more than enough, and a 10- or 12-bit store would also lose nothing if R8 or R9 binds. All arms
+      use today's canonical photo, not D1's.</li>
+    <li><strong>How many bits the segmenter's input needs</strong>, researched 2026-11-23/24 the same way
+      (<a href="../analysis/ml37/research_bits_segmenter.md">research_bits_segmenter.md</a>, numbers in
+      <a href="../analysis/ml37/bits_seg_report.txt">bits_seg_report.txt</a>): the whole photo rounded once where
+      <code>load_canonical</code> rounds today, the resize to the encoder's 1,024 px in float. The live segmenter is
+      the XL0 encoder with the <code>xl0_v7r_s123</code> decoder: the owner's request names XL1, which is downloaded
+      but not used (<code>params.yaml</code>, the decoder's card). Going above 8 bits gives no measurable gain.
+      <ul>
+        <li>The encoder's embedding moves by a median 1&nbsp;&minus;&nbsp;cosine of 7.9e-7 at 8 bits, 3.5e-8 at 10,
+          2.0e-9 at 12 and 3.7e-9 at float16, on 625 photos. For scale: an fp16 cast of the input, 3.2e-8; a second
+          q95 JPEG XL generation, 8.6e-6; a 1-pixel shift, 3.8e-4. From 10 bits up the input is as close to float as
+          an fp16 cast.</li>
+        <li>Masks against the float32 arm's, 360 test photos: median IoU 0.99999 at 8 bits (lowest 0.998 on a served
+          mask) and 1.00000 from 10 bits up; no mask became empty and no photo changed between mask and fallback in
+          any arm. Crop boxes moved on 9 of 237 positives at 8 bits (at most 4 px), on none from 10 bits up except
+          one at float16 (1 px).</li>
+        <li>Against the pass17 labels (validation, 177 positives and 88 negatives, <code>seg_finetune</code>'s own
+          measures): mean IoU 0.96990 in float32, float16, 12 bits and today's path, 0.96989 at 10 bits and 0.96992 at
+          8 bits; paired change 8-bit against float32 +1.6e-5, photo-bootstrap 95% CI [&minus;6.9e-6, +5.1e-5].
+          Every negative stays empty in every arm. The test split has no labels (the owner reviews it blind).</li>
+        <li>As for the classifier, where the rounding sits matters more than how many bits: today's path rounds
+          twice (the photo, then the 1,024 px input) and moves the embedding 30&times; more than one 8-bit rounding,
+          and its masks most (test: lowest IoU 0.990 on a served mask, boxes moved on 30 of 237 positives; validation:
+          one box by 114 px). It still scores the same against the labels.</li>
+      </ul>
+      Reduced: 360 of 472 test photos within the time budget; no fine-tune, so augmentation's 8-bit steps (R5) are
+      untested here. All arms use today's canonical photo, not D1's.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -265,7 +317,9 @@
         <td>&mdash;</td>
         <td>2026-11-23, the owner's request: no 8-bit step from the decoded 16 bits to the float32 model input
           (float16 where a model takes it). Every model graph takes float32 at its input today (§2), so the input
-          is float32.</td></tr>
+          is float32. Research, 2026-11-23: for the classifier, no measurable gain over 8 bits rounded once at the
+          crop; from 10 bits up indistinguishable from float. The same for the segmenter, rounding once at the
+          photo (§2).</td></tr>
       <tr><td class="id">D4</td><td>What is the preview?</td>
         <td>&mdash;</td>
         <td>2026-11-23, the owner's request: the same picture as the models' input, so the visitor sees what the
@@ -417,6 +471,16 @@
       (b). D9 (a) reverses ML-19 D31. R2 and R3 given measurements, R5 corrected, R8 (disk) and R9 (memory) added.
       Measured on today's canonical photos converted to linear, on a loaded workstation, not on the front or the
       host; nothing measured for accuracy. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-23</div>Researched at the owner's request: how many bits the classifier's input
+      needs, 8, 10, 12 or float16 (&sect;2,
+      <a href="../analysis/ml37/research_bits_classifier.md">research_bits_classifier.md</a>). No measurable gain
+      above 8 bits rounded once at the crop; from 10 bits up indistinguishable from float. The segmenter's study
+      follows. Decisions unchanged.</div>
+    <div><div class="when">2026-11-24</div>Researched at the owner's request: how many bits the segmenter's input
+      needs (&sect;2, <a href="../analysis/ml37/research_bits_segmenter.md">research_bits_segmenter.md</a>). No
+      measurable gain above 8 bits rounded once at the photo; from 10 bits up indistinguishable from float; against
+      the labels every arm scores the same. 360 of 472 test photos measured within the time budget. Decisions
+      unchanged.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
