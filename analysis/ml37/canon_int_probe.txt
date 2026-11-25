@@ -1,0 +1,25 @@
+imagecodecs 2026.10.10, libjxl 0.12.0
+
+## synthetic ramp 768x512
+ q95/e7: imagecodecs LINEAR == ctypes IT=0: True; imagecodecs transfer unset == LINEAR: True; ctypes IT=0 == IT=255: True
+  imagecodecs uint16 BT2100 LINEAR                 7561 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65535
+  ctypes uint16 linear IT=0                        7561 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65535
+  ctypes uint16 linear IT=255                      7561 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65535
+  ctypes uint16 linear IT=203                      6589 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 203, original profile 0; decoded uint16 0..65535
+ q90/e3: imagecodecs LINEAR == ctypes IT=0: True; imagecodecs transfer unset == LINEAR: True; ctypes IT=0 == IT=255: True
+  imagecodecs uint16 BT2100 LINEAR                 3728 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65525
+  ctypes uint16 linear IT=0                        3728 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65525
+  ctypes uint16 linear IT=255                      3728 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..65525
+  ctypes uint16 linear IT=203                      3283 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 203, original profile 0; decoded uint16 0..65507
+
+## photo 1 of D8's sample at 1/4, 756x1008
+ q95/e7: imagecodecs LINEAR == ctypes IT=0: True; imagecodecs transfer unset == LINEAR: True; ctypes IT=0 == IT=255: True
+  imagecodecs uint16 BT2100 LINEAR               151763 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64784
+  ctypes uint16 linear IT=0                      151763 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64784
+  ctypes uint16 linear IT=255                    151763 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64784
+  ctypes uint16 linear IT=203                    137238 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 203, original profile 0; decoded uint16 0..64949
+ q90/e3: imagecodecs LINEAR == ctypes IT=0: True; imagecodecs transfer unset == LINEAR: True; ctypes IT=0 == IT=255: True
+  imagecodecs uint16 BT2100 LINEAR                67405 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64756
+  ctypes uint16 linear IT=0                       67405 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64756
+  ctypes uint16 linear IT=255                     67405 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 255, original profile 0; decoded uint16 0..64756
+  ctypes uint16 linear IT=203                     59969 B  header: 16-bit int, RGB D65 BT2100 Linear Relative, xyb=True, icc=False; basic info: bits 16/exp 0, IT 203, original profile 0; decoded uint16 0..64966

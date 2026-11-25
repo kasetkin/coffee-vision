@@ -1,0 +1,45 @@
+1/24 2026-08-07__box_pictures_all_classes 3 boxes, bytes today=1515650 today203=1481424 I203=1482023 H203=1481358 I255=1517085 H255=1517090  35s rss 1523 MB
+2/24 2026-08-09__pixel_cam 3 boxes, bytes today=1846068 today203=1776477 I203=1776762 H203=1776874 I255=1846242 H255=1846179  73s rss 1980 MB
+3/24 2026-08-25__iphone 4 boxes, bytes today=5737328 today203=5578269 I203=5577720 H203=5577237 I255=5736843 H255=5736636  110s rss 1980 MB
+4/24 2026-08-25__oneplus 3 boxes, bytes today=1377989 today203=1309415 I203=1309582 H203=1309537 I255=1377875 H255=1377916  144s rss 1980 MB
+5/24 2026-08-27__oneplus_flash 3 boxes, bytes today=2217445 today203=2156615 I203=2156743 H203=2156462 I255=2217563 H255=2217551  182s rss 2113 MB
+6/24 2026-08-30__oneplus 7 boxes, bytes today=2028973 today203=1961068 I203=1961169 H203=1961157 I255=2028690 H255=2028299  227s rss 2503 MB
+7/24 2026-08-30__pixel 7 boxes, bytes today=2326089 today203=2252936 I203=2253057 H203=2253076 I255=2326048 H255=2326307  273s rss 2567 MB
+8/24 2026-09-11__oneplus 7 boxes, bytes today=2157970 today203=2086884 I203=2087171 H203=2086807 I255=2157653 H255=2158214  315s rss 2567 MB
+9/24 2026-09-11__pixel 7 boxes, bytes today=2609771 today203=2543848 I203=2543769 H203=2543418 I255=2609890 H255=2609704  359s rss 2576 MB
+10/24 2026-09-24__oneplus 6 boxes, bytes today=2041569 today203=1980193 I203=1980153 H203=1980220 I255=2041668 H255=2041668  399s rss 2577 MB
+11/24 2026-09-24__pixel 6 boxes, bytes today=2346530 today203=2275382 I203=2275374 H203=2276452 I255=2346571 H255=2346796  441s rss 2587 MB
+12/24 2026-10-21__new_green 6 boxes, bytes today=2067321 today203=2014492 I203=2014151 H203=2014059 I255=2067180 H255=2067537  483s rss 2587 MB
+13/24 random_date_raccoon 4 boxes, bytes today=1306393 today203=1245358 I203=1245395 H203=1245595 I255=1306206 H255=1306273  518s rss 2587 MB
+14/24 tasty_coffee 4 boxes, bytes today=3084754 today203=2692609 I203=2693333 H203=2693633 I255=3084269 H255=3084775  548s rss 2587 MB
+15/24 2026-08-07__box_pictures_all_classes 3 boxes, bytes today=1510403 today203=1461549 I203=1460687 H203=1460896 I255=1510689 H255=1510656  582s rss 2587 MB
+16/24 2026-08-09__pixel_cam 4 boxes, bytes today=2255622 today203=2196748 I203=2196593 H203=2196686 I255=2255583 H255=2255862  622s rss 2647 MB
+17/24 2026-08-25__iphone 10 boxes, bytes today=2073138 today203=1983840 I203=1984054 H203=1983911 I255=2072918 H255=2072390  664s rss 2647 MB
+18/24 2026-08-25__oneplus 9 boxes, bytes today=1390881 today203=1326695 I203=1326594 H203=1327004 I255=1390891 H255=1391289  704s rss 2647 MB
+19/24 2026-08-27__oneplus_flash 11 boxes, bytes today=2066790 today203=2010189 I203=2010261 H203=2010350 I255=2066654 H255=2066824  752s rss 2647 MB
+20/24 2026-08-30__oneplus 7 boxes, bytes today=1947770 today203=1884016 I203=1883948 H203=1884454 I255=1947650 H255=1947825  794s rss 2744 MB
+21/24 2026-08-30__pixel 7 boxes, bytes today=2110907 today203=2034243 I203=2034283 H203=2034376 I255=2110799 H255=2111231  837s rss 2773 MB
+22/24 2026-09-11__oneplus 7 boxes, bytes today=2127365 today203=2064592 I203=2064616 H203=2064614 I255=2127349 H255=2127473  879s rss 2773 MB
+23/24 2026-09-11__pixel 7 boxes, bytes today=2635468 today203=2570296 I203=2570245 H203=2570307 I255=2635568 H255=2635595  922s rss 2773 MB
+24/24 2026-09-24__oneplus 9 boxes, bytes today=1834093 today203=1760386 I203=1760498 H203=1760339 I255=1834453 H255=1834382  964s rss 2773 MB
+
+24 photos, 144 test boxes; DINOv3 cls_mean, float32 on CPU, 8 threads
+
+1 - cosine against the uncoded picture's feature (u8: the same single 8-bit step; f32: no rounding)
+  ref u8    vs ref f32: median 5.98e-07  p95 7.22e-06  max 1.06e-04
+  today     vs ref u8:  median 1.53e-05  p95 1.64e-04  max 5.12e-04   vs ref f32: median 1.53e-05  p95 1.50e-04  max 5.18e-04
+  today203  vs ref u8:  median 1.75e-05  p95 2.15e-04  max 8.26e-04   vs ref f32: median 1.64e-05  p95 2.07e-04  max 8.30e-04
+  I203      vs ref u8:  median 1.63e-05  p95 2.12e-04  max 7.23e-04   vs ref f32: median 1.58e-05  p95 1.79e-04  max 7.22e-04
+  H203      vs ref u8:  median 1.78e-05  p95 2.18e-04  max 8.03e-04   vs ref f32: median 1.69e-05  p95 2.08e-04  max 8.02e-04
+  I255      vs ref u8:  median 1.55e-05  p95 1.80e-04  max 4.56e-04   vs ref f32: median 1.51e-05  p95 1.77e-04  max 4.60e-04
+  H255      vs ref u8:  median 1.60e-05  p95 1.57e-04  max 4.86e-04   vs ref f32: median 1.50e-05  p95 1.63e-04  max 4.90e-04
+
+1 - cosine between forms (both coded, both rounded once)
+  I203      vs H203     : median 8.10e-06  p95 5.04e-05  max 7.79e-05
+  I255      vs H255     : median 7.87e-06  p95 4.84e-05  max 1.23e-04
+  I203      vs today203 : median 8.10e-06  p95 5.33e-05  max 7.76e-05
+  H203      vs today203 : median 9.09e-06  p95 5.04e-05  max 8.94e-05
+  I255      vs today    : median 7.38e-06  p95 4.55e-05  max 1.23e-04
+  today203  vs today    : median 1.66e-05  p95 1.88e-04  max 3.45e-04
+
+peak RSS 2773 MB; 964s
