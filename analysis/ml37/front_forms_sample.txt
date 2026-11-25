@@ -1,0 +1,41 @@
+# front_forms_measure.py's sample: index, stratum, dataset path (seed 0)
+00	JPEG Sony 17 MP	dataset/segmenter_positives/PIC_20260911_131225.JPG
+01	JPEG Sony 17 MP	dataset/2026-08-30__sony/class_010__Indonesia_Java/PIC_20260830_200523.JPG
+02	JPEG Sony 17 MP	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261106_151414_G8441_Colombia.JPG
+03	JPEG OnePlus	dataset/ood_negatives/user_realworld/20250726_100928_GM1911_ood_negative.jpg
+04	JPEG OnePlus	dataset/ood_negatives/user_realworld/20231015_162141_GM1910_ood_negative.jpg
+05	JPEG Google	dataset/ood_negatives/user_realworld/20260422_110401_Pixel_9_Pro_ood_negative.jpg
+06	JPEG Google	dataset/ood_negatives/user_realworld/20260516_132451_Pixel_9_Pro_ood_negative.jpg
+07	JPEG no make	dataset/ood_negatives/user_realworld/IMG_20260505_110124_830.jpg
+08	JPEG no make	dataset/ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_015.jpg
+09	JPEG Xiaomi	dataset/ood_negatives/user_realworld/20261016_113537_Redmi_Note_14_Pro_ood_negative.jpg
+10	JPEG samsung	dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261023_141125_SM-G973F_Brazil.jpg
+11	gain-map JPEG Google >=48 MP	dataset/random_date_raccoon/class_013__Brazil_Decaff/20261105_114825_Pixel_9_Pro_Brazil_decaff.jpg
+12	gain-map JPEG Google >=48 MP	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261030_112539_Pixel_9_Pro_Colombia.jpg
+13	gain-map JPEG Google >=48 MP	dataset/segmenter_positives/PXL_20261014_075517794.jpg
+14	gain-map JPEG samsung >=48 MP	dataset/segmenter_positives/20261028_112720_Galaxy_Z_Fold6_Brazil.jpg
+15	gain-map JPEG samsung >=48 MP	dataset/segmenter_positives/20261103_150626_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+16	gain-map JPEG samsung 16-48 MP	dataset/segmenter_positives/20261025_124212.jpg
+17	gain-map JPEG Google 12 MP	dataset/2026-08-07__box_pictures_all_classes/class_007__Brazil_MonteCristo/PXL_20260807_070108266.jpg
+18	gain-map JPEG Google 12 MP	dataset/segmenter_positives/20261103_104614_Pixel_9_Pro_Colombia.jpg
+19	gain-map JPEG Google 12 MP	dataset/2026-08-07__box_pictures_all_classes/class_005__Guatemala_Tata/PXL_20260807_072805806.jpg
+20	gain-map JPEG OnePlus 7 Pro	dataset/2026-09-24__oneplus/class_011__Peru_Minca/PXL_20260924_175418086.jpg
+21	gain-map JPEG OnePlus 7 Pro	dataset/2026-08-27__oneplus_flash/class_007__Brazil_MonteCristo/PXL_20260827_183846296.jpg
+22	gain-map JPEG samsung 12 MP	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261103_150637_Galaxy_Z_Fold8_Ultra_Colombia.jpg
+23	gain-map HEIC Apple >=48 MP	dataset/segmenter_positives/IMG_6761.HEIC
+24	gain-map HEIC Apple >=48 MP	dataset/segmenter_positives/IMG_6762.HEIC
+25	gain-map HEIC Apple 16-48 MP	dataset/segmenter_positives/IMG_9271.HEIC
+26	gain-map HEIC Apple 16-48 MP	dataset/segmenter_positives/20261028_131203_iPhone_15_Pro_Max_Brazil.HEIC
+27	gain-map HEIC Apple 12 MP	dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261022_110510_iPhone_15_Pro_Max_Brazil.HEIC
+28	gain-map HEIC Apple 12 MP	dataset/segmenter_positives/IMG_6763.HEIC
+29	HEIC Apple, no map	dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261103_110858_iPhone_13_Ethiopia.HEIC
+30	DNG Google	dataset/tasty_coffee/class_001__Ethiopia_Sidamo/20261110_211159_Pixel_9_Pro_Ethiopia_Sidamo.dng
+31	DNG Google	dataset/tasty_coffee/class_001__Ethiopia_Sidamo/20261110_211614_Pixel_9_Pro_Ethiopia_Sidamo.dng
+32	DNG Apple	dataset/random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_173536_iPhone_15_Pro_Max_Ethiopia_Sidamo.DNG
+33	DNG OnePlus	dataset/ood_negatives/user_realworld/20240328_162102_GM1910_ood_negative.dng
+34	CR3 Canon	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170953_Canon_EOS_90D_Colombia.CR3
+35	CR3 Canon	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170942_Canon_EOS_90D_Colombia.CR3
+36	PNG RGB	dataset/ood_negatives/2026-09__internet_proxy/ground_coffee/ground_coffee_009.png
+37	PNG grey	dataset/2026-08-06__box_pictures/cropped_sam_masked/PXL_20260806_151251353__mask.png
+38	JPEG XL 12-bit	dataset/random_date_raccoon/class_014__Colombia_Excelso/20261109_170917-jxl_Canon_EOS_90D_Colombia.jxl
+39	JPEG XL 12-bit	dataset/random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172704-jxl_Canon_EOS_90D_Brazil.jxl

@@ -1,0 +1,15 @@
+# quality 90, effort 3, 2 threads, median of 3; load 2.02
+ 0 JPEG Sony 17 MP               15.0 MP | ctA203  1917007 B  2.38 s | ctA255  2028543 B  2.38 s | icA  2028543 B  2.41 s | icB  2028619 B  0.38 s | icB16  2028621 B  0.45 s | icLin8  2028578 B  0.37 s
+   error ctA203 1.917 / 0.093 / 1.22 | ctA255 1.825 / 0.086 / 1.12 | icB 1.847 / 0.086 / 1.11
+ 5 JPEG Google                   12.5 MP | ctA203  1374850 B  1.93 s | ctA255  1448592 B  1.92 s | icA  1448592 B  1.93 s | icB  1446776 B  0.31 s | icB16  1446782 B  0.34 s | icLin8  1445580 B  0.31 s
+   error ctA203 1.676 / 0.152 / 1.70 | ctA255 1.562 / 0.146 / 1.71 | icB 2.578 / 0.492 / 7.82
+ 6 JPEG Google                   12.5 MP | ctA203  2599301 B  2.10 s | ctA255  2710095 B  2.04 s | icA  2710095 B  2.03 s | icB  2708666 B  0.35 s | icB16  2708668 B  0.38 s | icLin8  2709195 B  0.36 s
+   error ctA203 2.386 / 0.137 / 4.85 | ctA255 2.185 / 0.128 / 4.15 | icB 2.788 / 0.256 / 13.38
+13 gain-map JPEG Google >=48 MP  15.0 MP | ctA203  1010943 B  2.37 s | ctA255  1096872 B  2.37 s | icA  1096872 B  2.36 s | icB  1098533 B  0.35 s | icB16  1098533 B  0.40 s | icLin8  1096221 B  0.34 s
+   error ctA203 1.664 / 0.160 / 3.24 | ctA255 1.599 / 0.148 / 3.41 | icB 1.655 / 0.108 / 9.71
+23 gain-map HEIC Apple >=48 MP   15.0 MP | ctA203  2406782 B  2.43 s | ctA255  2575351 B  2.44 s | icA  2575351 B  2.43 s | icB  2578029 B  0.43 s | icB16  2578032 B  0.49 s | icLin8  2574223 B  0.43 s
+   error ctA203 2.528 / 0.111 / 2.73 | ctA255 2.396 / 0.114 / 2.75 | icB 2.442 / 0.118 / 11.99
+27 gain-map HEIC Apple 12 MP     12.2 MP | ctA203   885129 B  1.89 s | ctA255   945640 B  1.89 s | icA   945640 B  1.89 s | icB   948381 B  0.27 s | icB16   948383 B  0.30 s | icLin8   947063 B  0.26 s
+   error ctA203 1.598 / 0.129 / 1.71 | ctA255 1.538 / 0.120 / 2.07 | icB 1.608 / 0.114 / 11.41
+38 JPEG XL 12-bit                15.0 MP | ctA203  1005134 B  2.32 s | ctA255  1137488 B  2.32 s | icA  1137488 B  2.34 s | icB  1142087 B  0.35 s | icB16  1142089 B  0.39 s | icLin8  1137570 B  0.34 s
+   error ctA203 2.173 / 0.091 / 0.85 | ctA255 2.109 / 0.083 / 0.80 | icB 2.127 / 0.081 / 0.83

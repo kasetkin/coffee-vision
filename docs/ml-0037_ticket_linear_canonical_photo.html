@@ -222,6 +222,32 @@
         <li>Encode, decode and memory alike within 4&ndash;8% (4 full-size photos). DINOv3's feature, uint16 against
           half-float: median 1&nbsp;&minus;&nbsp;cosine 8.1e-6, below the store's own coding change.</li>
       </ul></li>
+    <li><strong>What the front should send to <code>yappy</code></strong>, researched 2026-11-25 at the owner's request
+      (<a href="../analysis/ml37/research_front_forms.md">research_front_forms.md</a>): 40 originals across formats and
+      cameras, the front's settings (q90, e3, the 15 MP cap), 2 cores pinned, median of 3 runs, on a workstation, not
+      the front. Mean &plusmn; standard deviation:
+      <div class="table-wrap"><table>
+        <thead><tr><th>Form</th><th>Generate</th><th>Size</th><th>Transfer at 2.1 Mbit/s</th><th>Total</th><th>Error (8-bit levels): block mean / largest block</th></tr></thead>
+        <tbody>
+          <tr><td>A, D1's linear 16-bit integer, lossy</td><td>6.56 &plusmn; 3.62 s</td><td>1.33 &plusmn; 0.81 MB</td><td>5.06 &plusmn; 3.08 s</td><td>11.62 &plusmn; 5.62 s</td><td>0.148 / 8.4</td></tr>
+          <tr><td>B, the 8-bit sRGB model input, lossy</td><td>5.29 &plusmn; 3.29 s</td><td>1.42 &plusmn; 0.87 MB</td><td>5.43 &plusmn; 3.30 s</td><td>10.71 &plusmn; 5.45 s</td><td>0.145 / 13.4</td></tr>
+          <tr><td>C, the same, lossless, effort 1</td><td>5.02 &plusmn; 3.24 s</td><td>11.75 &plusmn; 6.12 MB</td><td>44.75 &plusmn; 23.30 s</td><td>49.77 &plusmn; 24.88 s</td><td>exact</td></tr>
+          <tr><td>C, lossless, effort 3</td><td>6.27 &plusmn; 3.54 s</td><td>10.12 &plusmn; 5.71 MB</td><td>38.54 &plusmn; 21.74 s</td><td>44.81 &plusmn; 23.44 s</td><td>exact</td></tr>
+        </tbody>
+      </table></div>
+      <ul>
+        <li>C is ruled out by the link: about 9&times; B's bytes, up to 113 s on one photo.</li>
+        <li>B's 0.9 s gain is not the form's. A's encode takes 1.9&ndash;2.4 s against B's 0.3&ndash;0.4 s because
+          libjxl converts slowly from Rec.2020 primaries; the same picture in linear sRGB primaries encodes as fast
+          as B, and today's canonical photo pays the same cost. A's file is 7% smaller only through intensity target
+          203; at 255 the two are the same size (7 photos).</li>
+        <li>B is worse at the sRGB gamut's edge: it codes colour already clipped to sRGB, so errors in saturated
+          yellows and cyans stay. 1.27% of B's blocks are off by more than 2 levels against 0.18% of A's, up to 30% on
+          one Pixel photo.</li>
+        <li>B sends no canonical photo, against ADR 0033. Recommended: keep A.</li>
+      </ul>
+      A used the store's float colour path, not the front's integer one (D12, R3). Transfer is size only, with no link
+      overhead.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -495,6 +521,12 @@
       intensity target 203 with the tone map at canonicalization (D1, D2 revised; D8 (a)), crops and patches stay
       8-bit (D10). D6 and D7 answered by D1; R8 and R9 closed, R2&ndash;R7 rewritten. Title, summary and scope
       rewritten to the new form. D9 and D11&ndash;D14 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-25</div>Researched at the owner's request: what the front sends to
+      <code>yappy</code>, A (the linear canonical photo), B (the 8-bit sRGB model input, lossy) or C (the same,
+      lossless) (&sect;2, <a href="../analysis/ml37/research_front_forms.md">research_front_forms.md</a>). C is ruled
+      out by the 2.1 Mbit/s link (about 45 s a photo); B is 0.9 s faster in total but worse on saturated colours and
+      sends no canonical photo. Recommended: keep A. Found on the way: libjxl's encode from Rec.2020 primaries costs
+      about 2 s a photo on the front, today's form included (for D12). Decisions unchanged.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
