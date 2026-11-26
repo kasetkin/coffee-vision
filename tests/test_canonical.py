@@ -479,13 +479,13 @@ class Encoder(unittest.TestCase):
         def bad(y, x, ys, xs):
             raise RuntimeError("no rectangle")
         with self.assertRaisesRegex(RuntimeError, "no rectangle"):
-            encode_rec2020(64, 64, bad, level=95, effort=7, numthreads=1)
+            encode_rec2020(64, 64, bad, level=95, effort=7, numthreads=1, transfer="Linear", intensity_target=203)
 
     def test_a_rectangle_of_the_wrong_shape_is_raised(self):
         from coffeecv.jxl_encode import encode_rec2020
         with self.assertRaises(ValueError):
             encode_rec2020(64, 64, lambda y, x, ys, xs: np.zeros((1, 1, 3), np.uint16), level=95, effort=7,
-                           numthreads=1)
+                           numthreads=1, transfer="Linear", intensity_target=203)
 
     def test_a_linear_photo_at_intensity_target_203(self):   # ML-37 D1, D8, P1
         from coffeecv.jxl_encode import encode_rec2020
@@ -506,23 +506,29 @@ class Encoder(unittest.TestCase):
         self.assertLess(err.mean(), 65535 * 0.002)   # the lossy coding's error on smooth ramps: a fraction of a level
         self.assertLess(err.max(), 65535 * 0.02)
 
+    def test_every_caller_names_the_transfer_and_intensity_target(self):   # review S2: no default form to drift
+        from coffeecv.jxl_encode import encode_rec2020
+        with self.assertRaises(TypeError):
+            encode_rec2020(8, 8, lambda y, x, ys, xs: np.zeros((ys, xs, 3), np.uint16), level=95, effort=7,
+                           numthreads=1)
+
     def test_an_unknown_transfer_is_refused(self):
         from coffeecv.jxl_encode import encode_rec2020
         with self.assertRaises(ValueError):
             encode_rec2020(8, 8, lambda y, x, ys, xs: np.zeros((ys, xs, 3), np.uint16), level=95, effort=7,
-                           numthreads=1, transfer="PQ")
+                           numthreads=1, transfer="PQ", intensity_target=203)
 
 
 def bt709_form(a: np.ndarray) -> bytes:
     """8-bit sRGB patches as the canonical photo was before ML-37 (ML-19 D7): Rec.2020 with the BT.709 curve, intensity
-    target 255, through the committed profile, by the strip encoder's defaults."""
+    target 255, through the committed profile, by the strip encoder."""
     from coffeecv import colour_declaration as cd
     from coffeecv.jxl_encode import encode_rec2020
     rec = ic.cms_transform(a.astype(np.float32) / 255, cn.SRGB, cd.REC2020_PROFILE, intent=cn.RELATIVE,
                            outdtype=np.float32)
     rec = np.rint(np.clip(rec, 0, 1) * 65535).astype(np.uint16)
     return encode_rec2020(*rec.shape[:2], lambda y, x, ys, xs: rec[y:y + ys, x:x + xs], level=95, effort=7,
-                          numthreads=1)
+                          numthreads=1, transfer="BT709", intensity_target=255)
 
 
 def bt709_read_back(data: bytes) -> np.ndarray:

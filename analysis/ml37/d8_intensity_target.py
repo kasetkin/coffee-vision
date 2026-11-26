@@ -343,7 +343,7 @@ def main() -> None:
             for label, it in (("u16 709", 0.0), ("u16 709 IT=203", 203.0)):
                 data = (je.encode_rec2020(u16.shape[0], u16.shape[1],
                                           lambda y, x, ys, xs: u16[y:y + ys, x:x + xs],
-                                          level=q, effort=e, numthreads=THREADS)
+                                          level=q, effort=e, numthreads=THREADS, transfer="BT709", intensity_target=255)
                         if it == 0 else encode(u16, level=q, effort=e, intensity_target=it, half=False))
                 got = ic.jpegxl_decode(data, numthreads=THREADS)
                 assert got.dtype == np.uint16

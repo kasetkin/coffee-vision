@@ -164,11 +164,12 @@ def _check(status: int, what: str, enc=None) -> None:
 
 
 def encode_rec2020(height: int, width: int, region: RectangleSource, *, level: float, effort: int, numthreads: int,
-                   transfer: str = "BT709", intensity_target: float = 255.0) -> bytes:
+                   transfer: str, intensity_target: float) -> bytes:
     """A uint16 RGB image `height` x `width`, produced a rectangle at a time by `region`, as JPEG XL bytes: Rec.2020
-    primaries, D65, relative intent, with `transfer` ("BT709", D7's, or "Linear", ML-37 D1) and `intensity_target`,
-    the cd/m2 of (1, 1, 1) (255, libjxl's own for these files; 203 for ML-37 D8). The defaults write today's
-    canonical photo, byte for byte."""
+    primaries, D65, relative intent, with `transfer` ("Linear", the canonical photo's since ML-37 D1, or "BT709",
+    ML-19 D7's before it) and `intensity_target`, the cd/m2 of (1, 1, 1) (203 for the canonical photo, ML-37 D8; 255,
+    libjxl's own, before it). No defaults: the canonical photo's are canonical.TRANSFER and INTENSITY_TARGET, and
+    each caller names its form."""
     if transfer not in TRANSFERS:
         raise ValueError(f"transfer {transfer!r}, not one of {', '.join(TRANSFERS)}")
     held: dict[int, np.ndarray] = {}    # rectangles handed to libjxl and not yet released
