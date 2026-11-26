@@ -452,6 +452,25 @@
       frozen head's fit at toy scale through its entry point (<code>--smoke</code>, seed 42, 60 training patches with 8
       views each): augmented head val macro-F1 0.759, test 0.752; unaugmented 0.705, 0.744 (smoke budgets, not
       comparable to a recorded run). No stored output moved.</div>
+    <div><div class="when">2026-11-26</div>The code review of P1&ndash;P4 fixed, on <code>ml37-review-fixes</code>,
+      test-first where behaviour changed. S1: <code>seg_finetune.TrainSet</code>'s 8-bit frame resize (D18 (a)) is a
+      recorded parity departure in ADR 0042 and in CODING_STANDARDS.md's list, for ML-33 (<code>218f3c2</code>). S2:
+      <code>jxl_encode.encode_rec2020</code> has no default transfer or intensity target, its docstring no longer
+      claiming the canonical photo; the ML-37 analysis scripts name the form before (<code>d011d56</code>). S3, P5:
+      one size rule, <code>preview.size</code>, for the front's preview and the host's mask; Pillow's thumbnail made a
+      4910 &times; 3776 photo's preview 1024 &times; 788 against the mask's 787. <code>preview.jpeg</code> resizes to
+      it by bicubic with thumbnail's reducing gap, <code>webapp/app.py</code> imports it in place of
+      <code>PREVIEW_MAX_DIM</code>, and <code>coffeecv/preview.py</code> ships in the host's LIBRARY; check-preview
+      stays exact (<code>3a19708</code>). S4: <code>check_service.make_preview</code> removed (<code>3e42cea</code>).
+      S5: the check service's messages one shape, <code>MESSAGES</code> keyed by <code>timeline_schema</code>'s
+      outcome words <code>OFFLINE</code>, <code>BUSY</code>, <code>FAILED</code> (<code>261ef24</code>). S6:
+      <code>deploy_webapp.sh</code> tests for the front's preview once (<code>added43</code>). S7:
+      <code>timeline_schema</code>'s keys from a per-version map of times (<code>a4716dd</code>). P1: the ops3_rig
+      fixture carries three photos of version 2's lines, front, host and page, written by hand to the formats
+      (<code>bdb9fe8</code>). P6: <code>test_readback</code>'s store photos read by their header, linear ones as they
+      are (<code>f7592bf</code>). P2: a dated note beside the ticket's read-back acceptance item:
+      <code>rec2020_bt709.icc</code> kept for <code>colour_declaration</code> (finding 4) (<code>121d5e2</code>).
+      Not changed, as asked: the page when the host is busy after the preview.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
