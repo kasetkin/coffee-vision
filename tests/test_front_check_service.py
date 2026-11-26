@@ -277,7 +277,7 @@ class CheckService(unittest.TestCase):
         self.assertEqual([ln["part"] for ln in lines(resp)], ["segmentation", "classification"])
 
     def test_a_preview_the_front_cannot_make_is_left_out(self):   # ML-37 D23
-        with mock.patch.object(check_service, "make_preview", side_effect=MemoryError("no room")):
+        with mock.patch.object(check_service.preview, "from_canonical", side_effect=MemoryError("no room")):
             _, resp = self.post(form("beans.jpg", JPEG))
             self.assertEqual(resp.status, 200)
             self.assertEqual([ln["part"] for ln in lines(resp)], ["segmentation", "classification"])
@@ -315,7 +315,7 @@ class CheckService(unittest.TestCase):
             return self.line(resp)
 
         answered = through("stream")
-        no_preview = through("stream", mock.patch.object(check_service, "make_preview", side_effect=OSError("disk")))
+        no_preview = through("stream", mock.patch.object(check_service.preview, "from_canonical", side_effect=OSError("disk")))
         refused = through(503)
         lines_by_id = {
             answered["request_id"]: (host(answered["request_id"]),

@@ -181,12 +181,6 @@ def with_photo(content_type: str, body: bytes, filename: str, data: bytes) -> by
     return boundary.join(parts)
 
 
-def make_preview(canon: bytes) -> bytes:
-    """The preview's JPEG of the canonical photo just made (coffeecv.preview, ML-37 D4, D15): the picture the inference
-    host's models read, made here."""
-    return preview.from_canonical(canon)
-
-
 def reset_peak_memory() -> bool:
     """Resets the process's peak resident memory (VmHWM) to its current size (Linux 4.0+): requests are canonicalized
     one at a time, so the peak after one is its own. False where it cannot be reset: the peak is then the process's."""
@@ -445,7 +439,7 @@ class CheckHandler(BaseHTTPRequestHandler):
             t = time.monotonic()
             try:
                 line = json.dumps({"part": "preview",
-                                   "jpeg": base64.b64encode(make_preview(canon)).decode("ascii")}).encode() + b"\n"
+                                   "jpeg": base64.b64encode(preview.from_canonical(canon)).decode("ascii")}).encode() + b"\n"
             except Exception as exc:   # noqa: BLE001 -- the classification is still worth having (D23)
                 self.record["preview_error"] = f"{type(exc).__name__}: {exc}"[:ERROR_CAP]
                 return
