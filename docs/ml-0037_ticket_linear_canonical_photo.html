@@ -613,7 +613,9 @@
       front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
       16-bit integer, lossy, intensity target 203) and by tests.</span></li>
     <li><span class="box"></span><span>The read-back as D2 and D3 say, rounding to 8 bits once, the only way any
-      reader opens a canonical photo; <code>rec2020_bt709.icc</code> retired (R7).</span></li>
+      reader opens a canonical photo; <code>rec2020_bt709.icc</code> retired (R7).
+      <em>Note, 2026-11-26: the profile is kept, as <code>colour_declaration</code>'s source profile for a JPEG XL that
+      declares Rec.2020 with the BT.709 curve (the plan's finding 4); the canonical path no longer uses it.</em></span></li>
     <li><span class="box"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, against
       the uncoded reference under D20's stop, and the file sizes at both settings.</span></li>
     <li><span class="box"></span><span>The front's and the host's time and memory on ML-29 R6's photos (R3,
@@ -714,6 +716,11 @@
       and <code>segmentation</code>, changing D16's names; D25&ndash;D27, the logging system to the new lines, the
       timeline at version 2. GLOSSARY.md gains "Model picture" and a "Preview" saying who sees it, where and what
       it is. The plan updated to match. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>A note beside the read-back's acceptance item, after the code review of
+      P1&ndash;P4: <code>rec2020_bt709.icc</code> is not retired as the item says but kept, as
+      <code>colour_declaration</code>'s source profile for a JPEG XL declaring Rec.2020 with the BT.709 curve (the
+      plan's finding 4; ADR 0042). The canonical path, writing and reading, no longer uses it. The item's text is
+      left as decided.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
