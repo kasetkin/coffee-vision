@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import resource
 import subprocess
 import sys
 import time
@@ -80,7 +79,7 @@ def one(code: Path, photo: Path) -> dict:
     return {"bytes_in": len(data), "size": f"{made.width} x {made.height}", "seconds": round(seconds, 2),
             "cpu_seconds": round(cpu, 2), "peak_mb": round(int(status["VmHWM"].split()[0]) / 1024),
             "canonical_bytes": len(made.canonical), "transfer": h.colour.transfer,
-            "intensity_target": h.intensity_target, "maxrss_mb": round(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024)}
+            "intensity_target": h.intensity_target}
 
 
 def main() -> None:

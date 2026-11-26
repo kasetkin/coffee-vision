@@ -176,7 +176,7 @@
 
   <h2>5. P3 &mdash; the linear canonical photo wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-26</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-26: <code>4ec3f84</code>; the front's peak at most 495 MB against 600M; the stages' <code>readback.py</code> dependency left for P5</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> P1 done</span></div>
   </div>
   <p>The switch, in one commit, since the writer and the readers must agree: the canonical photo becomes D1's, every
@@ -383,6 +383,28 @@
       <code>encode_rec2020</code> takes the transfer and the intensity target, today's the default (a store photo
       re-made byte for byte); <code>jxl_header</code> reads the intensity target. Nothing calls the read-back yet. The
       dataset tests read DVC data from <code>COFFEECV_DATA_ROOT</code> (a worktree has none) and skip without it.</div>
+    <div><div class="when">2026-11-26</div>P3 done (<code>4ec3f84</code>), test-first. The canonical photo is written
+      linear (one LittleCMS transform into linear Rec.2020, the EETF in place, no second transform), intensity target
+      203, by both settings; the host's check refuses any other transfer or target, naming it; every reader goes
+      through <code>load_canonical</code> or <code>readback.to_srgb</code>; the front takes the float colour path and
+      the integer one is gone. <code>rec2020_bt709.icc</code> and its hash test moved to
+      <code>colour_declaration</code>, which re-canonicalizes a canonical photo of the form before when it is sent as
+      an original. ADR 0042 written; ADR 0033 and 0036 amended; GLOSSARY's "Canonicalization". Transparent pixels are
+      now laid over the fill in linear light, not in the BT.709 curve (only partly transparent pixels differ). A Pixel
+      photo against its store photo as read before, ML-29 D27's block means: store 0.059 mean, 0.59 largest; front
+      0.104 and 0.93 (bar 1.0 and 6). The front's cost, <code>analysis/ml37/p3_front_cost.py</code>
+      (<code>p3_front_cost.jsonl</code>), on 2 pinned CPUs of this workstation under other load (load average 4&ndash;7,
+      so the seconds are rough), the form before (<code>4b0a9bc</code>) against the new, each photo once: peak resident
+      memory at most 495 MB (a 48 MP iPhone gain-map HEIC; 480 MB before), against the unit's 600M; ML-29 R6's seven
+      photos 394 &rarr; 401 MB mean, 9.4 s mean (13.4 s at most) after; the front-forms study's 37 photos the front
+      accepts (its three RAWs over 16 MP refused alike) 333 &rarr; 333 MB mean, gain-map photos 2.2 s faster (16.7
+      &rarr; 14.5 s mean), the others 1.3 s slower (3.0 &rarr; 4.3 s mean, 7.7 s at most); files 6% smaller (the
+      intensity target). Not measured on the front itself, nor with P4's preview after the encode. <code>dvc
+      status</code> (in the worktree, read-only): code changes reach every <code>canonicalize</code> and
+      <code>segcrop</code> stage and <code>seg_ml19_predict@xl0_v7r_s123</code>, nothing else. <code>dvc.yaml</code>
+      does not yet name <code>coffeecv/readback.py</code> among the <code>segcrop</code> and
+      <code>seg_ml19_predict</code> stages' dependencies: <code>tests/test_incremental</code> holds them to
+      <code>dvc.lock</code>, so it is added with P5's re-run. The store is not re-run.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
