@@ -28,7 +28,7 @@ from PIL import Image, ImageCms, ImageOps
 
 from coffeecv import canonical as cn
 from coffeecv.jxl_header import read_header
-from tests._tiers import real_data
+from tests._tiers import DATA_ROOT, real_data
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 GOLDEN = FIXTURES / "canonical_golden.json"
@@ -505,6 +505,39 @@ class Encoder(unittest.TestCase):
         with self.assertRaises(ValueError):
             encode_rec2020(64, 64, lambda y, x, ys, xs: np.zeros((1, 1, 3), np.uint16), level=95, effort=7,
                            numthreads=1)
+
+    def test_a_linear_photo_at_intensity_target_203(self):   # ML-37 D1, D8, P1
+        from coffeecv.jxl_encode import encode_rec2020
+        h, w = 96, 160
+        yy, xx = np.mgrid[0:h, 0:w] / np.array([h - 1, w - 1]).reshape(2, 1, 1)
+        a = (np.stack([xx, yy, (xx + yy) / 2], -1) * 65535).round().astype(np.uint16)   # smooth ramps, black to white
+        data = encode_rec2020(h, w, lambda y, x, ys, xs: a[y:y + ys, x:x + xs], level=95, effort=7, numthreads=1,
+                              transfer="Linear", intensity_target=203)
+        hd = read_header(data)
+        c = hd.colour
+        self.assertEqual((c.colour_space, c.white_point, c.primaries, c.transfer, c.rendering_intent),
+                         ("RGB", "D65", "BT2100", "Linear", "Relative"))
+        self.assertEqual((hd.bits_per_sample, hd.float_sample, hd.xyb_encoded, hd.intensity_target),
+                         (16, False, True, 203.0))
+        back = ic.jpegxl_decode(data)
+        self.assertEqual((back.dtype, back.shape), (np.dtype(np.uint16), a.shape))
+        err = np.abs(back.astype(np.int64) - a)
+        self.assertLess(err.mean(), 65535 * 0.002)   # the lossy coding's error on smooth ramps: a fraction of a level
+        self.assertLess(err.max(), 65535 * 0.02)
+
+    @real_data
+    def test_the_defaults_write_a_store_photos_bytes(self):   # ML-37 P1: the new arguments move no canonical photo
+        original = DATA_ROOT / "dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_140759935.jpg"
+        stored = cn.canonical_path(original, DATA_ROOT / "dataset", DATA_ROOT / "data" / "canonical")
+        if not (original.is_file() and stored.is_file()):
+            self.skipTest(f"no DVC data under {DATA_ROOT} (COFFEECV_DATA_ROOT)")
+        self.assertEqual(cn.canonicalize_file(original), stored.read_bytes())
+
+    def test_an_unknown_transfer_is_refused(self):
+        from coffeecv.jxl_encode import encode_rec2020
+        with self.assertRaises(ValueError):
+            encode_rec2020(8, 8, lambda y, x, ys, xs: np.zeros((ys, xs, 3), np.uint16), level=95, effort=7,
+                           numthreads=1, transfer="PQ")
 
 
 def pillow_bytes(fmt: str, mode: str = "RGB", **save) -> bytes:

@@ -5,7 +5,7 @@
 coffeecv.canonical's is_canonical (ML-19 D35) reads a file's colour encoding here. imagecodecs' jpegxl_decode does
 not report it (ML-19 plan, finding 5), so this reads it from
 the codestream: the SizeHeader and ImageMetadata bundles of ISO/IEC 18181-1 (section A.6, A.8, A.4 and E.2), up to
-and including the colour encoding. Standard library only. Container files (the ISOBMFF box format) are unwrapped
+and including the colour encoding and the tone mapping's intensity target (ML-37 finding 5). Standard library only. Container files (the ISOBMFF box format) are unwrapped
 first; the box types found are reported, since EXIF, XMP and JUMBF boxes are metadata. Checked against libjxl's own
 reading on 31 files (analysis/ml19/p1/README.md) and by tests/test_jxl_header.py.
 """
@@ -57,8 +57,9 @@ class Bits:
     def enum(self) -> int:
         return self.u32((0, 0), (1, 0), (2, 4), (18, 6))
 
-    def f16(self) -> None:
-        self.u(16)
+    def f16(self) -> float:
+        """F16: an IEEE 754 binary16, read as 16 bits (B.2.3)."""
+        return struct.unpack("<e", self.u(16).to_bytes(2, "little"))[0]
 
 
 @dataclass
@@ -88,6 +89,7 @@ class Header:
     xyb_encoded: bool
     colour: ColourEncoding
     boxes: list[str] = field(default_factory=list)   # container box types, empty for a bare codestream
+    intensity_target: float = 255.0  # cd/m2 of (1, 1, 1): the tone mapping's, libjxl's 255 unless the file sets it
 
 
 def _size(b: Bits) -> tuple[int, int]:
@@ -203,6 +205,14 @@ def codestream(data: bytes) -> tuple[bytes, list[str]]:
     return b"".join(parts), boxes
 
 
+def _intensity_target(b: Bits) -> float:
+    """ToneMapping (A.6): its intensity target; the min_nits, relative_to_max_display and linear_below after it are
+    not read."""
+    if b.bool():   # all_default
+        return 255.0
+    return b.f16()
+
+
 def read_header(data: bytes) -> Header:
     stream, boxes = codestream(data)
     if not stream.startswith(CODESTREAM_SIGNATURE):
@@ -213,7 +223,8 @@ def read_header(data: bytes) -> Header:
         return Header(width, height, 1, 8, False, 0, [], False, False, True,
                       ColourEncoding(False, "RGB", "D65", "sRGB", "sRGB", None, "Relative"), boxes)
     orientation, have_preview, have_animation = 1, False, False
-    if b.bool():   # extra_fields
+    extra_fields = b.bool()
+    if extra_fields:
         orientation = b.u(3) + 1
         if b.bool():
             _size(b)                                                   # intrinsic size
@@ -231,8 +242,10 @@ def read_header(data: bytes) -> Header:
     num_extra = b.u32((0, 0), (1, 0), (2, 4), (1, 12))
     extra = [_extra_channel(b) for _ in range(num_extra)]
     xyb = b.bool()
+    colour = _colour_encoding(b)
+    target = _intensity_target(b) if extra_fields else 255.0
     return Header(width, height, orientation, bits, is_float, num_extra, extra, have_preview, have_animation, xyb,
-                  _colour_encoding(b), boxes)
+                  colour, boxes, target)
 
 
 def main() -> None:
