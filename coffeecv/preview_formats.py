@@ -5,9 +5,10 @@ shrunk to the preview's size as the sRGB preview is (`shrink`), then three files
     avif10    10-bit AVIF, CICP 9/13/9: Rec.2020 primaries, the sRGB transfer, the BT.2020 matrix; quality 80
     jxl       16-bit lossy JPEG XL, Rec.2020 primaries, the sRGB transfer, distance 1.0
 
-The AVIF and the JPEG XL carry the sRGB curve, not the canonical photo's BT.709 (ticket OPS-25 D8): Chromium shows
-BT.709-tagged files with a display gamma, about 11 levels darker than the canonical photo reads, and the trial
-compares gamut only, so all three files carry the curve of today's sRGB preview.
+The AVIF and the JPEG XL carry the sRGB curve (ticket OPS-25 D8): Chromium shows BT.709-tagged files with a display
+gamma, about 11 levels darker than the canonical photo reads, and the trial compares gamut only, so all three files
+carry the curve of today's sRGB preview. Since ML-37 D1 the canonical photo's samples are linear Rec.2020, the source
+profile here; ML-37 P4 removes this module with the trial.
 
 Display only, as the sRGB preview is (GLOSSARY.md, "Preview"): nothing here is what a model reads. Standard range only
 (D3): the canonical photo holds no light above white.
@@ -24,7 +25,9 @@ import imagecodecs as ic
 import numpy as np
 from PIL import Image
 
-from coffeecv.canonical import NOOPTIMIZE, REC2020, RELATIVE
+from coffeecv.canonical import LINEAR_REC2020, RELATIVE
+
+NOOPTIMIZE = ic.CMS.FLAGS.NOOPTIMIZE
 
 D65 = (0.3127, 0.3290)
 # Display P3: DCI-P3's primaries, D65, the sRGB curve, as a 256-point table, which reads 8-bit sRGB samples exactly as
@@ -117,7 +120,7 @@ def shrink(rec: np.ndarray, max_dim: int) -> np.ndarray:
 
 
 def p3_jpeg(small: np.ndarray) -> bytes:
-    p3 = ic.cms_transform(np.ascontiguousarray(small), REC2020, DISPLAY_P3, intent=RELATIVE, flags=NOOPTIMIZE,
+    p3 = ic.cms_transform(np.ascontiguousarray(small), LINEAR_REC2020, DISPLAY_P3, intent=RELATIVE, flags=NOOPTIMIZE,
                           outdtype=np.uint8)
     buf = io.BytesIO()
     Image.fromarray(p3).save(buf, format="JPEG", quality=JPEG_QUALITY, icc_profile=DISPLAY_P3)
@@ -125,8 +128,8 @@ def p3_jpeg(small: np.ndarray) -> bytes:
 
 
 def _srgb_curve(small: np.ndarray) -> np.ndarray:
-    """The canonical photo's Rec.2020 samples, BT.709 curve, as Rec.2020 with the sRGB curve (D8), 16-bit."""
-    return ic.cms_transform(np.ascontiguousarray(small), REC2020, REC2020_SRGB, intent=RELATIVE, flags=NOOPTIMIZE,
+    """The canonical photo's linear Rec.2020 samples as Rec.2020 with the sRGB curve (D8), 16-bit."""
+    return ic.cms_transform(np.ascontiguousarray(small), LINEAR_REC2020, REC2020_SRGB, intent=RELATIVE, flags=NOOPTIMIZE,
                             outdtype=np.uint16)
 
 

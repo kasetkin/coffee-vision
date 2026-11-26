@@ -17,8 +17,9 @@ those leave out. A file with a profile LittleCMS cannot use as RGB is read as sR
 
 The builder (D20): a declaration that is not an ICC profile becomes a linear RGB profile with its primaries and white
 point (LittleCMS), with its curve undone in numpy first, so one builder serves every curve. Two declarations keep the
-exact profile canonicalization used for them before this module, so those photos keep their bytes: sRGB (LittleCMS's
-own sRGB) and Rec.2020 with the BT.709 curve (the canonical photo's committed profile, ML-19 D46). PQ and HLG
+exact profile canonicalization used for them before this module: sRGB (LittleCMS's own sRGB) and Rec.2020 with the
+BT.709 curve (the canonical photo's committed profile until ML-37, ML-19 D46; kept for a JPEG XL in that form, such as
+a canonical photo made before ML-37 and sent as an original: ML-37 plan, finding 4). PQ and HLG
 (Declaration.is_hdr), and a float JPEG XL's samples, may hold light above white: their conversion is marked to go
 through the tone map (SourceColour.tone_map; coffeecv/tone_map.py, D33), and their curves are undone to BT.2408's
 reference white as 1.0 (PQ's 203 cd/m2; HLG's 75% through BT.2100's OOTF at 1000 cd/m2, with the file's own
@@ -26,6 +27,7 @@ luminance).
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import struct
 from collections.abc import Callable
@@ -50,7 +52,11 @@ P3_PRIMARIES: Primaries = (0.680, 0.320, 0.265, 0.690, 0.150, 0.060)
 ADOBE_RGB_PRIMARIES: Primaries = (0.64, 0.33, 0.21, 0.71, 0.15, 0.06)
 ADOBE_RGB_GAMMA = 563 / 256                                     # Adobe RGB (1998), the gamma of its section 4.3
 
-REC2020_PROFILE = (Path(__file__).resolve().parent / "data" / "rec2020_bt709.icc").read_bytes()   # ML-19 D46
+REC2020_PROFILE_PATH = Path(__file__).resolve().parent / "data" / "rec2020_bt709.icc"   # ML-19 D46, ML-37 finding 4
+REC2020_PROFILE_SHA256 = "877c5b36808954f322af187b56c3b3ebfd1cc8bad569f27f67f1a0c450d11b9c"
+REC2020_PROFILE = REC2020_PROFILE_PATH.read_bytes()
+if hashlib.sha256(REC2020_PROFILE).hexdigest() != REC2020_PROFILE_SHA256:
+    raise ImportError(f"{REC2020_PROFILE_PATH} is not the committed Rec.2020 profile (ML-19 D46)")
 
 # ITU-T H.273 (07/2024), Table 2 (ColourPrimaries) and Table 3 (TransferCharacteristics): the values honoured, as
 # (primaries, white point) and as this module's curve names. 2 is "unspecified"; every other value is refused.
@@ -336,7 +342,7 @@ class SourceColour:
     """What converting a source takes: `linearize`, if not None, undoes the curve in place on float32 samples scaled so
     1.0 is white; then `profile` (None: LittleCMS's own sRGB) is the source's ICC profile. Every profile the builder
     makes comes with a `linearize` (a no-op for a linear curve), so `linearize is None` means one of the profiles
-    canonicalization used before ML-29: the front's integer path is for those alone (D26). `tone_map`: light may lie
+    canonicalization used before ML-29: the front's integer path was for those alone (D26), until ML-37 D12. `tone_map`: light may lie
     above white, so the conversion goes through D33's operator in linear Rec.2020 (canonical.to_rec2020)."""
     profile: bytes | None
     linearize: Callable[[np.ndarray], None] | None = None
@@ -360,7 +366,7 @@ def conversion(d: Declaration, float_samples: bool = False) -> SourceColour:
     if d.white == D65 and d.primaries == SRGB_PRIMARIES and d.curve == "sRGB":
         return SourceColour(None, None, tone_map)       # exactly what an untagged photo is read as
     if d.white == D65 and d.primaries == REC2020_PRIMARIES and d.curve == "BT709":
-        return SourceColour(REC2020_PROFILE, None, tone_map)   # the canonical photo's own: a canonical JPEG XL's
+        return SourceColour(REC2020_PROFILE, None, tone_map)   # a canonical JPEG XL's from before ML-37
     if d.curve == "gamma":
         undo = _power(d.gamma)
     elif d.curve == "HLG":

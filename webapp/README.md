@@ -23,9 +23,8 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
 serves the domain; it has no ML code (`front/`), and since ticket ML-19 (ADR 0033) it canonicalizes each photo with
 `coffeecv/canonical.py` and forwards the canonical photo in its place. Since OPS-22 (ADR 0036) it does so with its own,
-cheaper settings (`canonical.FRONT_SETTINGS`: integer colour, effort 3, quality 90, over 18 MP to at most 15 MP), not
-the store's that training read (a photo whose colour profile is built from a declaration that is not an ICC profile,
-such as a linear Rec.2020 AVIF, and a float JPEG XL take the float colour path: ML-29 D26; the colour is read from
+cheaper settings (`canonical.FRONT_SETTINGS`: effort 3, quality 90, over 18 MP to at most 15 MP), not the store's
+that training read; its colour is the store's float path since ML-37 D12, which retired the integer one (the colour is read from
 the photo's ICC profile (a PNG's cICP first), else its coded tag or JPEG XL header, else a JPEG's R03, else as sRGB, and a declaration it
 cannot convert is refused naming it: ADR 0040; PQ, HLG and a float JPEG XL's light above white are tone-mapped: D33), and re-encodes every upload, a picked example included; its log line names them
 (`canonical_settings`). The inference host has the GPU and a slow link

@@ -249,7 +249,7 @@ class CheckService(unittest.TestCase):
         line = self.line(resp)
         self.assertEqual({k: line.get(k) for k in ("format", "canonical", "canonical_settings", "bits")},
                          {"format": "jxl", "canonical": "canonicalized",
-                          "canonical_settings": "front: integer e3 q90 18/15 MP", "bits": 16})
+                          "canonical_settings": "front: float e3 q90 18/15 MP", "bits": 16})
         self.assertIsInstance(line["canonicalize_ms"], int)
 
     @real_data   # about 3 s: an 18 MP photo and one just over, canonicalized
@@ -404,7 +404,7 @@ class CheckService(unittest.TestCase):
         self.assertEqual(line, {
             "kind": "request", "request_id": rid, "method": "POST", "endpoint": "/analyze", "status": 200,
             "outcome": "relayed", "filename": "IMG 0001.jpg", "ext": ".jpg", "format": "jpeg", "bytes": len(JPEG),
-            "canonical": "canonicalized", "canonical_settings": "front: integer e3 q90 18/15 MP", "width": 64,
+            "canonical": "canonicalized", "canonical_settings": "front: float e3 q90 18/15 MP", "width": 64,
             "height": 48, "bits": 8, "canonical_bytes": len(front(JPEG, "beans.jpg")), "relayed_bytes": len(answer)})
         for k, v in timings.items():
             self.assertIsInstance(v, int, k)
