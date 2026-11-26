@@ -51,7 +51,7 @@ stages:
         - coffeecv/canonicalize_folder.py
         - coffeecv/jxl_encode.py
         - coffeecv/jxl_header.py
-        - coffeecv/data/rec2020_bt709.icc
+        - coffeecv/data/rec2020_bt709.icc   # since ML-37 colour_declaration's alone: a JPEG XL in the old form's source
         - coffeecv/data/accepted_formats.csv
       outs:
         # Ticket ML-26: kept between runs; the stage canonicalizes only new and changed photos (coffeecv.incremental).

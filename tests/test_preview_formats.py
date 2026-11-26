@@ -24,10 +24,10 @@ P3_GREEN = (0, 255, 0)              # Display P3's own green: outside sRGB, insi
 
 def _rec2020(srgb_half: tuple, p3_half: tuple, h: int = 64, w: int = 96) -> np.ndarray:
     """An H x W x 3 uint16 Rec.2020 photo: its left half `srgb_half` (sRGB), its right half `p3_half` (Display P3)."""
-    left = ic.cms_transform(np.full((h, w // 2, 3), srgb_half, np.uint8), cn.SRGB, cn.REC2020, intent=cn.RELATIVE,
-                            flags=cn.NOOPTIMIZE, outdtype=np.uint16)
-    right = ic.cms_transform(np.full((h, w // 2, 3), p3_half, np.uint8), pf.DISPLAY_P3, cn.REC2020,
-                             intent=cn.RELATIVE, flags=cn.NOOPTIMIZE, outdtype=np.uint16)
+    left = ic.cms_transform(np.full((h, w // 2, 3), srgb_half, np.uint8), cn.SRGB, cn.LINEAR_REC2020, intent=cn.RELATIVE,
+                            flags=pf.NOOPTIMIZE, outdtype=np.uint16)
+    right = ic.cms_transform(np.full((h, w // 2, 3), p3_half, np.uint8), pf.DISPLAY_P3, cn.LINEAR_REC2020,
+                             intent=cn.RELATIVE, flags=pf.NOOPTIMIZE, outdtype=np.uint16)
     return np.concatenate([left, right], axis=1)
 
 
@@ -126,7 +126,7 @@ class EncodeAll(unittest.TestCase):
         a = np.asarray(im)
         self.assertLessEqual(np.abs(self._middle(a, True) - P3_GREEN).max(), 3, "P3's green is kept")
         p3_brown = ic.cms_transform(np.array([[INSIDE_SRGB]], np.uint8), cn.SRGB, pf.DISPLAY_P3, intent=cn.RELATIVE,
-                                    flags=cn.NOOPTIMIZE)[0, 0].astype(int)
+                                    flags=pf.NOOPTIMIZE)[0, 0].astype(int)
         self.assertLessEqual(np.abs(self._middle(a, False) - p3_brown).max(), 3)
 
     def test_the_committed_profile_is_littlecms_display_p3_but_for_its_date(self):
@@ -157,7 +157,7 @@ class EncodeAll(unittest.TestCase):
         """The photo's pixel in Display P3 levels: its P3 green, or its brown."""
         return np.array(P3_GREEN if right else ic.cms_transform(np.array([[INSIDE_SRGB]], np.uint8), cn.SRGB,
                                                                 pf.DISPLAY_P3, intent=cn.RELATIVE,
-                                                                flags=cn.NOOPTIMIZE)[0, 0], float)
+                                                                flags=pf.NOOPTIMIZE)[0, 0], float)
 
     def test_the_avif_is_10_bit_rec2020_with_the_srgb_transfer(self):   # D8
         data = self.files["avif10"]
