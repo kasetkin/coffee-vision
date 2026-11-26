@@ -482,9 +482,15 @@ class CheckService(unittest.TestCase):
                 self.assertEqual(self.after_the_preview(form("beans.jpg", JPEG)),
                                  (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
 
+    def test_the_error_lines_outcomes_are_the_timelines_words(self):   # ML-37 D26; review S5
+        self.assertEqual(set(check_service.MESSAGES),
+                         {timeline_schema.OFFLINE, timeline_schema.BUSY, timeline_schema.FAILED})
+        self.assertLessEqual(set(check_service.MESSAGES), set(timeline_schema.OUTCOMES))
+        self.assertTrue(all(isinstance(m, str) and m for m in check_service.MESSAGES.values()))
+
     def test_the_inference_hosts_refusals_are_error_lines_after_the_preview(self):   # ML-37 D16, D26
         for status, outcome, message in ((400, "failed", "inference host says 400"),   # the front's photo refused
-                                         (503, "busy", check_service.BUSY["error"]),   # its busy backstop (D11)
+                                         (503, "busy", check_service.MESSAGES["busy"]),   # its busy backstop (D11)
                                          (500, "failed", "inference host says 500")):   # a failure
             with self.subTest(status=status):
                 FakeInferenceHost.reply = status

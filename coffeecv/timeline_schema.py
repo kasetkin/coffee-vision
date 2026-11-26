@@ -48,7 +48,9 @@ CONTROLS = ("choose_photo", "select_file", "camera", "example")
 # answer: the front's checks or the app's), busy (still busy after the page's retries), offline, unreachable (no
 # answer at all), cut (the answer stopped before its classification), abandoned (another photo picked, or the page
 # left, before the outcome), download_failed (an example's photo could not be fetched).
-OUTCOMES = ("answered", "failed", "refused_on_page", "refused", "busy", "offline", "unreachable", "cut", "abandoned",
+# Three of them are also the words of the front's error line (ML-37 D26), which the page reads as its own.
+OFFLINE, BUSY, FAILED = "offline", "busy", "failed"
+OUTCOMES = ("answered", FAILED, "refused_on_page", "refused", BUSY, OFFLINE, "unreachable", "cut", "abandoned",
             "download_failed")
 TIMES_V1 = ("pick_ms", "download_ms", "size_check_ms", "to_preview_ms", "preview_drawn_ms", "to_answer_ms",
             "answer_shown_ms", "total_ms")

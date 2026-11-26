@@ -66,7 +66,7 @@ class AgentFilesMatchApp(unittest.TestCase):
         front_src = Path(check_service.__file__).read_text()
         self.assertEqual(parts, set(re.findall(r'"part": "([a-z]+)"', APP_SRC + front_src)))
         self.assertEqual(set(re.findall(r'"part": "([a-z]+)"', front_src)), {"preview", "error"})
-        outcomes = set(re.findall(r'self\.error_line\("([a-z]+)"', front_src))
+        outcomes = set(check_service.MESSAGES)   # the error line's words (review S5: one place)
         self.assertEqual(set(schemas["ErrorPart"]["properties"]["outcome"]["enum"]), outcomes)
         for outcome in outcomes:
             self.assertIn(f'"{outcome}"', LLMS, f"llms.txt does not describe the error line's outcome {outcome}")
@@ -104,7 +104,7 @@ class AgentFilesAndPageStateTheFrontsAnswers(unittest.TestCase):
                 self.assertEqual(src.count("could not read this as an image"), count)
 
     def test_the_page_and_the_agent_files_know_offline_from_busy(self):
-        offline = check_service.OFFLINE["error"]
+        offline = check_service.MESSAGES[check_service.OFFLINE]
         self.assertIn(f"const OFFLINE_ERROR = '{offline}';", INDEX)
         self.assertIn(f'{{"error": "{offline}"}}', LLMS)
         responses = OPENAPI["paths"]["/analyze"]["post"]["responses"]

@@ -95,10 +95,14 @@ RAW_MAX_PIXELS = 16_000_000
 ANSWER_TIMEOUT_S = 60
 # OPS-22 D1: the front's own canonical photo, cheaper than the store's; the inference host reads both (ADR 0036).
 SETTINGS = canonical.FRONT_SETTINGS
-OFFLINE = {"error": "the classifier is offline"}
-BUSY = {"error": "the classifier is busy with another photo"}   # the front's nginx gate says the same (D11)
-FAILED = "could not process this photo"   # a refusal of the inference host's that says nothing readable
-TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"}   # and so does its 413
+# What the service says for each of the ends it shares with the page's timeline (timeline_schema's outcome words): in
+# an error line after the preview (ML-37 D26) or as a JSON answer's error. Offline: the inference host cannot be
+# reached or its app is down (D12); busy: the front's nginx gate says the same (D11); failed: a refusal of the
+# inference host's that says nothing readable, or a failure here.
+OFFLINE, BUSY, FAILED = timeline_schema.OFFLINE, timeline_schema.BUSY, timeline_schema.FAILED
+MESSAGES = {OFFLINE: "the classifier is offline", BUSY: "the classifier is busy with another photo",
+            FAILED: "could not process this photo"}
+TOO_LARGE = f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"   # and so does the front's nginx's 413
 # Statuses from the inference host's nginx that mean its app is not answering (stopped for a deploy, ADR 0026, or
 # down): the classifier is offline, as when the host cannot be reached. Its 503 is busy (its nginx's gate, or the app's
 # backstop, D11); any other refusal failed (ML-37 D26).
@@ -343,7 +347,7 @@ class CheckHandler(BaseHTTPRequestHandler):
             left = length
             while left > 0 and (chunk := self.rfile.read(min(65536, left))):
                 left -= len(chunk)
-            return self.json(413, TOO_LARGE, "too_large")
+            return self.json(413, {"error": TOO_LARGE}, "too_large")
         t = time.monotonic()
         body = self.rfile.read(length)
         self.record["read_ms"] = ms_since(t)
@@ -368,7 +372,7 @@ class CheckHandler(BaseHTTPRequestHandler):
         # One photo is canonicalized and crosses at a time (D11). The front's nginx gates first, but it frees its gate
         # when a visitor leaves, and the crossing that visitor started goes on here until the inference host answers.
         if not self.crossing.acquire(blocking=False):
-            return self.json(503, BUSY, "busy")
+            return self.json(503, {"error": MESSAGES[BUSY]}, BUSY)
         try:
             content_type = self.headers.get("Content-Type", "")
             _, data, _ = _photo(content_type, body)
@@ -383,7 +387,7 @@ class CheckHandler(BaseHTTPRequestHandler):
                 return self.json(400, {"error": f"could not read this as an image: {exc}"}, "unreadable")
             except Exception as exc:   # noqa: BLE001 -- any other failure is an answer, not a dropped connection
                 self.record["error"] = f"{type(exc).__name__}: {exc}"[:ERROR_CAP]
-                return self.json(500, {"error": "could not process this photo"}, "failed")
+                return self.json(500, {"error": MESSAGES[FAILED]}, FAILED)
             del data
             self.record["canonical_bytes"] = len(canon)
             # The visitor's name, kept to a safe alphabet: it goes into the forwarded part's header.
@@ -478,7 +482,7 @@ class CheckHandler(BaseHTTPRequestHandler):
         except (OSError, http.client.HTTPException) as exc:   # refused, unreachable, timed out, not HTTP
             conn.close()
             self.record["error"] = type(exc).__name__
-            return self.error_line("offline", OFFLINE["error"], previewed)
+            return self.error_line(OFFLINE, previewed)
         try:
             return self.relay(resp, sent, previewed)
         finally:
@@ -490,10 +494,10 @@ class CheckHandler(BaseHTTPRequestHandler):
         if resp.status != 200:
             self.record["upstream_status"] = resp.status
             if resp.status in APP_DOWN:
-                return self.error_line("offline", OFFLINE["error"], previewed)
+                return self.error_line(OFFLINE, previewed)
             if resp.status == 503:
-                return self.error_line("busy", BUSY["error"], previewed)
-            return self.error_line("failed", self.refusal_message(resp), previewed)
+                return self.error_line(BUSY, previewed)
+            return self.error_line(FAILED, previewed, self.refusal_message(resp))
         previewed.wait()
         sent_bytes, outcome = 0, "relayed"
         segmentation_pending = True   # the host's first line (ML-37 D24): when its end has gone out, D27
@@ -513,16 +517,18 @@ class CheckHandler(BaseHTTPRequestHandler):
 
     @staticmethod
     def refusal_message(resp: http.client.HTTPResponse) -> str:
-        """What the inference host's refusal says, from its JSON body's error, else FAILED."""
+        """What the inference host's refusal says, from its JSON body's error, else FAILED's message."""
         try:
             message = json.loads(resp.read(REFUSAL_BYTES)).get("error")
         except (OSError, http.client.HTTPException, ValueError, AttributeError):
             message = None
-        return message[:ERROR_CAP] if isinstance(message, str) and message else FAILED
+        return message[:ERROR_CAP] if isinstance(message, str) and message else MESSAGES[FAILED]
 
-    def error_line(self, outcome: str, message: str, previewed: threading.Event) -> str:
-        """The answer's last line when the inference host gives none of its own (ML-37 D26): the outcome's word, which
-        the page maps to its own, and what to say. After the preview, as every line of the host's would be."""
+    def error_line(self, outcome: str, previewed: threading.Event, message: str | None = None) -> str:
+        """The answer's last line when the inference host gives none of its own (ML-37 D26): the outcome's word, one
+        of MESSAGES', which the page maps to its own, and what to say, the outcome's message unless the host said
+        something. After the preview, as every line of the host's would be."""
+        message = MESSAGES[outcome] if message is None else message
         previewed.wait()
         try:
             self.wfile.write(json.dumps({"part": "error", "outcome": outcome, "message": message}).encode() + b"\n")
