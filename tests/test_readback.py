@@ -122,22 +122,29 @@ def bt709_decode(v):
 
 @real_data
 class DatasetPhotos(unittest.TestCase):
-    """20 of the store's photos, spread over it by path, made linear: a 256-row band through each photo's middle, from
-    today's canonical samples through the BT.709 curve inverted, as uint16."""
+    """20 of the store's photos, spread over it by path, as linear light: a 256-row band through each photo's middle,
+    its samples as they are when the photo is linear (ML-37 D1; the store after P5), else through the BT.709 curve
+    inverted (the form before it), as uint16. Each photo's own header says which."""
     N, BAND = 20, 256
 
     @classmethod
     def setUpClass(cls):
         import imagecodecs as ic
+        from coffeecv.jxl_header import read_header
         store = sorted((DATA_ROOT / "data" / "canonical").rglob("*.jxl"))
         if len(store) < cls.N:
             raise unittest.SkipTest(f"no canonical store under {DATA_ROOT} (COFFEECV_DATA_ROOT)")
         cls.bands = {}
         for path in (store[i * len(store) // cls.N] for i in range(cls.N)):
-            today = ic.jpegxl_decode(path.read_bytes())
-            y = max(0, today.shape[0] // 2 - cls.BAND // 2)
-            band = today[y:y + cls.BAND]
-            cls.bands[path.name] = np.rint(bt709_decode(band / 65535) * 65535).astype(np.uint16)
+            data = path.read_bytes()
+            samples = ic.jpegxl_decode(data)
+            y = max(0, samples.shape[0] // 2 - cls.BAND // 2)
+            band = samples[y:y + cls.BAND]
+            transfer = read_header(data).colour.transfer
+            if transfer not in ("Linear", "BT709"):
+                raise AssertionError(f"{path.name}: transfer {transfer}, neither ML-37 D1's nor the form before it")
+            cls.bands[path.name] = band if transfer == "Linear" else \
+                np.rint(bt709_decode(band / 65535) * 65535).astype(np.uint16)
 
     def test_within_001_of_the_float64_reference_before_rounding(self):
         for name, rec in self.bands.items():
