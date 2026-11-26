@@ -18,15 +18,15 @@
     planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D15 decided 2026-11-26; not planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
-    <div class="field"><span class="k">Component</span><span class="v">coffeecv/canonical.py (the encode, the header check, the read-back), coffeecv/jxl_encode.py (linear transfer, intensity target), coffeecv/jxl_header.py (the intensity target), coffeecv/data/rec2020_bt709.icc (retired), coffeecv/model_io.py (D11), coffeecv/preview_formats.py (removed), webapp/app.py (the preview, the third part), webapp/static/index.html (the tabs), the front's check service, the canonical store and its DVC stages, the crop stages, scripts/make_example_photos.py, GLOSSARY.md, the release</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">coffeecv/canonical.py (the encode, the header check, the read-back), coffeecv/jxl_encode.py (linear transfer, intensity target), coffeecv/jxl_header.py (the intensity target), coffeecv/data/rec2020_bt709.icc (retired), coffeecv/model_io.py (D11), coffeecv/preview_formats.py (removed), webapp/app.py (the preview, the third part), webapp/static/index.html (the tabs; the picture shown before the mask, D15), the front's check service (the preview's picture, D15), the canonical store and its DVC stages, the crop stages, scripts/make_example_photos.py, GLOSSARY.md, the release</span></div>
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-23</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">If adopted: one release of store, front, inference host and models, as ML-29 D15 shipped gain maps. The front sends the linear canonical photo; the host accepts only it. The models' input changes only by the lossy coding (and by D11 if chosen); the classifier's head and the OOD probe are refitted on it. OPS-25's format tabs and third part go; the preview stays the models' input picture.</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">If adopted: one release of store, front, inference host and models, as ML-29 D15 shipped gain maps. The front sends the linear canonical photo; the host accepts only it. The models' input changes only by the lossy coding (and by D11 if chosen); the classifier's head and the OOD probe are refitted on it. OPS-25's format tabs and third part go; the preview stays the models' input picture. The front makes that picture and sends it to the browser before the photo crosses the link, and the host's preview part carries the mask and box (D15).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">ML-33's fine-tune is sequenced against this one (D14)</span></span></div>
   </div>
 
@@ -71,7 +71,9 @@
       &rarr; sRGB curve &rarr; <strong>rounded to 8 bits once</strong> (D2, D3). Crops stay lossless 8-bit JPEG XL and
       patches uint8 (D10). Whether the resizes after the read-back round again is D11.</li>
     <li><strong>Conversion 3, canonical &rarr; preview.</strong> The preview is a JPEG of that same 8-bit picture: the
-      visitor sees what the models read. OPS-25's wide-gamut trial ends without a format adopted (D4).</li>
+      visitor sees what the models read. OPS-25's wide-gamut trial ends without a format adopted (D4). The front makes
+      the picture from its own canonical photo with the same read-back and sends it to the browser at once, about 5 s
+      before the host could; the host's preview part keeps the mask and the box (D15).</li>
   </ul>
   <p>Every canonical photo in the store changes, so the store is re-canonicalized, the pool re-cropped and the
     classifier refitted, and the result is compared under a bar fixed before the runs (D13). Research expects the
@@ -248,6 +250,28 @@
       </ul>
       A used the store's float colour path, not the front's integer one (D12, R3). Transfer is size only, with no link
       overhead.</li>
+    <li><strong>The preview's picture made at the front</strong>, measured 2026-11-26 for D15
+      (<a href="../analysis/ml37/preview_front_measure.py">preview_front_measure.py</a>,
+      <a href="../analysis/ml37/preview_front_measure.txt">its output</a>), on the 40 form-A files above, 2 cores
+      pinned, one run, on the same workstation, not the front. The picture is part of the preview only; the mask and
+      the box come from the segmenter, on the host. Mean &plusmn; standard deviation:
+      <ul>
+        <li><strong>The models' picture</strong>, as the host makes it: decode 0.15 &plusmn; 0.06 s, D2's read-back at
+          full size 0.50 &plusmn; 0.19 s, the 1024 px thumbnail and JPEG q85 0.07 s; 0.73 &plusmn; 0.27 s in all, 0.97 s
+          at most. The JPEG is 149 &plusmn; 56 KB.</li>
+        <li><strong>Shrunk first</strong>, the linear light area-averaged to 1024 px and then read back: 0.26 s, but
+          not the models' picture: 0.64 levels apart on average, 5 at the 99th percentile, up to 94 at edges.</li>
+        <li><strong>Memory.</strong> The read-back done on the whole photo at once peaks at 1,074 MB more on a 17 MP
+          photo, beyond the front's 600 MB (R3). Done in strips of 256 rows it peaks at 101 MB, the 51 MB output
+          included, and gives the identical uint8 picture.</li>
+        <li><strong>Time saved.</strong> Today the picture reaches the browser after the link (5.1 &plusmn; 3.1 s for
+          form A), the host's decode and read-back and the segmenter. Made at the front, it is there about 0.7 s after
+          the canonical photo, and its making can overlap the crossing, when the front's CPU waits on the link. The
+          JPEG no longer crosses back from the host: about 0.15 s at the link's 8.5 Mbit/s out of <code>yappy</code>
+          (ML-15).</li>
+      </ul>
+      Not checked: whether libjxl decodes bit-identically on the front's CPU and the host's. A difference would be
+      about a level, invisible in a q85 thumbnail.</li>
   </ul>
 
   <h2>3. Before and after</h2>
@@ -270,7 +294,8 @@
           XL. One reading in any viewer.</li>
         <li>One read-back (matrix, clip, sRGB curve) rounds to 8-bit sRGB once and feeds both models. Crops and patches
           stay 8-bit. The resizes after it are D11's.</li>
-        <li>The preview is a JPEG of that picture: the visitor sees what the models read. No tabs, two parts.</li>
+        <li>The preview is a JPEG of that picture: the visitor sees what the models read. No tabs. The front makes
+          the picture and sends it first; the host sends the mask and box (D15).</li>
         <li>LittleCMS still converts originals into Rec.2020. The read-back's maths is D9's choice.</li>
       </ul>
     </div>
@@ -291,7 +316,8 @@
       augmentation on uint8 (D10).</li>
     <li><strong>The two settings.</strong> The store's and the front's quality, effort and caps stay (ADR 0036). The
       front's colour path is D12's.</li>
-    <li><strong>The format list, the one streamed request, the masks' geometry</strong>
+    <li><strong>The format list, the one streamed request (its preview part split in two, D15), the masks'
+      geometry</strong>
       (<a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
       <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>).</li>
   </ul>
@@ -343,6 +369,11 @@
         <td>Closed 2026-11-25 by D3 and D10: patches and the segmenter's training photos stay uint8 (3.61 GB and
           2.6 GB). The 2026-11-23 research had found float16 patches peaking at about 8.1 GB against about 7 GB
           available.</td></tr>
+      <tr><td class="id">R10</td><td><strong>Making the preview's picture at the front (D15) breaks its memory limit or
+        delays the crossing.</strong></td>
+        <td>The read-back on a whole 17 MP photo peaks at 1,074 MB more; in strips of 256 rows, 101 MB, identical
+          output (&sect;2). The read-back is written in strips, and the front's peak is measured on ML-29 R6's photos with
+          R3. Its 0.7 s runs while the photo crosses the link, not before it.</td></tr>
     </tbody>
   </table></div>
 
@@ -453,13 +484,25 @@
           recommends (b): the masks barely move under the new input (median IoU 0.9999 against today's), nothing in a
           fine-tune is keyed to the canonical photo's bytes, so ML-33 on today's input need not be redone. Since
           2026-11-25 the input changes less still (8-bit, tone map unchanged), which strengthens (b).</td></tr>
+      <tr><td class="id">D15</td><td>Where is the preview's picture made?</td>
+        <td>(a) on the host, as today, in the one preview part with the mask and box (b) at the front, from its own
+          canonical photo by D2's read-back, the 1024 px JPEG sent to the browser first; the host's preview part keeps
+          the mask, the box and <code>seg_fallback</code> (c) as (b), but shrunk in linear light before the read-back</td>
+        <td>(b), 2026-11-26, the owner ("make this also a part of ML-37"; "D15 -- yes, make it answer (b) as
+          recommended"): the front makes the picture by D2's read-back, the same picture the host's makes. The visitor
+          sees the models' picture to the level, its 0.73 s overlaps the crossing, and (c)'s 0.47 s saved is not on the
+          visitor's wait (&sect;2). The picture reaches the
+          browser about 5 s sooner; the page shows it before the mask, and still shows it when the host is offline or
+          busy. Amends <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (the first
+          part is the thumbnail with the mask and box) and OPS-7 D8; the front's log line names when the picture went
+          out (OPS-3 D6). The read-back is one function the front and the host import (D9), in strips (R10).</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box"></span><span>D9 and D11&ndash;D14 decided; ADR 0033 and the ML-19 decisions D1 amends
-      amended, and a new ADR for the linear canonical photo and its read-back.</span></li>
+      amended, ADR 0023 amended for D15, and a new ADR for the linear canonical photo and its read-back.</span></li>
     <li><span class="box"></span><span>The canonical photo written as D1 says by both settings, the store's and the
       front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
       16-bit integer, lossy, intensity target 203) and by tests.</span></li>
@@ -475,6 +518,10 @@
       comparison judged against D13's bar. The owner's decision.</span></li>
     <li><span class="box"></span><span>The preview is the models' input picture (D4). OPS-25's tabs, third part and
       <code>preview_formats.py</code> removed. GLOSSARY.md's "Preview" and "Canonicalization" say so.</span></li>
+    <li><span class="box"></span><span>The front sends the preview's picture before the photo crosses to the host, the
+      same picture the host's read-back makes (a test on a known photo); the host's preview part carries the mask and
+      box; the page shows the picture first and the mask when it comes, and the picture alone when the host is offline
+      (D15). The front's time and peak memory with it measured on ML-29 R6's photos (R10).</span></li>
     <li><span class="box"></span><span>Adopted: one release of store, front, host and models, the examples re-made,
       verified on the live site. Not adopted: the reasons recorded here and in .out-of-scope/.</span></li>
   </ul>
@@ -527,6 +574,15 @@
       out by the 2.1 Mbit/s link (about 45 s a photo); B is 0.9 s faster in total but worse on saturated colours and
       sends no canonical photo. Recommended: keep A. Found on the way: libjxl's encode from Rec.2020 primaries costs
       about 2 s a photo on the front, today's form included (for D12). Decisions unchanged.</div>
+    <div><div class="when">2026-11-26</div>The owner asked whether the front could make the preview, since it can make
+      the same picture from its canonical photo; measured (&sect;2,
+      <a href="../analysis/ml37/preview_front_measure.py">preview_front_measure.py</a>) and taken into this ticket at
+      the owner's word as D15: the front makes the preview's picture, the host the mask and box. The picture costs the
+      front 0.73 s, overlapping the crossing, and reaches the browser about 5 s sooner. Found on the way: the read-back
+      on a whole photo needs about 1 GB more on the front, so it runs in strips (R10). Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-11-26</div>D15 decided by the owner: (b), the front's picture made by D2's read-back,
+      as recommended. Not planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
@@ -537,6 +593,7 @@
     <a href="ml-0021_ticket_canonical_decode_time.html">ML-21</a>,
     <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a>,
     <a href="ops-0007_ticket_photos_and_answers_optimization.html">OPS-7</a> (D8),
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (D15),
     <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
     <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
     <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>,
