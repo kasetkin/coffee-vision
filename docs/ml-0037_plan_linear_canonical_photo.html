@@ -13,7 +13,7 @@
     D13's bar (P7). Everything ships in one release (P8). No fine-tune runs in this ticket (D14).</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-26; Q1&ndash;Q3 answered 2026-11-26 (ML-37 D16&ndash;D18); not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-26; Q1&ndash;Q3 answered 2026-11-26 (ML-37 D16&ndash;D18); updated 2026-11-26 for ML-37 D19&ndash;D27; not implemented</span></span></div>
     <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
     <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0037_ticket_linear_canonical_photo.html"><code>ml-0037_ticket_linear_canonical_photo.html</code></a> (ML-37)</span></div>
     <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
@@ -207,8 +207,9 @@
     <li><span class="box"></span><span>The front's time and peak memory, with the float path, on ML-29 R6's photos and
       the 40 photos of the ticket's front-forms study, against its 600 MB (finding 7, R3). Over it: stop for the owner
       (a higher <code>MemoryMax</code>, by hand on the proxy, or another D12 answer).</span></li>
-    <li><span class="box"></span><span>GLOSSARY.md's "Canonicalization" and "Canonical photo"; a new ADR, the linear
-      canonical photo and its one read-back, amending ADR 0033 (ML-19 D7, D31, D46) and ADR 0036.</span></li>
+    <li><span class="box"></span><span>GLOSSARY.md's "Canonicalization" (the front's float colour) and "Canonical
+      photo"; "Model picture" and "Preview" are already written (2026-11-26). A new ADR (ML-37 D19), "The canonical
+      photo is linear light, read back once", amending ADR 0033 (ML-19 D7, D31, D46) and ADR 0036.</span></li>
     <li><span class="box"></span><span>Checks: <code>dvc status</code> shows every canonicalize and segcrop stage
       changed and nothing else unexpected; <code>scripts/check.sh --full</code> green.</span></li>
   </ol>
@@ -223,21 +224,36 @@
     OPS-25's trial ends.</p>
   <ol class="tasks">
     <li><span class="box"></span><span>The front: after the encode, open the 200 NDJSON stream with
-      <code>X-Accel-Buffering: no</code>, decode its own canonical photo, read it back, thumbnail to 1,024 px as
-      <code>_preview_part</code> does today, JPEG q85, and write the picture line, on a thread beside the crossing.
-      The host's lines are relayed after it; a host refusal or the host offline becomes an error line (Q1). Its log
-      line gains when the picture went out (OPS-3 D6); <code>timeline_schema</code> and
-      <code>coffeecv.timelines</code> follow.</span></li>
-    <li><span class="box"></span><span>The host: <code>_preview_part</code> without the thumbnail;
+      <code>X-Accel-Buffering: no</code>, decode its own canonical photo, read it back, shrink to 1,024 px as
+      <code>_preview_part</code> does today, JPEG q85, and write <code>{"part": "preview", "jpeg": ...}</code>
+      (ML-37 D24), on a thread beside the crossing. The host's lines are relayed after it, never before it; a host
+      refusal or the host offline becomes an error line, logged as ML-37 D26 says. If the preview cannot be made, no
+      preview line: the host's lines are relayed and the failure logged (ML-37 D23).</span></li>
+    <li><span class="box"></span><span>The host: <code>_preview_part</code> becomes the
+      <code>{"part": "segmentation"}</code> line (mask, box, cropped, seg_fallback, needs_review), with no JPEG;
       <code>_shrink_aside</code>, the previews part and <code>coffeecv/preview_formats.py</code> removed.</span></li>
-    <li><span class="box"></span><span>The page: the picture drawn when its line comes, the mask and box over it when
-      theirs comes, the picture kept beside a refusal; OPS-25's tabs and their test
-      (<code>tests/test_preview_tabs.py</code>) removed. <code>openapi.json</code>, <code>llms.txt</code> and
-      <code>webapp/README.md</code> describe the new lines; ADR 0023 amended.</span></li>
+    <li><span class="box"></span><span>The page: the preview drawn when its line comes, the mask and box over it when
+      the segmentation line comes, the preview kept beside a refusal, the answer shown without a preview when none
+      came; OPS-25's tabs and their test (<code>tests/test_preview_tabs.py</code>) removed. <code>openapi.json</code>,
+      <code>llms.txt</code> and <code>webapp/README.md</code> describe the new lines. A new ADR (ML-37 D19), "The
+      front draws the preview", amending ADR 0023 and ADR 0031.</span></li>
+    <li><span class="box"></span><span>The logs follow the new lines (ML-37 D23, D25&ndash;D27). The front's line:
+      <code>preview_build_ms</code>, <code>to_preview_ms</code> on its own clock, <code>to_segmentation_ms</code>,
+      <code>preview_error</code>, the peak memory with the preview in it, and after a host refusal past the preview
+      <code>status</code> 200 with <code>upstream_status</code> and today's outcome word. The host's line:
+      <code>preview_build_ms</code> dropped, <code>segmentation_build_ms</code> added, the <code>previews_*</code>
+      fields removed. <code>timeline_schema</code> at version 2 with the segmentation's arrival and drawing times, the
+      check service taking only 2 from the page. <code>coffeecv.timelines</code> reading versions 1 and 2, its step
+      table rebuilt (the front's preview built, the preview's and the segmentation's ways to the browser) and the
+      preview failures counted in its summary. <code>timeline_check.py</code> sending 2; the ops3_rig fixture;
+      <code>docs/logging_plan.html</code>, <code>docs/inference_path.html</code> and
+      <code>docs/agents/deploy.md</code>.</span></li>
     <li><span class="box"></span><span>The deploy's checks: <code>release_probe</code>,
       <code>example_check</code> and <code>--verify</code> read the new lines.</span></li>
-    <li><span class="box"></span><span>Tests: the front's picture equals the host's read-back thumbnail of the same
-      file, byte for byte on this machine; the line order; the host offline after the picture; a cut stream.</span></li>
+    <li><span class="box"></span><span>Tests: the front's preview equals the one made from the host's read-back of
+      the same file, byte for byte on this machine; the line order; the host offline after the preview; a preview the
+      front fails to make; a cut stream. One request's three lines (front, host, page) through the reading script, for
+      an answer, an answer with no preview, and a refusal after the preview.</span></li>
     <li><span class="box"></span><span>Checks: <code>scripts/rehearse_deploy_local.sh</code> through both parts; the
       front's peak memory with the picture after the encode, on P3's photos, within its limit;
       <code>scripts/check.sh --full</code> green.</span></li>
@@ -250,13 +266,16 @@
   </div>
   <ol class="tasks">
     <li><span class="box"></span><span>Before: today's 8-bit inputs and masks kept for the comparison (the read-back of
-      today's store, on every dataset photo, in <code>tmp/ml37/</code>); free disk checked against about 70 GB (finding
+      today's store, on every dataset photo, in <code>tmp/ml37/</code>), and each photo's uncoded float reference
+      (its original through the store's colour path and tone map, not encoded) for R1 (ML-37 D20); free disk checked against about 70 GB (finding
       8); the code committed (experiments.md).</span></li>
     <li><span class="box"></span><span><code>dvc repro -s</code> each <code>canonicalize</code> stage
       (<code>docs/agents/dvc.md</code> first); jxlinfo on a sample shows D1's header.</span></li>
-    <li><span class="box"></span><span>R1's report, <code>analysis/ml37/p5_report.txt</code>: the new input against
-      today's on every photo, 32 &times; 32 block means (ML-29 D27), mean and largest, per camera, gain-map photos
-      apart; the file sizes against today's.</span></li>
+    <li><span class="box"></span><span>R1's report, <code>analysis/ml37/p5_report.txt</code> (ML-37 D20): each form,
+      today's and the new, against the uncoded reference on every photo, 32 &times; 32 block means, mean and largest,
+      per camera, gain-map photos apart. Where the new form breaks ML-29 D27 (mean over 1.0 level, or a block over 6)
+      on a camera where today's does not: stop for the owner. The new form against today's reported, with no bar; the
+      file sizes against today's.</span></li>
     <li><span class="box"></span><span>D13's check before the retrain: the live segmenter's masks on the new input
       against today's, median IoU at least 0.99 per camera. Below it: stop for the owner.</span></li>
   </ol>
@@ -292,6 +311,9 @@
       macro-F1 change with its 95% photo-bootstrap lower bound above &minus;0.010; no class's mean change below
       &minus;0.02; the OOD probe refitted on the seed-123 candidate, catching every test negative and refusing at most 4
       of the 295 bean photos.</span></li>
+    <li><span class="box"></span><span>On a miss (ML-37 D21): the head refitted again, same seeds, with the 8-bit
+      resizes (D11 (a)) and the rest of the change kept, and judged by the same bar. Passing adopts that, D11 recorded
+      as reversed; a second miss goes to P8's second branch.</span></li>
     <li><span class="box"></span><span>Stop for the owner: adopt (P8's release) or not (P8's second branch).</span></li>
   </ol>
 
@@ -308,10 +330,12 @@
     <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
       (<code>docs/agents/deploy.md</code>); photo answers are down during the flip.</span></li>
     <li><span class="box"></span><span>The release with <code>--verify</code>; on the live site, a photo's lines in
-      order, the picture before the mask, an example's answer, and the front's log line read for its time and
-      memory.</span></li>
-    <li><span class="box"></span><span>Not adopted: the code reverted or kept behind nothing, the reasons in the ticket
-      and in <code>.out-of-scope/</code>.</span></li>
+      order, the preview before the segmentation, an example's answer, and the front's log line read for its time and
+      memory. <code>--verify</code> compares the model picture of one fixture made on the front and on the host,
+      over SSH from each host's release (ML-37 D22): its hash and largest difference; at most 1 level accepted and
+      recorded, more stops for the owner.</span></li>
+    <li><span class="box"></span><span>Not adopted (ML-37 D21): the branch is not merged, so nothing on main is
+      reverted; the reasons in the ticket and in <code>.out-of-scope/</code>.</span></li>
     <li><span class="box"></span><span>The ticket's acceptance items ticked; the owner closes it.</span></li>
   </ol>
 
@@ -323,10 +347,13 @@
       today's on 13 photos.</span></li>
     <li><span class="box"></span><span>P3: D1's header on made photos; the front within its memory on ML-29 R6's
       photos.</span></li>
-    <li><span class="box"></span><span>P4: the front's picture identical to the host's read-back; the page's lines in
-      order through a local rehearsal.</span></li>
-    <li><span class="box"></span><span>P5: R1's report; D13's mask IoU at least 0.99 per camera.</span></li>
-    <li><span class="box"></span><span>P7: D13's bar, fixed before the runs.</span></li>
+    <li><span class="box"></span><span>P4: the front's preview identical to the one from the host's read-back; the
+      page's lines in order through a local rehearsal; one request's three log lines read back for each kind of
+      answer.</span></li>
+    <li><span class="box"></span><span>P5: R1's report under ML-37 D20's stop; D13's mask IoU at least 0.99 per
+      camera.</span></li>
+    <li><span class="box"></span><span>P7: D13's bar, fixed before the runs; on a miss, D21's second run.</span></li>
+    <li><span class="box"></span><span>P8: the model picture's hash on the front and the host (D22).</span></li>
     <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
   </ul>
 
@@ -343,6 +370,13 @@
       and writes this plan. Eight findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
     <div><div class="when">2026-11-26</div>Q1&ndash;Q3 answered by the owner, (a) each, as recommended: the ticket's
       D16&ndash;D18. Nothing blocks P1. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>The plan grilled with the owner; the ticket's D19&ndash;D27 folded in. P3:
+      the first of two new ADRs, and the glossary's "Model picture" and "Preview" already written. P4: the lines
+      <code>preview</code> (<code>jpeg</code>) and <code>segmentation</code>, a preview the front fails to make, the
+      second ADR, and a step for the whole logging system (the front's and the host's lines, the timeline at version 2,
+      the reading script, the deploy's timeline check, the docs). P5: R1 measured against the uncoded reference, with
+      a stop. P7: the miss branch. P8: the front's and the host's model picture compared, and "not adopted" defined
+      as the branch unmerged. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,

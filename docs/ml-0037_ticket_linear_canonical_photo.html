@@ -18,7 +18,7 @@
     (<a href="ml-0037_plan_linear_canonical_photo.html">P1&ndash;P8</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
@@ -26,7 +26,7 @@
     <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
     <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
     <div class="field"><span class="k">Created</span><span class="v mono">2026-11-23</span></div>
-    <div class="field"><span class="k">Production impact</span><span class="v">If adopted: one release of store, front, inference host and models, as ML-29 D15 shipped gain maps. The front sends the linear canonical photo; the host accepts only it. The models' input changes only by the lossy coding (and by D11 if chosen); the classifier's head and the OOD probe are refitted on it. OPS-25's format tabs and third part go; the preview stays the models' input picture. The front makes that picture and sends it to the browser before the photo crosses the link, and the host's preview part carries the mask and box (D15).</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">If adopted: one release of store, front, inference host and models, as ML-29 D15 shipped gain maps. The front sends the linear canonical photo; the host accepts only it. The models' input changes only by the lossy coding (and by D11 if chosen); the classifier's head and the OOD probe are refitted on it. OPS-25's format tabs and third part go; the preview stays the models' input picture. The front makes that picture and sends it to the browser before the photo crosses the link, and the host's <code>segmentation</code> line carries the mask and box (D15, D24). The public API's lines change, and so do the logs and the timeline (D25&ndash;D27).</span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">ML-33's fine-tune is sequenced against this one (D14)</span></span></div>
   </div>
 
@@ -73,7 +73,7 @@
     <li><strong>Conversion 3, canonical &rarr; preview.</strong> The preview is a JPEG of that same 8-bit picture: the
       visitor sees what the models read. OPS-25's wide-gamut trial ends without a format adopted (D4). The front makes
       the picture from its own canonical photo with the same read-back and sends it to the browser at once, about 5 s
-      before the host could; the host's preview part keeps the mask and the box (D15).</li>
+      before the host could; the host's <code>segmentation</code> line carries the mask and the box (D15, D24).</li>
   </ul>
   <p>Every canonical photo in the store changes, so the store is re-canonicalized, the pool re-cropped and the
     classifier refitted, and the result is compared under a bar fixed before the runs (D13). Research expects the
@@ -317,7 +317,7 @@
       augmentation on uint8 (D10).</li>
     <li><strong>The two settings.</strong> The store's and the front's quality, effort and caps stay (ADR 0036). The
       front's colour path is D12's.</li>
-    <li><strong>The format list, the one streamed request (its preview part split in two, D15), the masks'
+    <li><strong>The format list, the one streamed request (its preview part split in two, D15, D24), the masks'
       geometry</strong>
       (<a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
       <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>).</li>
@@ -328,9 +328,10 @@
     <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
     <tbody>
       <tr><td class="id">R1</td><td><strong>The models' input moves more than the change of form explains.</strong></td>
-        <td>Before any retrain, the new read-back is compared with today's 8-bit input on every dataset photo: mean and
-          largest level difference on 32&times;32 block means (ML-29 D27's measure), per camera, with the gain-map
-          photos apart. Expected: the lossy coding only, since the tone map is unchanged. On 20 photos the linear
+        <td>Before any retrain, each form's model picture, today's and the new, is compared with the uncoded float
+          reference on every dataset photo: mean and largest level difference on 32&times;32 block means (ML-29 D27's
+          measure), per camera, with the gain-map photos apart, and the work stops for the owner where the new form
+          breaks D27 and today's does not (D20). Expected: the lossy coding only, since the tone map is unchanged. On 20 photos the linear
           uint16 file reads back like today's at the same intensity target (&sect;2); the move to 203 adds 6&ndash;9%
           to the block-mean error.</td></tr>
       <tr><td class="id">R2</td><td><strong>Lossy JPEG XL keeps less detail from linear integers than from today's
@@ -508,7 +509,7 @@
           line carrying today's status (b) the same, the host's line keeping its thumbnail too</td>
         <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). A refusal the front gives before the picture (too large, not an image, unreadable) stays an HTTP
           status. Changes the public API's line order (<code>openapi.json</code>, <code>llms.txt</code>); amends
-          ADR 0023 with D15.</td></tr>
+          ADR 0023 with D15. The lines' names are D24's.</td></tr>
       <tr><td class="id">D17</td><td>The head's augmented views under D11 (b): the <code>input</code> pipeline after the
         224 px resize?</td>
         <td>(a) on the float picture (b) on the picture rounded to uint8 first, as today</td>
@@ -519,32 +520,119 @@
           frame (5.2 GB)</td>
         <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). No fine-tune runs here (D14); the difference from serving's float resize is recorded for
           <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a> to settle.</td></tr>
+      <tr><td class="id">D19</td><td>Which ADRs record this ticket?</td>
+        <td>(a) one new ADR, the linear canonical photo and its read-back, with D15 an amendment note on ADR 0023 (b)
+          two new ADRs: that one, and one for the front drawing the preview</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended"). "The canonical photo is linear light, read back
+          once" amends ADR 0033 (ML-19 D7, D31, D46) and ADR 0036 (D12). "The front draws the preview" amends
+          ADR 0023 and also <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>, whose inference host
+          "streams the answer" and whose front only relays it: after D15 the front writes the answer's first line. D15
+          is hard to reverse (the public API's lines), surprising without context and a real trade-off, so it is not
+          left to amendment notes.</td></tr>
+      <tr><td class="id">D20</td><td>What does R1's comparison measure, and when does it stop the work?</td>
+        <td>(a) the new model picture against today's, under ML-29 D27's bar (b) each form against the uncoded float
+          reference, D27's bar on the new form</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended", then "Q6&ndash;Q9 as recommended", which
+          corrected Q3's (a)). D27's bar (32&times;32 block means: mean at most 1.0 level, no block over 6) measures one
+          lossy coding against an uncoded reference. New against today's adds two codings' errors, and the store's
+          largest block against the reference is already 3.60 on 20 photos (research_canonical_int_vs_half.md), so (a)
+          could stop P5 on noise. Per photo, per camera, gain-map photos apart: P5 stops for the owner if the new form
+          breaks D27 on a camera where today's form does not. The new form against today's is reported, with no
+          bar.</td></tr>
+      <tr><td class="id">D21</td><td>What happens if the refit misses D13's bar?</td>
+        <td>(a) one combined refit; on a miss, re-run without D11 (b), then close unadopted (b) two arms from the
+          start, with and without D11 (b) (c) a miss closes the ticket</td>
+        <td>(a), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended"). The refit changes the transfer, the intensity
+          target, the resizes (D11 (b)) and the lossy coding at once; D11 (b) is the one that can be taken out. On a
+          miss, the head is refitted with the 8-bit resizes (D11 (a)) and judged by the same bar; passing adopts that,
+          with D11 recorded as reversed. A second miss closes the ticket unadopted: the branch is never merged (nothing
+          reaches main before P8), and the reasons go into <code>.out-of-scope/</code>.</td></tr>
+      <tr><td class="id">D22</td><td>How is D15's promise, the front's model picture equal to the host's, checked on
+        the real machines?</td>
+        <td>(a) a test on this machine only (b) also in the release's <code>--verify</code>, over SSH (c) also in the
+          release, through a new endpoint on the host</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended", "Q6&ndash;Q9 as recommended"). Whether libjxl
+          decodes bit-identically on the two CPUs was not checked (&sect;2), and after D24 the host sends no picture
+          that would show it. The deploy runs a small script from each host's release on one fixture, over the SSH it
+          already uses, and compares the model picture's hash and largest difference: at most 1 level is accepted and
+          recorded, more stops for the owner. No endpoint: the API is open to any origin
+          (<a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>).</td></tr>
+      <tr><td class="id">D23</td><td>The front fails to make the preview after its stream has opened?</td>
+        <td>(a) no preview line; the host's lines relayed; the failure in the front's log line (b) an error line, the
+          stream ended</td>
+        <td>(a), 2026-11-26, the owner ("Q6&ndash;Q9 as recommended, and more about Q8: we should see such errors in
+          the logs, do not forget to update whole logger system so it will match new scheme"; "Q11&ndash;Q14 as
+          recommended"). The classification is still valid, so the visitor gets the country without a picture. The
+          front's line gains <code>preview_error</code> (type and message, capped as <code>error</code> is), its
+          preview times absent and its <code>outcome</code> still <code>relayed</code>; the page's timeline has no
+          preview times and its outcome stays <code>answered</code>, with no new key; the reading script counts the
+          failures in its summary and shows the step as a gap. The rest of the logging follows D25&ndash;D27.</td></tr>
+      <tr><td class="id">D24</td><td>The answer's line names, against GLOSSARY.md's "Preview"?</td>
+        <td>(a) D16's: <code>picture</code> from the front, <code>preview</code> from the host with the mask and box
+          (b) <code>preview</code> from the front, carrying the JPEG, and <code>segmentation</code> from the host</td>
+        <td>(b), 2026-11-26, the owner ("Q10 as recommended, but remove "thumbnail" part, why we need it at all?";
+          "Q10&prime; (a)"). <code>{"part": "preview", "jpeg": "&lt;base64&gt;"}</code> from the front, then
+          <code>{"part": "segmentation"}</code> from the host with <code>mask</code>, <code>box</code>,
+          <code>cropped</code>, <code>seg_fallback</code> and <code>needs_review</code>, then the classification or an
+          error. The line called "preview" carries the preview, as the glossary defines it, and every log field named
+          for the preview keeps its meaning. The key <code>thumbnail</code> goes (the glossary avoids the word);
+          <code>jpeg</code> says how to read the bytes. Changes D16's names; its order and its refusals stand.</td></tr>
+      <tr><td class="id">D25</td><td>The page's timeline, now that its times mean something new?</td>
+        <td>(a) version 1, its keys re-read (b) version 2</td>
+        <td>(b), 2026-11-26, the owner ("Q11&ndash;Q14 as recommended"). <code>timeline_schema.VERSION</code> 2,
+          with the segmentation's arrival and drawing times beside the preview's; the check service accepts only 2
+          from the page. The reading script reads both, since the front's logs keep 30 days: a version-1 line's
+          preview times are the host-made preview's, as before. <code>timeline_check.py</code> sends 2.</td></tr>
+      <tr><td class="id">D26</td><td>How is a host refusal after the preview logged?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner ("Q11&ndash;Q14 as recommended"). The front's line keeps <code>status</code> 200,
+          the host's status in <code>upstream_status</code>, and the <code>outcome</code> it would give without a
+          preview: <code>busy</code>, <code>offline</code> or <code>failed</code>. The error line carries the same word,
+          and the page maps it to today's outcomes; the schema's list of outcomes does not change.</td></tr>
+      <tr><td class="id">D27</td><td>What does the logging work cover?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner ("do not forget to update whole logger system so it will match new scheme";
+          "Q11&ndash;Q14 as recommended"). One step of the plan's P4. The front's line: <code>preview_build_ms</code>,
+          <code>to_preview_ms</code> on its own clock, <code>to_segmentation_ms</code>, <code>preview_error</code>, its
+          peak memory with the preview in it. The host's line: <code>preview_build_ms</code> dropped,
+          <code>segmentation_build_ms</code> added, OPS-25's <code>previews_*</code> fields removed. The schema at
+          version 2 (D25). The reading script's step table rebuilt: the front's preview built, the preview's and the
+          segmentation's ways to the browser. <code>timeline_check.py</code>, the ops3_rig fixture,
+          <code>docs/logging_plan.html</code>, <code>docs/inference_path.html</code> and
+          <code>docs/agents/deploy.md</code>. A test runs one request's three lines (front, host, page) through the
+          reading script for an answer, an answer with no preview, and a refusal after the preview.</td></tr>
     </tbody>
   </table></div>
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
     <li><span class="box"></span><span>ADR 0033 and the ML-19 decisions D1 and D9 amend (D7, D31, D46) amended, ADR 0036 for
-      D12, ADR 0023 for D15, and a new ADR for the linear canonical photo and its read-back.</span></li>
+      D12, and two new ADRs (D19): the linear canonical photo and its read-back, and the front drawing the preview
+      (amending ADR 0023 and ADR 0031).</span></li>
     <li><span class="box"></span><span>The canonical photo written as D1 says by both settings, the store's and the
       front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
       16-bit integer, lossy, intensity target 203) and by tests.</span></li>
     <li><span class="box"></span><span>The read-back as D2 and D3 say, rounding to 8 bits once, the only way any
       reader opens a canonical photo; <code>rec2020_bt709.icc</code> retired (R7).</span></li>
-    <li><span class="box"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, and the
-      file sizes at both settings.</span></li>
+    <li><span class="box"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, against
+      the uncoded reference under D20's stop, and the file sizes at both settings.</span></li>
     <li><span class="box"></span><span>The front's and the host's time and memory on ML-29 R6's photos (R3,
       R4).</span></li>
     <li><span class="box"></span><span>The store re-canonicalized and the pool re-cropped through their DVC stages,
       and pushed to the DVC remote.</span></li>
     <li><span class="box"></span><span>The classifier's head and the OOD probe refitted, and the paired three-seed
-      comparison judged against D13's bar. The owner's decision.</span></li>
+      comparison judged against D13's bar; on a miss, D21's second run. The owner's decision.</span></li>
     <li><span class="box"></span><span>The preview is the models' input picture (D4). OPS-25's tabs, third part and
-      <code>preview_formats.py</code> removed. GLOSSARY.md's "Preview" and "Canonicalization" say so.</span></li>
-    <li><span class="box"></span><span>The front sends the preview's picture before the photo crosses to the host, the
-      same picture the host's read-back makes (a test on a known photo); the host's preview part carries the mask and
-      box; the page shows the picture first and the mask when it comes, and the picture alone when the host is offline
-      (D15). The front's time and peak memory with it measured on ML-29 R6's photos (R10).</span></li>
+      <code>preview_formats.py</code> removed. GLOSSARY.md's "Model picture", "Preview" and "Canonicalization" say so.</span></li>
+    <li><span class="box"></span><span>The front sends the preview line (<code>jpeg</code>, D24) before the photo
+      crosses to the host, made from the same model picture the host's read-back makes (a test on a known photo, and
+      D22's check on the live hosts); the host's <code>segmentation</code> line carries the mask and box; the page
+      shows the preview first and the mask when it comes, the preview alone when the host is offline, and the answer
+      without a preview when the front could not make one (D15, D23). The front's time and peak memory with it measured
+      on ML-29 R6's photos (R10).</span></li>
+    <li><span class="box"></span><span>The logs follow the new lines (D23, D25&ndash;D27): the front's and the host's
+      log lines, the timeline at version 2, the reading script's steps, <code>timeline_check.py</code> and the logging
+      docs; one request's three lines read back for an answer, no preview, and a refusal after the preview.</span></li>
     <li><span class="box"></span><span>Adopted: one release of store, front, host and models, the examples re-made,
       verified on the live site. Not adopted: the reasons recorded here and in .out-of-scope/.</span></li>
   </ul>
@@ -618,6 +706,14 @@
       fine-tune resize). Not implemented.</div>
     <div><div class="when">2026-11-26</div>The plan's Q1&ndash;Q3 answered by the owner, (a) each, recorded as
       D16&ndash;D18. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>The plan grilled with the owner against the code and the docs. Decided:
+      D19, two new ADRs (D15's amends ADR 0031 too); D20, R1 measured against the uncoded reference with a stop
+      (correcting the session's first proposal, new against today's, which two codings' errors could trip); D21, the
+      refit's miss branch; D22, the front's and the host's model picture compared at the release; D23, a preview the
+      front fails to make is logged and skipped; D24, the lines renamed <code>preview</code> (key <code>jpeg</code>)
+      and <code>segmentation</code>, changing D16's names; D25&ndash;D27, the logging system to the new lines, the
+      timeline at version 2. GLOSSARY.md gains "Model picture" and a "Preview" saying who sees it, where and what
+      it is. The plan updated to match. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
