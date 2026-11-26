@@ -14,10 +14,11 @@ Browser --HTTPS:443--> the proxy's stream block (reads the SNI; logs the visitor
         |-- GET /            -> /opt/coffee-cv/current/webapp/static/index.html (no-cache)
         |-- GET /robots.txt, /llms.txt, /openapi.json, /.well-known/ard.json
         |                    -> the release's webapp/static/ files; any other path is a 404
-        \-- POST /analyze    -> check service, coffee-cv-front (127.0.0.1:8100): the form and the photo's format
+        \-- POST /analyze    -> check service, coffee-cv-front (127.0.0.1:8100): the form and the photo's format,
+              |                 the canonical photo, then a streamed answer: its own preview line first (ML-37)
               --tailnet, plain HTTP--> THE INFERENCE HOST, yappy: nginx on its tailnet address, port 12346
                   \-- POST /analyze -> gunicorn (127.0.0.1:8000) -> Flask app -> coffeecv.infer
-                                       -> a streamed answer: preview line, then classification line
+                                       -> segmentation line, then classification line, relayed by the front
 ```
 
 Two hosts, one release (ADR 0031, ticket OPS-15, live 2026-11-02). The front is the small always-on proxy that
@@ -39,21 +40,25 @@ or the host) the page stays up and `/analyze` answers `503 {"error": "the classi
   `POST /analyze` (ticket OPS-7, ADR 0023): the page sends the photo once (form
   field `photo`, and `skip_crop=1` for "Use full photo instead"), the server
   decodes and segments it once, and answers `application/x-ndjson`, one JSON
-  object per line. First `{"part": "preview"}`: `thumbnail` (a base64 JPEG, long
-  side <= 1024 px, so the browser never needs native HEIC/AVIF/JXL/RAW decoding),
-  `cropped`, `box` (the crop as fractions of the decoded photo), `needs_review`,
-  `mask` (the photo's bean region: a 1-bit palette PNG of the whole photo, long
-  side <= 1024 px, index 0 transparent, base64; null on a fallback and on
-  `skip_crop`) and `seg_fallback` (no usable mask, so the whole photo is
-  classified). Then `{"part": "classification"}` with the verdict and the ranked
-  classes, or `{"part": "error", "message": ...}` if the classification fails
-  after the 200 has gone out. During ticket OPS-25's trial a classification is
-  followed by `{"part": "previews"}`: the preview as a Display P3 JPEG, a 10-bit
-  AVIF and a JPEG XL, each `{"mime", "data"}` (base64) at the thumbnail's size,
-  for the page's format tabs (`coffeecv/preview_formats.py`). An unreadable photo
-  is a plain 400 before any line.
-  The app sends `X-Accel-Buffering: no`, so both nginx servers, and the check
-  service between them, pass the preview on before the classification is done.
+  object per line. First `{"part": "segmentation"}` (ML-37 D24): `cropped`, `box`
+  (the crop as fractions of the decoded photo), `needs_review`, `mask` (the
+  photo's bean region: a 1-bit palette PNG of the whole photo, long side <= 1024
+  px, index 0 transparent, base64; null on a fallback and on `skip_crop`) and
+  `seg_fallback` (no usable mask, so the whole photo is classified). Then
+  `{"part": "classification"}` with the verdict and the ranked classes, or
+  `{"part": "error", "message": ...}` if the classification fails after the 200
+  has gone out. An unreadable photo is a plain 400 before any line.
+  The app sends `X-Accel-Buffering: no`, so the nginx servers and the check
+  service pass the segmentation on before the classification is done.
+  The visitor's answer starts at the front (ADR 0043, ML-37 D15, D16): once the
+  check service has made the canonical photo it opens its own 200 stream and
+  sends `{"part": "preview", "jpeg": ...}`, the photo's model picture (the
+  canonical photo read back as the host reads it, `coffeecv/preview.py`), long
+  side <= 1024 px, so the browser never needs native HEIC/AVIF/JXL/RAW decoding,
+  made on a thread while the photo crosses; the host's lines follow it. A host
+  that refuses or cannot be reached after that is an error line,
+  `{"part": "error", "outcome": "busy" | "offline" | "failed", "message": ...}`
+  (D26); a preview the front cannot make is left out and logged (D23).
 - `static/index.html` -- the entire frontend. One file, inline CSS/JS, no build
   step.
 - `static/llms.txt`, `static/openapi.json`, `static/.well-known/ard.json` -- the
@@ -184,14 +189,15 @@ on both hosts (rsync into `releases/<id>`, venv build, contents checked against 
 before the flip starts it again; the front's check service stops too, and the front answers "the classifier is
 offline" meanwhile) -> **smoke**
 (the production unit template rendered for that release on port 8001, as `coffee-cv`, in the same
-sandbox; `/analyze`'s two parts must match the local answer: same verdict and top-1, scores within
-ML-7 D7's 0.05, the preview's mask IoU at least 0.999 and its thumbnail a JPEG of the same size, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
+sandbox; `/analyze`'s two lines must match the local answer: same verdict and top-1, scores within
+ML-7 D7's 0.05, the segmentation's mask IoU at least 0.999 and its box within 1e-3, same `model_sha`; on a GPU host the worker's boot must prove the GPU,
 ADR 0020) -> **render** the unit from the commit (installed only if changed) -> **flip** both hosts
 (`previous` <- `current`, `current` <- the new release, each an atomic rename; both sites ride in the release,
 `nginx -t` on both hosts before either reloads, and a failure reverts both) -> **restart only if enabled** ->
 **verify** (the front's `current` is the inference host's; the check service's `GET /analyze` -> 405; backend
 `GET /` -> 404, `GET /analyze` -> 405, the startup journal line's commit and `model_sha`; public page = the
-release's `index.html`; public `/analyze` answers both parts with the top-1 expected, and the time each part
+release's `index.html`; public `/analyze` answers the front's preview, then the host's lines, with the top-1
+expected, the preview a JPEG at the mask's size (`release_probe.py check-preview`, ML-37 D15), and the time each line
 arrived is reported, not checked (OPS-7 D11); that photo's timeline, sent to `/timeline` through the domain, is
 written to the check service's log (OPS-3 D14); every request it sends through the domain carries
 `X-Coffee-CV-Probe: verify`, which the reading script leaves out; on failure it reverts both hosts, or stops the
@@ -229,7 +235,8 @@ host's checkout, reboots.
 **Keeping the site on during a sweep** is fine for the frozen DINOv3 model: measured 2026-09-27/28,
 the old `/classify` took 12.5 s mean and 13.7 s max server-side during a ResNet18 sweep, against 7.0 s idle, well inside
 gunicorn's and nginx's 30 s. The site and the sweep share the CPU with no priority between them. Compare
-latencies with `latency_ms` in `app.jsonl` (and `/analyze`'s `preview_ms`, when its preview went out):
+latencies with `latency_ms` in `app.jsonl` (and `/analyze`'s `segmentation_ms`, when its first line went out;
+`preview_ms` before ML-37):
 end-to-end times from a slow uplink include several seconds of upload.
 
 ### After changing a dependency

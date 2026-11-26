@@ -2,7 +2,7 @@
 
 Run from inside a release directory (its cwd), with whichever interpreter is under test:
 
-    python -B release_probe.py smoke PHOTO          # /analyze's two parts via Flask's test client (ticket OPS-7)
+    python -B release_probe.py smoke PHOTO          # /analyze's two lines via Flask's test client (ticket OPS-7)
     python -B release_probe.py smoke PHOTO --more-dir DIR --more PHOTO...
                                                     # and more photos through the same app, each answer written to
                                                     # DIR/<name>.probe (OPS-22 D6, D7: the front's photos)
@@ -22,7 +22,7 @@ training environment, which has torch), through the same classify_one:
 Locally, two outputs are compared with:
 
     python release_probe.py compare-smoke EXPECTED.json SMOKE_OUTPUT.txt
-    python release_probe.py check-previews EXPECTED.json ANSWER.ndjson     # an answer's third part (OPS-25, --verify)
+    python release_probe.py check-preview ANSWER.ndjson     # the front's preview line (ML-37 D15, --verify)
     python release_probe.py compare-classify --d7 TORCH.json RELEASE.json   # ML-7 D7's bars (deploy --compare)
     python release_probe.py compare-classify A.json B.json [--tol 1e-4]     # bit for bit, or within --tol
 """
@@ -169,7 +169,8 @@ def _max_abs_diff(a, b, path="") -> tuple[float, list[str]]:
 
 
 def _mask_pixels(b64: str):
-    """A preview mask (base64 of a 1-bit palette PNG, ticket OPS-6 D7) as a bool array: bean is palette index 1."""
+    """A segmentation mask (base64 of a 1-bit palette PNG, ticket OPS-6 D7) as a bool array: bean is palette index
+    1."""
     import numpy as np
     from PIL import Image
 
@@ -177,116 +178,59 @@ def _mask_pixels(b64: str):
 
 
 def _compare_masks(expected, served) -> tuple[str, list[str]]:
-    """How the served preview mask differs from the expected one: (for the summary line, failures)."""
+    """How the served segmentation mask differs from the expected one: (for the summary line, failures)."""
     import numpy as np
 
     if expected is None and served is None:
         return "mask null", []
     if expected is None or served is None:
         seen = "null" if served is None else "present"
-        return f"mask {seen}", [f"preview mask is {seen}, expected {'present' if served is None else 'null'}"]
+        return f"mask {seen}", [f"segmentation mask is {seen}, expected {'present' if served is None else 'null'}"]
     a, b = _mask_pixels(expected), _mask_pixels(served)
     if a.shape != b.shape:
         size = f"{b.shape[1]} x {b.shape[0]}, expected {a.shape[1]} x {a.shape[0]}"
-        return f"mask {size}", [f"preview mask is {size}"]
+        return f"mask {size}", [f"segmentation mask is {size}"]
     union = np.count_nonzero(a | b)
     iou = np.count_nonzero(a & b) / union if union else 1.0
-    failures = [f"preview mask IoU {iou:.6f} < {MASK_IOU_MIN}"] if iou < MASK_IOU_MIN else []
+    failures = [f"segmentation mask IoU {iou:.6f} < {MASK_IOU_MIN}"] if iou < MASK_IOU_MIN else []
     return f"mask IoU {iou:.6f}, {np.count_nonzero(a ^ b)} pixels differ", failures
 
 
-def _compare_thumbnails(expected: str, served: str) -> tuple[str, list[str]]:
-    """The served thumbnail against the local one: a JPEG of the same size, long side <= 1024 (OPS-7 P3). Not its
-    pixels: two machines' JPEG encoders, and the decoders before them, may differ in a few levels."""
+def check_preview(parts: list[dict]) -> tuple[str, list[str]]:
+    """The front's preview line in an answer through the domain (ML-37 D15, D24): its first line, a JPEG, at most
+    1024 px on its long side, and, when the segmentation has a mask, the mask's size to the pixel, since the host scaled
+    the mask from the same photo to the same long side. Not its pixels: the expected answer is the host's, which has
+    no picture. (summary, failures)."""
     from PIL import Image
 
-    a, b = (Image.open(io.BytesIO(base64.b64decode(x))) for x in (expected, served))
-    summary = f"thumbnail {b.size[0]} x {b.size[1]} {b.format}, {len(base64.b64decode(served))} bytes"
-    if b.format != "JPEG":
-        return summary, [f"preview thumbnail is a {b.format}, not a JPEG"]
-    if b.size != a.size:
-        return summary, [f"preview thumbnail is {b.size[0]} x {b.size[1]}, expected {a.size[0]} x {a.size[1]}"]
-    if max(b.size) > 1024:
-        return summary, [f"preview thumbnail's long side is {max(b.size)} > 1024"]
-    return summary, []
-
-
-def _preview_facts(mime: str, data: bytes) -> tuple[tuple[int, int], tuple]:
-    """A wide-gamut preview's (width, height) and colour tags (ticket OPS-25 D1): a JPEG's ICC profile's sha256, an
-    AVIF's CICP and depth, a JPEG XL's colour encoding and depth. Raises on a file that does not decode."""
-    import hashlib
-
-    import imagecodecs as ic
-    from PIL import Image
-
-    if mime == "image/jpeg":
+    if not parts or parts[0].get("part") != "preview":
+        return "", ["the answer's first line is not the preview"]
+    data = base64.b64decode(parts[0].get("jpeg") or "")
+    try:
         im = Image.open(io.BytesIO(data))
         im.load()
-        icc = im.info.get("icc_profile")
-        return im.size, (im.format, im.mode, icc and hashlib.sha256(icc).hexdigest()[:16])
-    if mime == "image/avif":
-        a = ic.avif_decode(data)
-        return (a.shape[1], a.shape[0]), (str(a.dtype), int(a.max()) <= 1023, _repo().preview_formats.avif_cicp(data))
-    if mime == "image/jxl":
-        a = ic.jpegxl_decode(data)
-        c = _repo().jxl_header.read_header(data).colour
-        return (a.shape[1], a.shape[0]), (str(a.dtype), (c.primaries, c.transfer, c.white_point))
-    raise ValueError(f"no check for {mime}")
+    except Exception as exc:
+        return "", [f"the preview does not decode: {type(exc).__name__}: {exc}"]
+    summary = f"{im.size[0]} x {im.size[1]} {im.format}, {len(data)} bytes"
+    if im.format != "JPEG":
+        return summary, [f"the preview is a {im.format}, not a JPEG"]
+    if max(im.size) > 1024:
+        return summary, [f"the preview's long side is {max(im.size)} > 1024"]
+    seg = next((p for p in parts if p.get("part") == "segmentation"), None)
+    if seg is None or not seg.get("mask"):
+        return summary, []
+    mask = _mask_pixels(seg["mask"])
+    mask_size = (mask.shape[1], mask.shape[0])
+    if mask_size != im.size:
+        return summary, [f"the preview is {im.size[0]} x {im.size[1]}, the mask {mask_size[0]} x {mask_size[1]}"]
+    return summary + ", the mask's size", []
 
 
-def _repo():
-    """The repo's coffeecv, for the previews' colour tags: an AVIF's CICP and a JPEG XL's header. The checks that use
-    it run here, from a checkout (compare-smoke, check-previews), never inside a release."""
-    repo = str(Path(__file__).resolve().parents[2])
-    if repo not in sys.path:
-        sys.path.append(repo)
-    import coffeecv.jxl_header
-    import coffeecv.preview_formats
-    return coffeecv
-
-
-def check_previews(expected: dict | None, served: dict | None) -> tuple[str, list[str]]:
-    """The served previews part against the expected one (ticket OPS-25 D5): the same formats, each sent as its type,
-    decoding at the expected size with the expected colour tags. Not their order, which the page does not read and a
-    PROBE line loses (its keys are sorted), nor their pixels: two machines' encoders may differ. (summary of each
-    file's size, failures)."""
-    if served is None:
-        return "", ["no previews part"]
-    e, s = expected["previews"], served.get("previews") or {}
-    if set(s) != set(e):
-        return "", [f"previews are [{', '.join(sorted(s))}], expected [{', '.join(sorted(e))}]"]
-    summary, failures = [], []
-    for name in e:
-        if s[name].get("mime") != e[name]["mime"]:
-            failures.append(f"previews {name} is sent as {s[name].get('mime')}, expected {e[name]['mime']}")
-            continue
-        data = base64.b64decode(s[name].get("data") or "")
-        want_size, want_tags = _preview_facts(e[name]["mime"], base64.b64decode(e[name]["data"]))
-        try:
-            size, tags = _preview_facts(e[name]["mime"], data)
-        except Exception as exc:
-            failures.append(f"previews {name} does not decode as {e[name]['mime']}: {type(exc).__name__}: {exc}")
-            continue
-        summary.append(f"{name} {size[0]} x {size[1]} {len(data)} B")
-        if size != want_size:
-            failures.append(f"previews {name} is {size[0]} x {size[1]}, expected {want_size[0]} x {want_size[1]}")
-        elif tags != want_tags:
-            failures.append(f"previews {name}'s colour tags are {tags}, expected {want_tags}")
-    return ", ".join(summary), failures
-
-
-def check_previews_cli(expected_file: Path, answer_file: Path) -> None:
-    """--verify's check of the third part through the domain: `answer_file` is /analyze's answer, one part a line;
-    `expected_file` holds the staged app's PROBE line on the same photo. A release whose answer has no previews part
-    expected (one from before OPS-25) is not checked."""
-    exp = _probe_line(expected_file.read_text())
-    want = next((p for p in exp["analyze"]["parts"] if p.get("part") == "previews"), None)
-    if want is None:
-        print("previews: none expected (a release from before OPS-25)")
-        return
+def check_preview_cli(answer_file: Path) -> None:
+    """--verify's check of the preview line through the domain: `answer_file` is /analyze's answer, one line each."""
     parts = [json.loads(line) for line in answer_file.read_text().splitlines() if line.strip()]
-    summary, failures = check_previews(want, next((p for p in parts if p.get("part") == "previews"), None))
-    print(f"previews: {summary}")
+    summary, failures = check_preview(parts)
+    print(f"preview: {summary}")
     for f in failures:
         print(f"FAIL: {f}")
     if failures:
@@ -294,12 +238,11 @@ def check_previews_cli(expected_file: Path, answer_file: Path) -> None:
 
 
 def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
-    """The VM's smoke answer against the one computed locally from the same staged tree: /analyze's two parts
-    (ticket OPS-7 D8). The classification by verdict, top-1 and scores within SCORE_TOL; the preview's mask
-    decoded, by IoU >= MASK_IOU_MIN, since the two machines' masks differ in a few pixels; its thumbnail by format
-    and size (`_compare_thumbnails`); the rest of the preview within 1e-3. The parts are the expected answer's: since
-    OPS-25 a previews part after the classification, held to the expected one by `check_previews`, its cost (R4)
-    reported from the request log."""
+    """The VM's smoke answer against the one computed locally from the same staged tree: /analyze's two lines
+    (ticket OPS-7 D8), the segmentation and the classification (ML-37 D24: the host sends no picture). The
+    classification by verdict, top-1 and scores within SCORE_TOL; the segmentation's mask decoded, by IoU >=
+    MASK_IOU_MIN, since the two machines' masks differ in a few pixels; the rest of the segmentation within 1e-3, a key
+    on one side only a failure."""
     exp = _probe_line(expected_file.read_text())
     got, parts = {}, []
     for line in smoke_file.read_text().splitlines():
@@ -322,8 +265,8 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
                         f"[{', '.join(want)}]{error}")
     else:
         print(f"  /analyze        200 in {seconds} s, parts {', '.join(names)}")
-        preview, body = parts[:2]
-        exp_preview, e = exp["analyze"]["parts"][:2]
+        seg, body = parts[:2]
+        exp_seg, e = exp["analyze"]["parts"][:2]
         if body.get("verdict") != e.get("verdict"):
             failures.append(f"classification verdict {body.get('verdict')} != expected {e.get('verdict')}")
         er, gr = e.get("ranked") or [], body.get("ranked") or []
@@ -336,27 +279,16 @@ def compare_smoke(expected_file: Path, smoke_file: Path) -> None:
         print(f"  classification  {body.get('verdict')}, top-1 {gr[0]['id'] if gr else '-'}, "
               f"max score diff vs local {worst:.1e}")
 
-        preview, e = dict(preview), dict(exp_preview)
-        thumb_summary, bad = _compare_thumbnails(e.pop("thumbnail"), preview.pop("thumbnail"))
+        seg, e = dict(seg), dict(exp_seg)
+        mask_summary, bad = _compare_masks(e.pop("mask", None), seg.pop("mask", None))
         failures += bad
-        mask_summary, bad = _compare_masks(e.pop("mask"), preview.pop("mask"))
-        failures += bad
-        worst, bad = _max_abs_diff(e, preview)
+        worst, bad = _max_abs_diff(e, seg, "segmentation")
         failures += bad
         if worst > 1e-3:
-            failures.append(f"preview box differs by up to {worst:.2e}")
-        print(f"  preview         cropped={preview.get('cropped')}, max box diff vs local {worst:.1e}, {mask_summary}, "
-              f"{thumb_summary}")
-        if len(want) > 2:   # OPS-25 D5
-            summary, bad = check_previews(exp["analyze"]["parts"][2], parts[2])
-            failures += bad
-            print(f"  previews        {summary}")
+            failures.append(f"segmentation box differs by up to {worst:.2e}")
+        print(f"  segmentation    cropped={seg.get('cropped')}, max box diff vs local {worst:.1e}, {mask_summary}")
 
     log = json.loads(got.get("SMOKE_LOG", "{}") or "{}")
-    if "previews_build_ms" in log:   # OPS-25 R4: the third part's cost on the host, reported, not gated
-        print(f"  previews cost   shrink {log.get('previews_shrink_ms')} ms, build {log['previews_build_ms']} ms, "
-              f"{log.get('previews_bytes')} bytes; classification out at {log.get('classification_ms')} ms, "
-              f"latency {log.get('latency_ms')} ms")
     served = (log.get("build") or {}).get("model_sha")
     if served != exp["build"]["model_sha"]:
         failures.append(f"model_sha served {served} != expected {exp['build']['model_sha']}")
@@ -494,8 +426,7 @@ def main() -> None:
     p = sub.add_parser("compare-smoke")
     p.add_argument("expected", type=Path)
     p.add_argument("smoke", type=Path)
-    p = sub.add_parser("check-previews", help="an /analyze answer's previews part against the expected one (OPS-25)")
-    p.add_argument("expected", type=Path)
+    p = sub.add_parser("check-preview", help="the front's preview line in an /analyze answer (ML-37 D15)")
     p.add_argument("answer", type=Path)
     p = sub.add_parser("compare-classify")
     p.add_argument("a", type=Path)
@@ -518,8 +449,8 @@ def main() -> None:
         classify_torch(args.photos, args.checkpoint)
     elif args.cmd == "compare-smoke":
         compare_smoke(args.expected, args.smoke)
-    elif args.cmd == "check-previews":
-        check_previews_cli(args.expected, args.answer)
+    elif args.cmd == "check-preview":
+        check_preview_cli(args.answer)
     else:
         compare_classify(args.a, args.b, args.tol, args.d7)
 

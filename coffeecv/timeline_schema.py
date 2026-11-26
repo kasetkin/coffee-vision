@@ -11,14 +11,21 @@ refused, and the refusal never repeats what was sent.
 The page's times, whole milliseconds on the browser's clock (performance.now()), one per step of the ticket's §2
 table that the page measures:
 
-    pick_ms           1   the control's tap until the file arrived (not for an example or a re-run)
-    download_ms       2   an example's JPEG XL downloaded
-    size_check_ms     3   the size check
-    to_preview_ms     13  the last attempt's upload sent until the preview part arrived
-    preview_drawn_ms  14  the preview part arrived until the photo and its mask were drawn
-    to_answer_ms      16  the last attempt's upload sent until the classification arrived
-    answer_shown_ms   16  the classification arrived until it was shown
-    total_ms          17  the tap (or the re-run's click) until the outcome was on screen
+    pick_ms                1   the control's tap until the file arrived (not for an example or a re-run)
+    download_ms            2   an example's JPEG XL downloaded
+    size_check_ms          3   the size check
+    to_preview_ms          13  the last attempt's upload sent until the preview line arrived
+    preview_drawn_ms       14  the preview line arrived until the photo was drawn
+    to_segmentation_ms     13s the last attempt's upload sent until the segmentation line arrived (version 2)
+    segmentation_drawn_ms  14s the segmentation line arrived until its mask and box were drawn (version 2)
+    to_answer_ms           16  the last attempt's upload sent until the classification arrived
+    answer_shown_ms        16  the classification arrived until it was shown
+    total_ms               17  the tap (or the re-run's click) until the outcome was on screen
+
+Version 2 (ticket ML-37 D25): the preview line is the front's, sent before the photo crosses (D15), and the host's mask
+and box come in a segmentation line of their own (D24). In a version-1 line the preview line was the host's and held
+the mask and the box, so its to_preview_ms and preview_drawn_ms are those of the picture with them. The page sends
+VERSION only; the reading script reads READ_VERSIONS, since the front's logs keep version-1 lines.
 
 and per upload attempt, in order (steps 4-6): its request ID from the answer's X-Request-Id (none if it never got
 an answer), its status (0 if none), connect_ms (DNS, TCP and TLS, from Resource Timing, when the browser gives one),
@@ -31,7 +38,8 @@ import json
 import re
 from pathlib import Path
 
-VERSION = 1
+VERSION = 2
+READ_VERSIONS = (1, 2)
 # The controls that send a photo (OPS-17 D7): Choose Photo (the photo picker; on iOS and the desktop it also offers a
 # file browser and the camera), Select File (Android's file browser, OPS-21), the camera button, and an example.
 CONTROLS = ("choose_photo", "select_file", "camera", "example")
@@ -42,8 +50,10 @@ CONTROLS = ("choose_photo", "select_file", "camera", "example")
 # left, before the outcome), download_failed (an example's photo could not be fetched).
 OUTCOMES = ("answered", "failed", "refused_on_page", "refused", "busy", "offline", "unreachable", "cut", "abandoned",
             "download_failed")
-TIMES = ("pick_ms", "download_ms", "size_check_ms", "to_preview_ms", "preview_drawn_ms", "to_answer_ms",
-         "answer_shown_ms", "total_ms")
+TIMES_V1 = ("pick_ms", "download_ms", "size_check_ms", "to_preview_ms", "preview_drawn_ms", "to_answer_ms",
+            "answer_shown_ms", "total_ms")
+TIMES = ("pick_ms", "download_ms", "size_check_ms", "to_preview_ms", "preview_drawn_ms", "to_segmentation_ms",
+         "segmentation_drawn_ms", "to_answer_ms", "answer_shown_ms", "total_ms")
 ATTEMPT_TIMES = ("connect_ms", "upload_ms", "headers_ms", "wait_ms")
 MAX_MS = 600_000       # 10 minutes: no step of a photo takes longer
 MAX_ATTEMPTS = 8       # the page makes at most 4 (one, then three busy retries)
@@ -52,7 +62,7 @@ PROBE = "verify"       # the deploy's own checks (D14)
 REQUEST_ID = re.compile(r"[0-9a-f]{32}")   # nginx's $request_id (D8)
 
 _REQUIRED = {"v", "request_id", "control", "outcome", "attempts"}
-_KEYS = _REQUIRED | {"rerun_of", "example", "probe", *TIMES}
+_KEYS = {1: _REQUIRED | {"rerun_of", "example", "probe", *TIMES_V1}, 2: _REQUIRED | {"rerun_of", "example", "probe", *TIMES}}
 _ATTEMPT_KEYS = {"request_id", "status", *ATTEMPT_TIMES}
 
 
@@ -85,17 +95,19 @@ def parse(body: bytes, examples: frozenset[str] | set[str]) -> dict:
     return check(data, examples)
 
 
-def check(data: object, examples: frozenset[str] | set[str] | None) -> dict:
-    """`data` if it is a timeline the schema knows; else Invalid. `examples` None takes any example name: for a line
-    the check service has already held to the release's list (the reading script)."""
+def check(data: object, examples: frozenset[str] | set[str] | None, versions: tuple[int, ...] = (VERSION,)) -> dict:
+    """`data` if it is a timeline the schema knows, at one of `versions`; else Invalid. `examples` None takes any
+    example name: for a line the check service has already held to the release's list (the reading script, which
+    reads READ_VERSIONS)."""
     if not isinstance(data, dict):
         raise Invalid("not an object")
-    if set(data) - _KEYS:
+    version = data.get("v")
+    if isinstance(version, bool) or version not in versions:
+        raise Invalid(f"v is not {' or '.join(map(str, versions))}")
+    if set(data) - _KEYS[version]:
         raise Invalid("an unknown key")
     for key in sorted(_REQUIRED - set(data)):
         raise Invalid(f"no {key}")
-    if data["v"] != VERSION or isinstance(data["v"], bool):
-        raise Invalid("v is not 1")
     _one_of(data, "control", CONTROLS)
     _one_of(data, "outcome", OUTCOMES)
     _id(data["request_id"], "request_id", none=True)

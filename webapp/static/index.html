@@ -210,30 +210,6 @@
        between requests (ADR 0023), so an edited box is a second upload of
        the photo, carrying the edit, as "Use full photo instead" is. */
   }
-  /* The preview's formats (ticket OPS-25 D2), a trial: under the preview, flipped in place, today's sRGB JPEG first
-     and selected. Each tab says its file's size, "loading" until the previews part comes, or that this browser cannot
-     show it. */
-  #preview-tabs {
-    display: none;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
-  }
-  #preview-tabs button {
-    flex: 0 1 auto;
-    min-width: 0;
-    padding: 0.3rem 0.6rem;
-    border-radius: 1rem;
-    border: 1px solid var(--border);
-    background: none;
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 500;
-    line-height: 1.2;
-  }
-  #preview-tabs button[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
-  #preview-tabs .size { display: block; font-size: 0.7rem; opacity: 0.85; }
   #outline-label {
     display: none;
     width: fit-content;
@@ -365,13 +341,6 @@
         <div id="crop-overlay"></div>
       </div>
     </div>
-    <!-- Ticket OPS-25 D2: the trial's format tabs, in the previews part's order after today's preview. -->
-    <div id="preview-tabs" role="tablist" aria-label="Preview format">
-      <button type="button" role="tab" data-format="srgb_jpeg">sRGB JPEG<span class="size"></span></button>
-      <button type="button" role="tab" data-format="p3_jpeg">P3 JPEG<span class="size"></span></button>
-      <button type="button" role="tab" data-format="avif10">AVIF 10-bit<span class="size"></span></button>
-      <button type="button" role="tab" data-format="jxl">JPEG XL<span class="size"></span></button>
-    </div>
     <label id="outline-label"><input id="outline-toggle" type="checkbox" checked> Show outline</label>
     <button id="crop-toggle-btn" type="button"></button>
     <div id="crop-note"></div>
@@ -414,11 +383,10 @@ const resultEl = document.getElementById('result');
 const examplesEl = document.getElementById('examples');
 const exampleRow = document.getElementById('example-row');
 const formatsToggle = document.getElementById('formats-toggle');
-const previewTabs = document.getElementById('preview-tabs');
 const examplesToggle = document.getElementById('examples-toggle');
 
 let lastCropBox = null; // [x0, y0, x1, y1] as fractions of the full image, or null
-// The photo's bean region from the preview part (ticket OPS-6 D7): the decoded
+// The photo's bean region from the segmentation line (ticket OPS-6 D7, ML-37 D24): the decoded
 // mask image, opaque on bean pixels and transparent elsewhere, covering the
 // whole photo; or null (no mask, or not decoded yet).
 let lastMask = null;
@@ -463,12 +431,12 @@ function hide(...elements) {
 // hosts log the rest under the same request ID: the photo's name, format and size and every host's time. The names
 // are coffeecv/timeline_schema.py's (held equal by tests/test_timeline_schema.py), which says what each time measures;
 // all are on performance.now(). A beacon that fails is dropped: the page never waits on it, retries it or shows it.
-const TIMELINE_VERSION = 1;
+const TIMELINE_VERSION = 2;   // ML-37 D25: the preview is the front's, the segmentation the host's
 const TIMELINE_CONTROLS = ['choose_photo', 'select_file', 'camera', 'example'];
 const TIMELINE_OUTCOMES = ['answered', 'failed', 'refused_on_page', 'refused', 'busy', 'offline', 'unreachable', 'cut',
                            'abandoned', 'download_failed'];
-const TIMELINE_TIMES = ['pick_ms', 'download_ms', 'size_check_ms', 'to_preview_ms', 'preview_drawn_ms', 'to_answer_ms',
-                        'answer_shown_ms', 'total_ms'];
+const TIMELINE_TIMES = ['pick_ms', 'download_ms', 'size_check_ms', 'to_preview_ms', 'preview_drawn_ms',
+                        'to_segmentation_ms', 'segmentation_drawn_ms', 'to_answer_ms', 'answer_shown_ms', 'total_ms'];
 const TIMELINE_ATTEMPT_TIMES = ['connect_ms', 'upload_ms', 'headers_ms', 'wait_ms'];
 const TIMELINE_MAX_MS = 600000;
 const REQUEST_ID = /^[0-9a-f]{32}$/;   // the front's (OPS-3 D8); anything else is not sent
@@ -591,8 +559,9 @@ cropToggleBtn.addEventListener('click', () => {
 // #image-clip is sized to exactly the rendered photo's own rect (not the
 // wrapper's) so the tint, the outline and the box only ever cover actual
 // photo pixels, never the letterbox margin around it. The one place that
-// draws: it runs on the preview's load, on the preview part and on resize,
-// and draws the bean region only once both the preview and the mask loaded.
+// draws: it runs on the preview's load, on the segmentation line and on
+// resize, and draws the bean region only once both the preview and the mask
+// loaded (ML-37 D15: the preview comes first, the mask and box after it).
 function renderOverlay() {
   if (!lastCropBox || !preview.naturalWidth) {
     hide(imageClip, outlineLabel);
@@ -777,7 +746,8 @@ function choose(file, example, r) {
 function clearPhoto() {
   currentUpload++;
   resultEl.innerHTML = '';
-  hide(previewWrap, previewTabs, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
+  hide(previewWrap, imageClip, cropOverlay, tintCanvas, outlineCanvas, outlineLabel, cropNote, cropToggleBtn);
+  preview.removeAttribute('src');   // no picture of the last photo under this one's mask (ML-37 D23)
   lastCropBox = null;
   lastMask = null;
   lastFile = lastExample = null;
@@ -818,7 +788,7 @@ async function loadExamples() {
 }
 
 // A click (D9): the example's JPEG XL fetched from the front, then uploaded as a chosen file. The browser need not
-// be able to show a JPEG XL: the page shows the server's JPEG thumbnail (D7).
+// be able to show a JPEG XL: the page shows the front's JPEG preview (D7, ML-37 D15).
 async function chooseExample(example) {
   const r = startRun('example', example, performance.now());
   foldLists();    // ticket OPS-20 D10: at the click, before the download, where a visitor's own photo's wait is
@@ -862,14 +832,17 @@ function showSending(on) {
 }
 
 // One upload to POST /analyze (ticket OPS-7, ADR 0023); its answer streams
-// back as one JSON object per line: the preview part, then the classification
-// part, or an error part (D8). For an example photo, the classification is followed by its truth (OPS-16 D10).
+// back as one JSON object per line: the front's preview line, then the
+// host's segmentation line (mask and box), then the classification line, or
+// an error line (D8; ML-37 D15, D16, D24). The preview may be missing (the
+// front could not make it, D23): the answer is shown without it. For an example photo, the classification is
+// followed by its truth (OPS-16 D10).
 // `r` is the photo's timeline (OPS-3), marked as the photo goes and ended with its outcome; an answer that has gone
 // stale leaves it alone, since the pick that made it stale ended it as abandoned.
 async function analyze(file, skipCrop, example, r) {
   const upload = ++currentUpload;
   const isStale = () => upload !== currentUpload;
-  let previewPart = null, answered = false;
+  let segmentation = null, answered = false;
   setBusy(true);
   try {
     const res = await postAnalyze(file, skipCrop, isStale, r);
@@ -894,43 +867,42 @@ async function analyze(file, skipCrop, example, r) {
       const arrived = performance.now();
       if (part.part === 'preview') {
         mark(r, 'to_preview_ms', r.sentAt);
-        previewPart = part;
         await showPreview(part, isStale);
         if (isStale()) return;
         mark(r, 'preview_drawn_ms', arrived);
+      } else if (part.part === 'segmentation') {
+        mark(r, 'to_segmentation_ms', r.sentAt);
+        segmentation = part;
+        await showSegmentation(part, isStale);
+        if (isStale()) return;
+        mark(r, 'segmentation_drawn_ms', arrived);
       } else if (part.part === 'classification') {
         mark(r, 'to_answer_ms', r.sentAt);
         answered = true;
-        spinner.style.display = 'none';   // OPS-25: the answer is in; the controls wait for the previews part
         render(part);
         if (example) renderTruth(example);
         // D1: only if the whole photo was not already used.
-        if (!skipCrop && previewPart && previewPart.cropped && !previewPart.seg_fallback) {
+        if (!skipCrop && segmentation && segmentation.cropped && !segmentation.seg_fallback) {
           cropToggleBtn.style.display = 'block';
         }
         mark(r, 'answer_shown_ms', arrived);
         endRun('answered', r);
       } else if (part.part === 'error') {
+        // The host's failure, or (ML-37 D26) the front's word for a host that refused or could not be reached after
+        // the preview: shown as the same refusal before the stream would be, the preview kept beside it.
         answered = true;
-        renderRefused(part.message);
-        endRun('failed', r);
-      } else if (part.part === 'previews') {
-        await showPreviews(part, isStale);
-        if (isStale()) return;
+        renderRefused(errorLineMessage(part));
+        endRun(errorLineOutcome(part), r);
       }
     }
-    if (!isStale()) settlePreviewTabs();
-    // R4: a stream cut before its second part (a dropped connection, the
+    // R4: a stream cut before its classification (a dropped connection, the
     // worker killed at 30 s) is not left waiting.
     if (!answered && !isStale()) {
       renderRefused(UNREACHABLE);
       endRun('cut', r);
     }
   } catch (err) {
-    if (answered && !isStale()) {
-      // OPS-25: cut while the previews part crossed, after the answer: the answer stays, the tabs say so.
-      settlePreviewTabs();
-    } else if (!isStale()) {
+    if (!answered && !isStale()) {
       renderRefused(UNREACHABLE);
       const last = r.attempts[r.attempts.length - 1];
       if (last && last.status) endRun('cut', r);   // the answer had begun
@@ -952,6 +924,19 @@ function refusalFor(status, data) {
 function refusalOutcome(status, data) {
   if (status === 503) return data.error === OFFLINE_ERROR ? 'offline' : 'busy';
   return 'refused';
+}
+
+// An error line (ML-37 D26): busy and offline as their refusals say them; anything else, the host's failure or the
+// front's "failed", in its own words.
+function errorLineMessage(part) {
+  if (part.outcome === 'offline') return OFFLINE;
+  if (part.outcome === 'busy') return BUSY;
+  return part.message || 'Something went wrong -- try a different photo.';
+}
+
+// The same, as the timeline's outcome: the schema's words, none new (D26).
+function errorLineOutcome(part) {
+  return part.outcome === 'offline' || part.outcome === 'busy' ? part.outcome : 'failed';
 }
 
 // The upload, sent again after each of BUSY_RETRY_S's waits while nginx
@@ -1054,16 +1039,25 @@ function send(form, onSent, onHeaders, onEnd) {
   });
 }
 
-// The preview part (D8): the server's JPEG thumbnail, never the file itself
-// -- browsers other than Safari cannot show a HEIC, and none a RAW -- and the
-// photo's bean region. Both decode first, so the photo, the box and the bean
-// region appear together. A mask that fails to decode shows the box only; on
-// skip_crop the mask and the box are null and the overlay stays hidden (D9).
+// The preview line (D8; ML-37 D15, D24): the front's JPEG of the photo the models read, never the file itself --
+// browsers other than Safari cannot show a HEIC, and none a RAW. It comes before the photo has crossed to the
+// classifier, so it is drawn alone; the mask and the box follow in the segmentation line.
 async function showPreview(part, isStale) {
-  const src = `data:image/jpeg;base64,${part.thumbnail}`;
-  const thumb = new Image();
-  thumb.src = src;
-  await thumb.decode();
+  const src = `data:image/jpeg;base64,${part.jpeg}`;
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  if (isStale()) return;
+  preview.onload = renderOverlay;
+  preview.src = src;
+  previewWrap.style.display = 'block';
+  renderOverlay();
+}
+
+// The segmentation line (ML-37 D24): the photo's bean region and crop box, drawn over the preview. A mask that fails
+// to decode shows the box only; on skip_crop the mask and the box are null and the overlay stays hidden (D9). Without
+// a preview (D23) nothing is drawn, but the notes still say what the classification will use.
+async function showSegmentation(part, isStale) {
   let mask = null;
   if (part.mask) {
     const img = new Image();
@@ -1078,10 +1072,6 @@ async function showPreview(part, isStale) {
   if (isStale()) return;
   lastCropBox = part.cropped ? part.box : null;
   lastMask = mask;
-  preview.onload = renderOverlay;
-  preview.src = src;
-  previewWrap.style.display = 'block';
-  resetPreviewTabs(src, part.thumbnail);
   renderOverlay();
   // The two notes cannot fire together: a segmenter model's needs_review is
   // always false (coffeecv/infer.py).
@@ -1094,72 +1084,6 @@ async function showPreview(part, isStale) {
     cropNote.textContent = 'Framing looks a bit uncertain -- classification will still run.';
     cropNote.style.display = 'block';
   }
-}
-
-// The trial's format tabs (ticket OPS-25 D2, D5): today's preview selected, the three others "loading" until the
-// previews part. Each is the same size as today's preview, so the overlay stays where it is on every tab (R5): a
-// tab only swaps #preview's src, whose load redraws it.
-let previewSources = {};
-const tabFor = format => previewTabs.querySelector(`[data-format="${format}"]`);
-
-function base64Bytes(b64) {
-  return Math.floor(b64.length * 3 / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
-}
-
-function setTab(format, note, usable) {
-  const tab = tabFor(format);
-  if (!tab) return;
-  tab.querySelector('.size').textContent = note;
-  tab.disabled = !usable;
-}
-
-function selectPreview(format) {
-  if (!previewSources[format]) return;
-  for (const tab of previewTabs.querySelectorAll('button')) {
-    tab.setAttribute('aria-selected', String(tab.dataset.format === format));
-  }
-  if (preview.src !== previewSources[format]) preview.src = previewSources[format];
-}
-
-function resetPreviewTabs(src, b64) {
-  previewSources = {srgb_jpeg: src};
-  for (const tab of previewTabs.querySelectorAll('button')) {
-    const format = tab.dataset.format;
-    if (format === 'srgb_jpeg') setTab(format, `${Math.round(base64Bytes(b64) / 1024)} KB`, true);
-    else setTab(format, 'loading', false);
-  }
-  selectPreview('srgb_jpeg');
-  previewTabs.style.display = 'flex';
-}
-
-// The previews part: each file decoded before its tab is offered, so a format this browser cannot show says so.
-async function showPreviews(part, isStale) {
-  await Promise.all(Object.entries(part.previews || {}).map(async ([format, file]) => {
-    const src = `data:${file.mime};base64,${file.data}`;
-    const img = new Image();
-    img.src = src;
-    let ok = true;
-    try {
-      await img.decode();
-    } catch (err) {
-      ok = false;
-    }
-    if (isStale()) return;
-    const size = `${Math.round(base64Bytes(file.data) / 1024)} KB`;
-    if (ok) previewSources[format] = src;
-    setTab(format, ok ? size : `${size}, can't show`, ok);
-  }));
-}
-
-// The stream has ended: a tab still loading never came (an error part, or the previews failed on the server).
-function settlePreviewTabs() {
-  for (const tab of previewTabs.querySelectorAll('button')) {
-    if (tab.querySelector('.size').textContent === 'loading') setTab(tab.dataset.format, 'not sent', false);
-  }
-}
-
-for (const tab of previewTabs.querySelectorAll('button')) {
-  tab.addEventListener('click', () => selectPreview(tab.dataset.format));
 }
 
 function renderRefused(message) {

@@ -8,6 +8,8 @@ The service runs on two machines with separate jobs. **The front** is always on 
 
 We chose this over keeping everything on the inference host behind a TLS passthrough. With that setup the page went down with the GPU box, and every upload crossed the slow link (2.1 Mbit/s into `yappy`, 2026-11-02) before anything could refuse it. We also chose it over deploying the two parts separately, because the page and the backend must switch together (ADR 0008, and OPS-9's goal).
 
+Amended 2026-11-26 by [ADR 0043](0043-the-front-draws-the-preview.md) ([ML-37](../ml-0037_ticket_linear_canonical_photo.html) D15, D19): the inference host no longer streams the whole answer and the front no longer only relays it. The front opens the visitor's answer once the canonical photo is made and writes its first line, the preview, then relays the host's lines after it; a host refusal from then on becomes an error line.
+
 ## Consequences
 
 - **Amends [ADR 0008](0008-webapp-serves-immutable-releases.md):** a release spans two hosts, with `current` and `previous` on each, and its front site rides in the release, so a rollback restores the site too.

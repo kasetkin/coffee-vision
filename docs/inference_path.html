@@ -279,16 +279,17 @@
   <p class="lede">
     Traced from <code>webapp/app.py</code>'s <code>POST /analyze</code>, which runs the two steps of
     <code>coffeecv/infer.py:classify_one</code>, <code>segment_decoded</code> and <code>classify_segmented</code>, with
-    the preview sent in between (ticket OPS-7, ADR 0023). The CLI runs <code>classify_one</code> itself, so the two
+    the segmentation sent in between (ticket OPS-7, ADR 0023). The CLI runs <code>classify_one</code> itself, so the two
     callers share one code path. Logging and JSON shaping are left out; everything from the upload to the two streamed
-    parts is included.
+    lines is included. The visitor's answer starts before them, at the front, with its preview (ticket ML-37 D15,
+    ADR 0043).
   </p>
   <div class="scope">
     <span>model: dino3b16_segxl0v7r_country_aug8_ml29gm_s123</span>
     <span>segmenter: EfficientViT-SAM XL0 + xl0_v7r_s123 decoder</span>
     <span>classifier: DINOv3 ViT-B/16, frozen, + linear head</span>
     <span>runtime: LiteRT on the host's GPU, no torch</span>
-    <span>as of 2026-11-19 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped, JPEG XL extra channels, gain maps, its model trained on them; ML-31: JPEG XL LinearRaw DNGs; 2026-11-19, OPS-25: the trial's third part, wide-gamut previews)</span>
+    <span>as of 2026-11-26 (ML-16: xl0_v7r_s123; ML-19: canonical photos; ML-21: the decode threaded; OPS-22: the front's own canonical photo; ML-29: colour declarations, HDR tone-mapped, JPEG XL extra channels, gain maps, its model trained on them; ML-31: JPEG XL LinearRaw DNGs; 2026-11-26, ML-37: the preview made at the front, the host's segmentation line, OPS-25's trial ended)</span>
   </div>
 
   <div class="callout">
@@ -318,7 +319,12 @@
     steps (ticket ML-31 D1); every other RAW stays LibRaw's. A photo's gain map is applied to its main image and
     tone-mapped back, as the store does (ML-29 P11, ADR 0041), by <code>coffeecv/gain_map.py</code>: strip by strip, in
     linear Rec.2020, and left unapplied when it does not scale the channels alike (D38) or has more than 16 million
-    samples (R6). With a map the front takes 12&ndash;15 s and at most about 490 MB for a 50 MP photo on 2 CPUs. It forwards the
+    samples (R6). With a map the front takes 12&ndash;15 s and at most about 490 MB for a 50 MP photo on 2 CPUs. Then
+    the visitor's answer opens at the front (ticket ML-37 D15, D16, ADR 0043): a 200 of NDJSON lines whose first is
+    <b>the preview</b>, <code>{"part": "preview", "jpeg": ...}</code>, the canonical photo read back as the host reads it
+    and shrunk to 1024 px (<code>coffeecv/preview.py</code>), made on a thread while the photo crosses; the host's lines
+    are relayed after it. A host refusal from then on is an error line, <code>outcome</code> busy, offline or failed
+    (D26), and a preview the front cannot make is left out (D23). It forwards the
     form with the canonical photo in place of the visitor's over the
     tailnet, in plain HTTP, to <b>the inference host</b>'s nginx, which hands it to gunicorn and
     <code>analyze()</code>. <code>analyze()</code> refuses anything that is not a canonical photo and decodes the rest
@@ -348,7 +354,7 @@
 
   <figure>
     <div class="diagram-frame">
-<svg viewBox="0 0 1000 1450" role="img" aria-label="Flowchart of /analyze: decode the upload, segment the beans and crop to them, stream the preview as the first part, measure bean pitch, sample 40 patches on the mask, resize and normalise them, run them through the frozen DINOv3 ViT-B/16 on LiteRT and the linear head, average probabilities across patches, score the photo with the out-of-distribution probe, and stream the classification as the second part. Three refusal branches exit to the right: a photo that cannot be decoded, one whose bean pitch cannot be measured, and one that is out of distribution.">
+<svg viewBox="0 0 1000 1450" role="img" aria-label="Flowchart of /analyze: decode the upload, segment the beans and crop to them, stream the segmentation as the first line, measure bean pitch, sample 40 patches on the mask, resize and normalise them, run them through the frozen DINOv3 ViT-B/16 on LiteRT and the linear head, average probabilities across patches, score the photo with the out-of-distribution probe, and stream the classification as the second part. Three refusal branches exit to the right: a photo that cannot be decoded, one whose bean pitch cannot be measured, and one that is out of distribution.">
   <defs>
     <marker id="aLine" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M0,0 L8,4 L0,8 Z" style="fill:var(--muted)"/>
@@ -422,10 +428,10 @@
   <text x="573" y="393" text-anchor="middle" style="font-size:10.5px; fill:var(--accent-ink)">HTTP 200, stream opens</text>
   <g>
     <rect x="690" y="358" width="220" height="84" rx="8" style="fill:var(--good-bg); stroke:var(--accent)" stroke-width="2"/>
-    <text x="800" y="380" text-anchor="middle" style="font-size:13px; font-weight:700; fill:var(--accent-ink)">PART 1 &middot; preview</text>
-    <text x="800" y="397" text-anchor="middle" style="font-size:10.5px; fill:var(--ink)">thumbnail &#8804; 1024 px, bean mask,</text>
+    <text x="800" y="380" text-anchor="middle" style="font-size:13px; font-weight:700; fill:var(--accent-ink)">LINE 1 &middot; segmentation</text>
+    <text x="800" y="397" text-anchor="middle" style="font-size:10.5px; fill:var(--ink)">bean mask &#8804; 1024 px,</text>
     <text x="800" y="411" text-anchor="middle" style="font-size:10.5px; fill:var(--ink)">crop box, seg_fallback</text>
-    <text x="800" y="429" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">_preview_part() &middot; ~2 s</text>
+    <text x="800" y="429" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">_segmentation_part() &middot; ~2 s</text>
   </g>
   <line x1="300" y1="446" x2="300" y2="470" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
 
@@ -443,7 +449,7 @@
   <g>
     <rect x="690" y="490" width="220" height="60" rx="8" style="fill:var(--surface-2); stroke:var(--refuse)" stroke-width="1.5"/>
     <text x="800" y="512" text-anchor="middle" style="font-size:13px; font-weight:600; fill:var(--refuse-ink)">REFUSED &middot; unmeasurable</text>
-    <text x="800" y="528" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">part 2: refused_unreadable</text>
+    <text x="800" y="528" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">line 2: refused_unreadable</text>
     <text x="800" y="542" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">the 200 has already gone out</text>
   </g>
   <line x1="300" y1="570" x2="300" y2="600" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#aLine)"/>
@@ -515,7 +521,7 @@
   <g>
     <rect x="690" y="1190" width="220" height="70" rx="8" style="fill:var(--surface-2); stroke:var(--refuse)" stroke-width="1.5"/>
     <text x="800" y="1212" text-anchor="middle" style="font-size:13px; font-weight:600; fill:var(--refuse-ink)">REFUSED &middot; out of distribution</text>
-    <text x="800" y="1228" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">part 2: refused_ood, "Unrecognized"</text>
+    <text x="800" y="1228" text-anchor="middle" style="font-size:10.5px; fill:var(--muted)">line 2: refused_ood, "Unrecognized"</text>
     <text x="800" y="1242" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">the ranked list is dropped</text>
   </g>
 
@@ -525,7 +531,7 @@
   <!-- N final -->
   <g>
     <rect x="140" y="1320" width="320" height="100" rx="8" style="fill:var(--good-bg); stroke:var(--accent)" stroke-width="2"/>
-    <text x="300" y="1345" text-anchor="middle" style="font-size:14.5px; font-weight:700; fill:var(--accent-ink)">PART 2 &middot; classification</text>
+    <text x="300" y="1345" text-anchor="middle" style="font-size:14.5px; font-weight:700; fill:var(--accent-ink)">LINE 2 &middot; classification</text>
     <text x="300" y="1365" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">"predicted", ranked [{id, label, score}, >verdict "predicted", ranked [{id, label, score}, &#8230;]<#8230;]</text>
     <text x="300" y="1382" text-anchor="middle" style="font-size:11.5px; fill:var(--ink)">for all 10 countries, highest first</text>
     <text x="300" y="1401" text-anchor="middle" style="font-family:'IBM Plex Mono',monospace; font-size:10px; fill:var(--muted)">_entry_to_response() &middot; ~8.5 s from the upload</text>
@@ -546,7 +552,7 @@
     <div class="fact"><div class="k">DINOv3 calls</div><div class="v">5 &times; 8</div></div>
     <div class="fact"><div class="k">Patch store size</div><div class="v">448px</div></div>
     <div class="fact"><div class="k">Model input size</div><div class="v">224px</div></div>
-    <div class="fact"><div class="k">Preview after</div><div class="v">~2 s</div></div>
+    <div class="fact"><div class="k">Segmentation after</div><div class="v">~2 s</div></div>
     <div class="fact"><div class="k">Answer after</div><div class="v">~8.5 s</div></div>
     <div class="fact"><div class="k">OOD threshold</div><div class="v">0.5 (probe)</div></div>
   </div>
@@ -557,36 +563,30 @@
   <div class="card">
     <div class="card-head">
       <span class="card-num">1</span>
-      <h3>One request, two parts (three during OPS-25's trial)</h3>
+      <h3>One request, two lines from the host after the front's preview</h3>
       <span class="file">webapp/app.py &middot; analyze(), _analyze_stream()</span>
     </div>
     <p>The page uploads the photo once and reads the answer as <code>application/x-ndjson</code>, one JSON object per
       line (ticket OPS-7, ADR 0023). The photo is decoded and segmented before the response starts, so a photo that
       cannot be decoded is still a plain 400 and a segmenter error the error handler's 500. Then the 200 goes out with
-      the preview: a JPEG thumbnail (so the browser never has to decode HEIC or RAW itself), the whole photo's bean
-      mask as a 1-bit PNG, the crop box as fractions of the photo, and whether the D18 fallback fired. The
-      classification follows as the second line. A failure after the 200 cannot change the status, so it becomes an
+      the segmentation (ticket ML-37 D24): the whole photo's bean mask as a 1-bit PNG, the crop box as fractions of the
+      photo, and whether the D18 fallback fired. No picture: the front sent the preview, the same model picture, before
+      the photo crossed (D15), and the page draws the mask and box over it. The classification follows as the second
+      line. A failure after the 200 cannot change the status, so it becomes an
       <code>error</code> part; a photo whose pitch cannot be measured becomes a <code>refused_unreadable</code>
       classification part. "Use full photo instead" on the page re-sends the photo with <code>skip_crop=1</code>: the
-      segmenter does not run, the whole photo is classified, and the preview has no mask and no box. The server never
+      segmenter does not run, the whole photo is classified, and the segmentation has no mask and no box. The server never
       takes a box from the client.</p>
-    <p>During ticket OPS-25's trial a classification is followed by a third line, <code>previews</code>: the preview as
-      a Display P3 JPEG, a 10-bit AVIF and a JPEG XL, for the page's format tabs (<code>coffeecv/preview_formats.py</code>).
-      The photo is read in <code>load_canonical</code>'s two steps, so the app can keep the canonical photo's 16-bit
-      linear Rec.2020 samples (ticket ML-37 D1): a thread shrinks them to the preview's size while the photo is segmented, and they are encoded
-      after the classification has gone out. Display only: the models read the same 8-bit sRGB as before. A failure
-      there leaves the part out; the answer is already complete.</p>
+    <p>OPS-25's trial of wide-gamut previews, a third line after the classification, ended with ML-37 (D4): the preview
+      is the models' own picture.</p>
     <pre>problems = canonical.canonical_problems(data)  <span class="c"># 400 if not a canonical photo (ML-19 D12)</span>
 rec = canonical.decode_canonical(data)         <span class="c"># 16-bit linear Rec.2020; 400 if it cannot be read</span>
 photo = readback.to_srgb(rec)                  <span class="c"># 8-bit sRGB, the model picture: load_canonical's second step (ML-37 D2)</span>
-small = _shrink_aside(rec)                     <span class="c"># OPS-25: on its own thread</span>
 seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter)
-<span class="k">yield</span> json.dumps(_preview_part(seg)) + <span class="s">"\n"</span>     <span class="c"># part 1</span>
+<span class="k">yield</span> json.dumps(_segmentation_part(seg)) + <span class="s">"\n"</span>   <span class="c"># line 1: mask and box (ML-37 D24)</span>
 entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref,
                            n_patches=40, tta=TTA, probe=probe)
-<span class="k">yield</span> json.dumps({<span class="s">"part"</span>: <span class="s">"classification"</span>, **body}) + <span class="s">"\n"</span>   <span class="c"># part 2</span>
-samples, shrink_ms = small.result()            <span class="c"># OPS-25: after a classification only</span>
-<span class="k">yield</span> json.dumps(_previews_part(samples)) + <span class="s">"\n"</span>   <span class="c"># part 3; a failure leaves it out</span></pre>
+<span class="k">yield</span> json.dumps({<span class="s">"part"</span>: <span class="s">"classification"</span>, **body}) + <span class="s">"\n"</span>   <span class="c"># line 2</span></pre>
   </div>
 
   <div class="card">

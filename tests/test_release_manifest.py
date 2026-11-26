@@ -96,7 +96,7 @@ class TestReleaseManifest(unittest.TestCase):
                 self.assertEqual(out.returncode, 0, out.stderr[-3000:])
                 trace = json.loads(next(line[6:] for line in out.stdout.splitlines()
                                         if line.startswith("TRACE ")))
-                self.assertEqual(trace["status"], {"/analyze": [200, ["preview", "classification", "previews"]]})
+                self.assertEqual(trace["status"], {"/analyze": [200, ["segmentation", "classification"]]})
                 outside = sorted(set(trace["opened"]) - all_files(m))
                 self.assertEqual(outside, [], f"{model} opened repo files outside the manifest")
                 # The other direction: the manifest names no code or model file the app never needs.
@@ -197,7 +197,8 @@ class TestTwoReleases(unittest.TestCase):
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
                           "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py", "coffeecv/tone_map.py",
                           "coffeecv/linear_dng.py", "coffeecv/gain_map.py",
-                          "coffeecv/readback.py"})   # ML-37 D2: the read-back, which canonical imports
+                          "coffeecv/readback.py",   # ML-37 D2: the read-back, which canonical imports
+                          "coffeecv/preview.py"})   # ML-37 D15: the preview, made at the front
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):
