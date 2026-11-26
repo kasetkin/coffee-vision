@@ -11,7 +11,7 @@ The owner chose this because the picture reached the browser only after the phot
 ## Consequences
 
 - **Amends [ADR 0023](0023-webapp-answers-a-photo-in-one-streamed-request.md):** the answer's first line is the front's preview, not the host's thumbnail with the mask and box; those come in the host's segmentation line after it. The public API's line order changes (`openapi.json`, `llms.txt`), and the error line carries an `outcome` when the front writes it.
-- **Amends [ADR 0031](0031-the-front-and-the-inference-host.md):** the front no longer only relays the host's answer; it writes the answer's status, headers and first line, and turns a host refusal after them into a line. A host busy past the preview is not retried by the page.
+- **Amends [ADR 0031](0031-the-front-and-the-inference-host.md):** the front no longer only relays the host's answer; it writes the answer's status, headers and first line, and turns a host refusal after them into a line. A host busy past the preview is not retried by the page (ML-37 D28).
 - The front's memory holds the canonicalization and, after it, the preview's decode and strip read-back (about 100 MB more at 17 MP, ML-37 R10), never both at once; its unit's MemoryMax is reviewed from the peak its log line records with the preview in it.
 - The logs follow the lines (ML-37 D23, D25 to D27): the front's line has the preview's build and when it went out, on its own clock, or why it was not made, and the host's first line's arrival; the host's has the segmentation's; the page's timeline is at version 2. The reading script reads both versions.
 - Whether libjxl decodes bit-identically on the front's CPU and the host's is checked at a release (ML-37 D22), not assumed.

@@ -18,7 +18,7 @@
     (<a href="ml-0037_plan_linear_canonical_photo.html">P1&ndash;P8</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; D28 decided 2026-11-26 after the code review; P1&ndash;P4 implemented on <code>ml37-linear-canonical</code> (<code>dfda7c4</code>), P5&ndash;P8 not started</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
@@ -601,6 +601,12 @@
           <code>docs/logging_plan.html</code>, <code>docs/inference_path.html</code> and
           <code>docs/agents/deploy.md</code>. A test runs one request's three lines (front, host, page) through the
           reading script for an answer, an answer with no preview, and a refusal after the preview.</td></tr>
+      <tr><td class="id">D28</td><td>A host busy after the preview: does the page retry?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner, after the code review of P1&ndash;P4 ("the main idea to show an error and do not
+          retry is okay"). No: the page shows the error line beside the preview and does not retry, as built in P4
+          and recorded in <a href="adr/0043-the-front-draws-the-preview.md">ADR 0043</a>. Before ML-37 a host busy 503
+          fed the page's retry loop. The words the page shows for it may change from "busy"; not decided.</td></tr>
     </tbody>
   </table></div>
 
@@ -721,6 +727,11 @@
       <code>colour_declaration</code>'s source profile for a JPEG XL declaring Rec.2020 with the BT.709 curve (the
       plan's finding 4; ADR 0042). The canonical path, writing and reading, no longer uses it. The item's text is
       left as decided.</div>
+    <div><div class="when">2026-11-26</div>D28 decided by the owner: a host busy after the preview is shown as
+      an error and not retried by the page (the code review's question). The words shown may change. The local
+      check's one error (an untracked sidecar in <code>dataset/ood_negatives/user_realworld</code>) gone: the owner
+      deleted the file. P1&ndash;P4 implemented and reviewed on <code>ml37-linear-canonical</code> (tip
+      <code>dfda7c4</code>); P5 waits for the owner.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
