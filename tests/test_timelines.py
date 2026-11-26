@@ -7,7 +7,8 @@ joins them by request ID and counts. Here on lines written in the hosts' own for
 ones included, and on tests/fixtures/ops3_rig/, the front's two logs as P4's browser check left them (an example, an
 own photo and its re-run, a photo over the cap, a busy retry, a photo abandoned by leaving the page, and another
 page's photo with no timeline). Those are version 1's lines, from before ML-37: the host made the preview. Since ML-37
-(D15, D24, D25, D27) the front makes it and the host sends the segmentation; TheLinesSinceML37 reads both.
+(D15, D24, D25, D27) the front makes it and the host sends the segmentation; TheLinesSinceML37 reads both, and the
+rig's lines of 2026-11-26 (TheRigSinceML37) are version 2's, the host's logs included.
 """
 from __future__ import annotations
 
@@ -420,7 +421,7 @@ class ThePageFiltersInTheBrowser(unittest.TestCase):
         with mock.patch.object(tl, "serve") as served, redirect_stdout(StringIO()):
             tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN])
         report = served.call_args[0][0]
-        self.assertEqual(len(report.photos), 6)
+        self.assertEqual(len(report.photos), 6 + 3)   # the rig's two days: 2026-11-09's and 2026-11-26's
         with self.assertRaises(SystemExit), redirect_stdout(StringIO()), mock.patch("sys.stderr", StringIO()):
             tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN, "--since", "2026-11-10"])
 
@@ -670,10 +671,10 @@ class Reading(unittest.TestCase):
 
 
 class TheRecordedRig(unittest.TestCase):
-    """tests/fixtures/ops3_rig/: P4's browser check, as the front logged it."""
+    """tests/fixtures/ops3_rig/: P4's browser check, as the front logged it (2026-11-09, version 1)."""
 
     def setUp(self):
-        self.report = tl.build(tl.read_dir(RIG), DOMAIN)
+        self.report = tl.build(tl.read_dir(RIG), DOMAIN, until="2026-11-09")
 
     def test_its_photos_and_timelines(self):
         by = {p.request_id: p for p in self.report.photos}
@@ -699,6 +700,37 @@ class TheRecordedRig(unittest.TestCase):
         # Headless Chromium's page loads are a crawler's.
         self.assertIn("2026-11-09  loads 0 (+3 crawlers)  photos 6  timelines 4", out.getvalue())
         self.assertIn("unverifiable", out.getvalue())
+
+
+class TheRigSinceML37(unittest.TestCase):
+    """tests/fixtures/ops3_rig/'s lines of 2026-11-26 (ML-37 D27): the front's, the host's and the page's for three
+    photos at version 2, written by hand to the lines' formats since ML-37 (D25, D27), not recorded: an answer, an
+    answer with no preview (D23) and the host busy after the preview (D26)."""
+
+    A, B, C = "4f0c2a7e9b1d43a8a6e2c5d7f8b90a11", "7d3e1b5a2c9f4e60b8a1d2c3e4f50b22", "a2b4c6d8e0f1435799aabbccddee0c33"
+
+    def setUp(self):
+        self.report = tl.build(tl.read_dir(RIG), DOMAIN, since="2026-11-26")
+        self.by = {p.request_id: p for p in self.report.photos}
+
+    def test_its_photos_read_at_version_2(self):
+        self.assertEqual(set(self.by), {self.A, self.B, self.C})
+        self.assertEqual({k: (p.timeline["v"], p.outcome) for k, p in self.by.items()},
+                         {self.A: (2, "answered"), self.B: (2, "answered"), self.C: (2, "busy")})
+        self.assertEqual(self.report.failures["front"], {"preview_not_made": 1, "busy": 1})
+        self.assertEqual(self.report.failures["page"], {"busy": 1})
+
+    def test_the_answers_steps(self):
+        s = {key: measure(self.by[self.A]) for key, _, measure in tl.STEPS}
+        self.assertEqual((s["8p"], s["12s"], s["14"], s["14s"]), (690, 35, 12, 8))
+        self.assertEqual((s["12"], s["13a"], s["13b"]), (None, None, None))   # version 1's host preview: none
+        self.assertEqual(s["16"], 15850 - 12900)   # the classification, from the host's first line on the page
+
+    def test_the_photo_with_no_preview_has_no_preview_steps(self):
+        s = {key: measure(self.by[self.B]) for key, _, measure in tl.STEPS}
+        self.assertEqual((s["8p"], s["13p"], s["14"]), (None, None, None))
+        self.assertEqual(tl.as_json(self.report)["photos"][[p.request_id for p in self.report.photos].index(self.B)]
+                         ["preview_error"], "MemoryError: ")
 
 
 if __name__ == "__main__":
