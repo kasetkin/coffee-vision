@@ -907,13 +907,14 @@ verify() {   # returns non-zero on a failed check
       check "    its Access-Control-Expose-Headers" "$expose" X-Request-Id
       # The lines the staged app gave the same photo, after the front's own preview line (ML-37 D15, D24): a release
       # from before ML-37 has a host whose first line is the preview itself, and a front that adds none.
-      local host_lines
+      local host_lines fronts_preview=0
       host_lines=$(jq -r '.analyze.parts | map(.part) | join(", ")' <<<"$public_expected" 2>/dev/null)
-      if [[ "$host_lines" == segmentation* ]]; then want="preview, $host_lines"; else want=$host_lines; fi
+      [[ "$host_lines" == segmentation* ]] && fronts_preview=1
+      if (( fronts_preview )); then want="preview, $host_lines"; else want=$host_lines; fi
       check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "${want:-preview, segmentation, classification}"
       want=$(jq -r '.analyze.parts | map(select(.part == "classification"))[0].ranked[0].id // "-"' <<<"$public_expected" 2>/dev/null)
       check "public /analyze top-1" "$(jq -rs 'map(select(.part == "classification"))[0].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
-      if [[ "$host_lines" == segmentation* ]]; then
+      if (( fronts_preview )); then
         # ML-37 D15: the front's preview, first, a JPEG at the mask's size.
         local preview preview_rc=0
         preview=$("$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" check-preview "$body") || preview_rc=$?
