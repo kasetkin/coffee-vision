@@ -70,7 +70,7 @@ def main() -> None:
                 if form == "today":
                     def enc(a=a, q=q, e=e):
                         return je.encode_rec2020(h, w, lambda y, x, ys, xs: a[y:y + ys, x:x + xs], level=q,
-                                                 effort=e, numthreads=d8.THREADS)
+                                                 effort=e, numthreads=d8.THREADS, transfer="BT709", intensity_target=255)
                 elif form == "I":
                     def enc(a=a, q=q, e=e):
                         return cm.encode_linear_u16(a, level=q, effort=e, intensity_target=203.0)

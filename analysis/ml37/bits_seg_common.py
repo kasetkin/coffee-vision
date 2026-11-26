@@ -100,7 +100,7 @@ def decode_rec(path: str, sha256: str | None) -> tuple[np.ndarray, bytes]:
 def gen2_rec(rec: np.ndarray) -> np.ndarray:
     """A second JPEG XL generation of the decoded canonical photo at the store's quality and effort."""
     b = encode_rec2020(rec.shape[0], rec.shape[1], lambda y, x, ys, xs: rec[y:y + ys, x:x + xs],
-                       level=cn.QUALITY, effort=cn.EFFORT, numthreads=THREADS)
+                       level=cn.QUALITY, effort=cn.EFFORT, numthreads=THREADS, transfer="BT709", intensity_target=255)
     return ic.jpegxl_decode(b, numthreads=THREADS)
 
 

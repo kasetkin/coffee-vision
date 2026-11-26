@@ -60,7 +60,7 @@ def pre_encode(path: Path) -> np.ndarray:
 
 def jxl(rec: np.ndarray, threads: int) -> bytes:
     return encode_rec2020(rec.shape[0], rec.shape[1], lambda y, x, ys, xs: rec[y:y + ys, x:x + xs],
-                          level=cn.QUALITY, effort=cn.EFFORT, numthreads=threads)
+                          level=cn.QUALITY, effort=cn.EFFORT, numthreads=threads, transfer="BT709", intensity_target=255)
 
 
 def err_stats(d: np.ndarray, mask: np.ndarray | None) -> tuple[float, float, float, float]:

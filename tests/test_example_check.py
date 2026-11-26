@@ -283,8 +283,8 @@ class Outcome(unittest.TestCase):
     def test_offline_is_the_check_services_word_for_it(self):
         sys.path.insert(0, str(REPO / "webapp" / "front"))
         import check_service
-        self.assertEqual(example_check.OFFLINE.decode(), check_service.OFFLINE["error"])
-        self.assertNotIn(example_check.OFFLINE.decode(), check_service.BUSY["error"])
+        self.assertEqual(example_check.OFFLINE.decode(), check_service.MESSAGES[check_service.OFFLINE])
+        self.assertNotIn(example_check.OFFLINE.decode(), check_service.MESSAGES[check_service.BUSY])
 
     def test_it_waits_as_long_as_the_fronts_nginx(self):
         site = (REPO / "webapp/deploy/coffee-cv-front.nginx.conf.template").read_text()

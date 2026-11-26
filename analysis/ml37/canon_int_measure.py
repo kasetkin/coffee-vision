@@ -144,7 +144,7 @@ def run_photo(args: tuple) -> list[dict]:
                 t1 = time.perf_counter()
                 if form == "today" and it == 255.0:     # today's encoder, unchanged
                     data = je.encode_rec2020(a.shape[0], a.shape[1], lambda y, x, ys, xs: a[y:y + ys, x:x + xs],
-                                             level=q, effort=e, numthreads=THREADS)
+                                             level=q, effort=e, numthreads=THREADS, transfer="BT709", intensity_target=255)
                 elif form == "today":
                     data = d8.encode(a, level=q, effort=e, intensity_target=it, half=False)
                 elif form == "I":

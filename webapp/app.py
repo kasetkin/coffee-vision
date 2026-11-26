@@ -48,6 +48,7 @@ from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PRO
                             reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv import canonical  # noqa: E402
+from coffeecv import preview  # noqa: E402 -- the preview's size, which the mask is scaled to (ML-37 D15)
 from coffeecv import readback  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
@@ -67,7 +68,6 @@ LITERT_RUNTIME = REPO_ROOT / os.environ["COFFEE_CV_LITERT_RUNTIME"] if os.enviro
     else None
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
-PREVIEW_MAX_DIM = 1024  # the preview's long side (coffeecv.preview), which the mask is scaled to as well
 
 # static_folder=None: this app serves exactly one route. nginx serves the static
 # page and only proxies /analyze here -- disabling Flask's own default
@@ -440,13 +440,12 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
 
 
 def _mask_png_b64(mask: np.ndarray) -> str:
-    """The whole photo's bool mask as the segmentation line sends it (ticket OPS-6 D7): scaled to long side <=
-    PREVIEW_MAX_DIM, aspect kept, never up (area average, then >= 0.5), as a 1-bit palette PNG, index 0 (not bean)
-    transparent and index 1 (bean) white, base64. The page stretches it to the photo's displayed rect, as it does the
-    box's fractions, so its size need not equal the preview's to the pixel."""
+    """The whole photo's bool mask as the segmentation line sends it (ticket OPS-6 D7): scaled to the preview's size
+    (coffeecv.preview.size: long side <= MAX_DIM, aspect kept, never up; area average, then >= 0.5), as a 1-bit palette
+    PNG, index 0 (not bean) transparent and index 1 (bean) white, base64. The page stretches it to the photo's
+    displayed rect, as it does the box's fractions; the deploy's check holds it to the preview's size to the pixel."""
     h, w = mask.shape
-    scale = min(1.0, PREVIEW_MAX_DIM / max(h, w))
-    size = (max(1, round(w * scale)), max(1, round(h * scale)))
+    size = preview.size(w, h)
     frac = Image.fromarray(mask.astype(np.float32))   # mode "F": BOX averages the 0/1 values exactly
     if frac.size != size:
         frac = frac.resize(size, Image.Resampling.BOX)
@@ -545,7 +544,7 @@ def _segmentation_part(seg) -> dict:
     h, w = seg.photo.shape[:2]
     x, y, bw, bh = seg.crop_info["box"]
     # Fractions of the full decoded photo (x0, y0, x1, y1), not preview pixels -- keeps this independent of
-    # PREVIEW_MAX_DIM, so the page can scale it against whatever it is actually displaying.
+    # the preview's size, so the page can scale it against whatever it is actually displaying.
     return {**part, "cropped": True, "box": [x / w, y / h, (x + bw) / w, (y + bh) / h],
             "needs_review": seg.crop_info["needs_review"]}
 

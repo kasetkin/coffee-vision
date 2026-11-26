@@ -47,7 +47,7 @@ Q, E = 95, 7
 def encode(form: str, pre: np.ndarray, lin: np.ndarray, threads: int) -> bytes:
     if form == "today":
         return je.encode_rec2020(pre.shape[0], pre.shape[1], lambda y, x, ys, xs: pre[y:y + ys, x:x + xs],
-                                 level=Q, effort=E, numthreads=threads)
+                                 level=Q, effort=E, numthreads=threads, transfer="BT709", intensity_target=255)
     it = float(form[-3:])
     if form.startswith("today"):
         return d8.encode(pre, level=Q, effort=E, intensity_target=it, half=False)

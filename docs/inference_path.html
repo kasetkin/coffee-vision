@@ -569,7 +569,8 @@
     <p>The page uploads the photo once and reads the answer as <code>application/x-ndjson</code>, one JSON object per
       line (ticket OPS-7, ADR 0023). The photo is decoded and segmented before the response starts, so a photo that
       cannot be decoded is still a plain 400 and a segmenter error the error handler's 500. Then the 200 goes out with
-      the segmentation (ticket ML-37 D24): the whole photo's bean mask as a 1-bit PNG, the crop box as fractions of the
+      the segmentation (ticket ML-37 D24): the whole photo's bean mask as a 1-bit PNG at the preview's size
+      (<code>coffeecv/preview.py</code>'s <code>size</code>, the one rule for both), the crop box as fractions of the
       photo, and whether the D18 fallback fired. No picture: the front sent the preview, the same model picture, before
       the photo crossed (D15), and the page draws the mask and box over it. The classification follows as the second
       line. A failure after the 200 cannot change the status, so it becomes an

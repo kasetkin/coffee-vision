@@ -83,7 +83,7 @@ class SiteAgreesWithTheCheckService(unittest.TestCase):
 
     def test_nginxs_own_413_says_what_the_check_services_does(self):
         body = re.search(r"location @too_large \{.*?return 413 '([^']*)';", self.SITE, re.S)[1]
-        self.assertEqual(json.loads(body), check_service.TOO_LARGE)
+        self.assertEqual(json.loads(body), {"error": check_service.TOO_LARGE})
 
     def test_systemd_makes_the_check_services_log_directory_and_logrotate_rotates_its_file(self):   # OPS-3 P2, R3
         unit = (DEPLOY / "coffee-cv-front.service.template").read_text()
@@ -300,7 +300,7 @@ class FrontSite(FrontRig):
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00")),   # the check service's 413
                          (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00" * 2**20)),   # nginx's, before it
-                         (413, check_service.TOO_LARGE))
+                         (413, {"error": check_service.TOO_LARGE}))
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_a_file_that_is_not_an_image_is_refused_at_the_front(self):
@@ -314,7 +314,7 @@ class FrontSite(FrontRig):
         first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
         status, payload = self.answer(form("beans.jpg", JPEG))
         first.read()
-        self.assertEqual((status, payload), (503, check_service.BUSY))
+        self.assertEqual((status, payload), (503, {"error": check_service.MESSAGES["busy"]}))
         self.assertEqual(len(FakeInferenceHost.seen), 1)
 
     def test_the_inference_host_down_is_offline_after_the_preview(self):   # ML-37 D16, D26
@@ -327,7 +327,7 @@ class FrontSite(FrontRig):
     def test_the_check_service_stopped_is_offline_and_the_page_stays_up(self):
         self.stop_check_service()   # a deploy stops it (D14)
         try:
-            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["offline"]}))
             resp = self.visit("GET", "/")
             resp.read()
             self.assertEqual(resp.status, 200)
@@ -388,13 +388,13 @@ class FrontSite(FrontRig):
 
     def test_a_cross_origin_caller_reads_the_fronts_own_refusals(self):   # OPS-19 D1
         photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 2**20)
-        self.assertEqual(self.cross_origin(form("beans.jpg", photo)), (413, check_service.TOO_LARGE))
+        self.assertEqual(self.cross_origin(form("beans.jpg", photo)), (413, {"error": check_service.TOO_LARGE}))
         first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
-        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.BUSY))
+        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["busy"]}))
         first.read()
         self.stop_check_service()
         try:
-            self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+            self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["offline"]}))
         finally:
             self.start_check_service()
 
