@@ -7,7 +7,8 @@ produces each rectangle on demand and the full-size 16-bit frame never exists (4
 analysis/ml19/p1b/README.md). The files are byte-identical to jpegxl_encode's.
 
 The encoder is configured as imagecodecs 2026.10.10 configures it (_jpegxl.pyx): one RGB frame, uint16, no container,
-the colour encoding set as an enumeration (D7: Rec.2020 primaries, D65, the BT.709 transfer, relative intent), the
+the colour encoding set as an enumeration (D7: Rec.2020 primaries, D65, the BT.709 transfer, relative intent; or
+ML-37 D1's linear transfer, with its intensity target in the basic info), the
 distance from JxlEncoderDistanceFromQuality(level), the effort, a frame header with duration 1. So the pinned libjxl
 does the work (D44); only the input path differs. The struct layouts are libjxl 0.12.0's: a new imagecodecs, and so
 a new libjxl, must re-pass tests/test_canonical.py.
@@ -45,7 +46,8 @@ if _jxl.JxlEncoderVersion() != LIBJXL_VERSION:
 JXL_TYPE_UINT16 = 3
 JXL_NATIVE_ENDIAN = 0
 JXL_COLOR_SPACE_RGB, JXL_WHITE_POINT_D65, JXL_PRIMARIES_2100 = 0, 1, 9
-JXL_TRANSFER_FUNCTION_709, JXL_RENDERING_INTENT_RELATIVE = 1, 1
+JXL_TRANSFER_FUNCTION_709, JXL_TRANSFER_FUNCTION_LINEAR, JXL_RENDERING_INTENT_RELATIVE = 1, 8, 1
+TRANSFERS = {"BT709": JXL_TRANSFER_FUNCTION_709, "Linear": JXL_TRANSFER_FUNCTION_LINEAR}   # jxl_header's names
 JXL_ENC_SUCCESS = 0
 JXL_ENC_FRAME_SETTING_EFFORT = 0
 
@@ -161,9 +163,14 @@ def _check(status: int, what: str, enc=None) -> None:
         raise JxlError(f"{what} failed (status {status}{detail})")
 
 
-def encode_rec2020(height: int, width: int, region: RectangleSource, *, level: float, effort: int, numthreads: int) -> bytes:
-    """A uint16 RGB image `height` x `width`, produced a rectangle at a time by `region`, as JPEG XL bytes in D7's
-    colour encoding."""
+def encode_rec2020(height: int, width: int, region: RectangleSource, *, level: float, effort: int, numthreads: int,
+                   transfer: str = "BT709", intensity_target: float = 255.0) -> bytes:
+    """A uint16 RGB image `height` x `width`, produced a rectangle at a time by `region`, as JPEG XL bytes: Rec.2020
+    primaries, D65, relative intent, with `transfer` ("BT709", D7's, or "Linear", ML-37 D1) and `intensity_target`,
+    the cd/m2 of (1, 1, 1) (255, libjxl's own for these files; 203 for ML-37 D8). The defaults write today's
+    canonical photo, byte for byte."""
+    if transfer not in TRANSFERS:
+        raise ValueError(f"transfer {transfer!r}, not one of {', '.join(TRANSFERS)}")
     held: dict[int, np.ndarray] = {}    # rectangles handed to libjxl and not yet released
     lock = threading.Lock()
     out = bytearray()
@@ -240,9 +247,10 @@ def encode_rec2020(height: int, width: int, region: RectangleSource, *, level: f
         _jxl.JxlEncoderInitBasicInfo(C.byref(info))
         info.xsize, info.ysize, info.num_color_channels, info.num_extra_channels = width, height, 3, 0
         info.bits_per_sample, info.exponent_bits_per_sample, info.uses_original_profile = 16, 0, 0
+        info.intensity_target = intensity_target
         _check(_jxl.JxlEncoderSetBasicInfo(enc, C.byref(info)), "JxlEncoderSetBasicInfo", enc)
         ce = ColorEncoding(color_space=JXL_COLOR_SPACE_RGB, white_point=JXL_WHITE_POINT_D65,
-                           primaries=JXL_PRIMARIES_2100, transfer_function=JXL_TRANSFER_FUNCTION_709,
+                           primaries=JXL_PRIMARIES_2100, transfer_function=TRANSFERS[transfer],
                            rendering_intent=JXL_RENDERING_INTENT_RELATIVE)
         _check(_jxl.JxlEncoderSetColorEncoding(enc, C.byref(ce)), "JxlEncoderSetColorEncoding", enc)
         _check(_jxl.JxlEncoderUseContainer(enc, 0), "JxlEncoderUseContainer", enc)

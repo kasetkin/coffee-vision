@@ -61,6 +61,12 @@ class ReadHeader(unittest.TestCase):
                 h = read_header(jxl(shape=shape, dtype=np.uint8))
                 self.assertEqual((h.height, h.width), shape[:2])
 
+    def test_the_intensity_target_libjxl_writes_by_default(self):   # ML-37 finding 5: 255, libjxl's default for SDR
+        for kw in ({"primaries": "BT2100", "transfer": "BT709"}, {"primaries": "BT2100", "transfer": "LINEAR"},
+                   {"dtype": np.uint8}, {"dtype": np.float32}):
+            with self.subTest(**{k: str(v) for k, v in kw.items()}):
+                self.assertEqual(read_header(jxl(**kw)).intensity_target, 255.0)
+
     def test_not_jpeg_xl(self):
         for data in (b"\xff\xd8\xff\xe0 a JPEG", b"", b"\xff\x0a"):
             with self.subTest(data=data[:6]), self.assertRaises(HeaderError):
