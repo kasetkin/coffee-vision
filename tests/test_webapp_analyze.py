@@ -27,7 +27,7 @@ from unittest import mock
 import numpy as np
 from PIL import Image
 
-from coffeecv import canonical
+from coffeecv import canonical, preview
 from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parents[1]
@@ -135,7 +135,8 @@ class TestAnalyze(unittest.TestCase):
         h, w = self.rgb.shape[:2]
         self.assertNotEqual(h, w, "the test needs a non-square photo")
         mw, mh = img.size
-        self.assertEqual(max(mw, mh), min(self.app.PREVIEW_MAX_DIM, max(w, h)))
+        self.assertEqual(max(mw, mh), min(1024, max(w, h)))
+        self.assertEqual((mw, mh), preview.size(w, h))   # the preview's size to the pixel (review P5)
         self.assertLessEqual(abs(mw - w * mh / h), 1, (img.size, (w, h)))
         self.assertLessEqual(abs(mh - h * mw / w), 1, (img.size, (w, h)))
         # A 1-bit palette PNG: index 0 (not bean) transparent, index 1 (bean) opaque (D7, D14).

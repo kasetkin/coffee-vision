@@ -374,6 +374,16 @@ class TestCheckPreview(unittest.TestCase):
                 self.assertFalse(passed, out)
                 self.assertIn(failure, out)
 
+    def test_a_4910_x_3776_photos_preview_has_its_masks_size(self):   # review P5: one size rule, front and host
+        from coffeecv import preview
+        # 3776 * 1024 / 4910 = 787.499...: Pillow's thumbnail made 788 rows, the host's round() 787.
+        self.assertEqual(preview.size(4910, 3776), (1024, 787))
+        jpeg = preview.jpeg(np.zeros((3776, 4910, 3), np.uint8))
+        self.assertEqual(Image.open(io.BytesIO(jpeg)).size, (1024, 787))
+        line = {"part": "preview", "jpeg": base64.b64encode(jpeg).decode("ascii")}
+        passed, out = self.run_check([line, _segmentation(_ellipse(787, 1024)), CLASSIFICATION])
+        self.assertTrue(passed, out)
+
 
 if __name__ == "__main__":
     unittest.main()

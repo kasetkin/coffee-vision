@@ -67,8 +67,8 @@ FRONT_CODE = [
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "bean_scale", "canonical", "class_list", "colour_declaration", "config", "crop_tray", "geometry", "infer",
     "jxl_encode",
-    "jxl_header", "litert", "model_io", "photo_io", "readback", "sam_loader", "segment_beans", "tone_map",
-    "linear_dng")] + [
+    "jxl_header", "litert", "model_io", "photo_io", "preview", "readback", "sam_loader", "segment_beans", "tone_map",
+    "linear_dng")] + [   # preview: the preview's size, which the host scales the mask to (ML-37 review P5)
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13;
     # the profile through colour_declaration since ML-37). OPS-25's preview_formats and its P3 profile went with
     # ML-37 (D4).
