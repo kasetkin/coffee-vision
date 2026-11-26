@@ -14,11 +14,11 @@
     203. Light above white is still tone-mapped when the photo is canonicalized. One read-back rounds it to 8-bit sRGB
     once; both models read that, and the preview is made from it. The ticket was written on 2026-11-23 for a half-float
     photo and a float path with no 8-bit step. Research then found that neither model gains anything above 8 bits
-    (&sect;2), and on 2026-11-25 the owner revised D1&ndash;D3 to this form. Supersedes ML-34 and continues ML-29. Not
-    planned, not implemented.</p>
+    (&sect;2), and on 2026-11-25 the owner revised D1&ndash;D3 to this form. Supersedes ML-34 and continues ML-29. Planned
+    (<a href="ml-0037_plan_linear_canonical_photo.html">P1&ndash;P8</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
@@ -502,6 +502,23 @@
           busy. Amends <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (the first
           part is the thumbnail with the mask and box) and OPS-7 D8; the front's log line names when the picture went
           out (OPS-3 D6). The read-back is one function the front and the host import (D9), in strips (R10).</td></tr>
+      <tr><td class="id">D16</td><td>The answer's lines once the front sends the picture first?</td>
+        <td>(a) a new first line from the front, <code>{"part": "picture"}</code>, then the host's <code>preview</code>
+          line without its thumbnail, then the classification or an error; a host refusal after the picture is an error
+          line carrying today's status (b) the same, the host's line keeping its thumbnail too</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). A refusal the front gives before the picture (too large, not an image, unreadable) stays an HTTP
+          status. Changes the public API's line order (<code>openapi.json</code>, <code>llms.txt</code>); amends
+          ADR 0023 with D15.</td></tr>
+      <tr><td class="id">D17</td><td>The head's augmented views under D11 (b): the <code>input</code> pipeline after the
+        224 px resize?</td>
+        <td>(a) on the float picture (b) on the picture rounded to uint8 first, as today</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3): the input the model sees when serving, augmented. JPEG compression and Downscale round to 8 bits
+          inside; a test holds each transform to float32 in [0, 1].</td></tr>
+      <tr><td class="id">D18</td><td>The segmenter's fine-tune code under D11 (b)?</td>
+        <td>(a) <code>seg_finetune.TrainSet</code> keeps a uint8 resize at the frame (about 2.6 GB) (b) float16 at the
+          frame (5.2 GB)</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). No fine-tune runs here (D14); the difference from serving's float resize is recorded for
+          <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a> to settle.</td></tr>
     </tbody>
   </table></div>
 
@@ -594,6 +611,13 @@
       ticket first and every fine-tune, ML-33's included, after it, against the research's (b). Then D11 (b): the
       resizes after the read-back give float, with no second 8-bit rounding. Every decision is now taken. Not
       planned, not implemented.</div>
+    <div><div class="when">2026-11-26</div>Plan written
+      (<a href="ml-0037_plan_linear_canonical_photo.html">ml-0037_plan_linear_canonical_photo.html</a>), P1&ndash;P8,
+      from a read of the code at <code>8a81fd9</code>. Eight findings; three need the owner (the plan's Q1&ndash;Q3:
+      the answer's lines once the front sends the picture, the head's augmented views on float, the segmenter's
+      fine-tune resize). Not implemented.</div>
+    <div><div class="when">2026-11-26</div>The plan's Q1&ndash;Q3 answered by the owner, (a) each, recorded as
+      D16&ndash;D18. Not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),

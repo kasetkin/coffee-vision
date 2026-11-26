@@ -1,0 +1,355 @@
+<title>Implementation plan: a linear Rec.2020 canonical photo, one read-back, the preview's picture at the front</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Plan · ML-37 · coffee-vision · implementation</div>
+  <h1>Implementation plan: a linear Rec.2020 canonical photo, one read-back, the preview's picture at the front</h1>
+  <p class="lede">The order of work for <a href="ml-0037_ticket_linear_canonical_photo.html">ticket ML-37</a>. Three
+    strands: the canonical photo and its read-back (D1&ndash;D3, D8, D9, D12), the models' input after it (D11), and
+    the preview (D4, D15). The code comes first and moves no stored output (P1&ndash;P4). The first step that changes a
+    number is P5's re-run of the canonical store, then the re-crop (P6) and the classifier's refit, judged against
+    D13's bar (P7). Everything ships in one release (P8). No fine-tune runs in this ticket (D14).</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-26; Q1&ndash;Q3 answered 2026-11-26 (ML-37 D16&ndash;D18); not implemented</span></span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Implementation plan</span></div>
+    <div class="field"><span class="k">Ticket</span><span class="v"><a href="ml-0037_ticket_linear_canonical_photo.html"><code>ml-0037_ticket_linear_canonical_photo.html</code></a> (ML-37)</span></div>
+    <div class="field"><span class="k">Author</span><span class="v">Claude</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-26</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q1&ndash;Q3 answered</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p>Built from a read of the code at <code>8a81fd9</code>, not from the ticket alone. Eight things the ticket does
+      not cover turned up. They are folded in below, and the ones that need a decision are Q1&ndash;Q3 (§2).</p>
+    <ol>
+      <li><b>The front answers only once the host has.</b> <code>check_service.forward</code> sends the visitor's
+        status line and headers after <code>getresponse()</code>, so a refusal from the host (its 503 busy, an app
+        failure) is today an HTTP status. To send the picture first (D15), the front must open its own 200 stream
+        before the photo crosses; whatever the host says after that has to become a line in the stream. The public
+        API says the classification or an error is "always the second line" (<code>openapi.json</code>,
+        <code>llms.txt</code>; cross-origin callers since OPS-19). Q1.</li>
+      <li><b>The head's augmented views resize between two pipelines.</b> <code>HeadAugment.view</code> runs the
+        <code>patch</code> pipeline on the stored uint8 patch, then <code>eval_resize</code> to 224 px, then the
+        <code>input</code> pipeline (JPEG compression, blurs, noise, Downscale) on the result. Under D11 (b) the resize
+        gives float, so the <code>input</code> pipeline would run on float. Q2.</li>
+      <li><b>The segmenter's fine-tune keeps its photos at the frame in memory.</b> <code>seg_finetune.TrainSet</code>
+        holds every training photo <code>sam_resize</code>d to 1,024 px as uint8 (about 2.6 GB, ticket R9). A float
+        <code>sam_resize</code> would make that 10.4 GB in float32. No fine-tune runs in this ticket (D14), but the code
+        is shared. Q3.</li>
+      <li><b><code>rec2020_bt709.icc</code> cannot be deleted.</b> <code>colour_declaration</code> reads a JPEG XL
+        declaring Rec.2020 with the BT.709 curve, today's canonical form, through it: the page's four example files
+        until they are re-made, and any such file a visitor or an API caller still sends (the front re-encodes every
+        upload, OPS-22 D3). It stays as the source profile for that declaration; only the canonical path stops using
+        it. Folded into P3.</li>
+      <li><b>The header reader stops before the intensity target.</b> <code>jxl_header.read_header</code> returns
+        after the colour encoding; the intensity target is in the tone-mapping fields that follow it, present only when
+        the header's <code>extra_fields</code> is set. Folded into P1.</li>
+      <li><b>The store's tone-mapped path gets simpler.</b> <code>to_rec2020</code> already goes to
+        <code>LINEAR_REC2020</code> for a picture above white, applies the EETF there, and then needs a second
+        LittleCMS transform to the BT.709-curve profile. With a linear target, that second transform goes. Folded into
+        P3.</li>
+      <li><b>The front's memory.</b> Its unit has <code>MemoryMax=600M</code>. D12 (a)'s float path peaked at 433 MB
+        in the research, and the preview's read-back adds 101 MB in strips (§2 of the ticket). The proxy's
+        MemAvailable was as low as 158 MB on 2026-11-02 (deploy.md). The two peaks must not overlap: the picture is
+        made after the encode has returned. Measured in P3 and P4; a higher <code>MemoryMax</code> is the owner's, as
+        root on the proxy.</li>
+      <li><b>Disk.</b> 101 GB free and an 84 GB DVC cache on 2026-11-26. The new store (about 7 GB) and crops (about
+        27 GB) are written beside the old ones in the workspace and copied into the cache: about 70 GB. Checked
+        before P5.</li>
+    </ol>
+  </div>
+
+  <h2>1. Phase order and why</h2>
+  <p>The read-back and the encoder's new settings come first as code nothing calls (P1), so they are tested against
+    LittleCMS and float64 references with no DVC stage moving. The float resizes (P2) and the switch to the linear
+    canonical photo (P3) are each a code change that moves the models' input; they are written and tested on a few
+    photos, and the store is re-run once, after both, in P5. The preview strand (P4) needs only P3's read-back and runs
+    beside P5&ndash;P7. P7 is the first recorded number: the refit, judged by D13's bar, fixed before the runs. The
+    release (P8) ships the store's code, the front, the host, the new head and the preview together, as ML-29's P11
+    did.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Phase</th><th>What</th><th>Where</th><th>Changes a number?</th></tr></thead>
+    <tbody>
+      <tr><td class="id">P1</td><td>The numpy read-back, the encoder's transfer and intensity target, the header's
+        intensity target; not wired in</td><td>local</td><td>no: nothing calls it</td></tr>
+      <tr><td class="id">P2</td><td>The resizes give float (D11), in serving and in training</td><td>local</td>
+        <td>yes, slightly: both models' inputs; not re-run until P5&ndash;P7</td></tr>
+      <tr><td class="id">P3</td><td>The linear canonical photo wired in: encode, header check, read-back, the front's
+        float colour path</td><td>local</td><td>yes: every canonical photo's bytes; not re-run until P5</td></tr>
+      <tr><td class="id">P4</td><td>The preview: the front's picture first, the host's mask and box; OPS-25's trial
+        removed</td><td>local</td><td>no: what the visitor sees, not a model's input</td></tr>
+      <tr><td class="id">P5</td><td>The store re-canonicalized; R1's comparison and D13's mask check</td><td>local</td>
+        <td>yes: the store; a report</td></tr>
+      <tr><td class="id">P6</td><td>The pool re-cropped</td><td>local, owner</td><td>yes: the crops</td></tr>
+      <tr><td class="id">P7</td><td>The head and the OOD probe refitted, judged against D13 <span class="pill sm open">stop</span></td>
+        <td>training machine, owner</td><td>yes: recorded runs</td></tr>
+      <tr><td class="id">P8</td><td>One release, or the ticket closed unadopted <span class="pill sm open">stop</span></td>
+        <td>owner, front, inference host</td><td>if adopted: the live site</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>2. Questions for the owner</h2>
+  <p>Each comes from the code, not from the ticket's decisions. All three were answered by the owner on 2026-11-26
+    and are the ticket's D16 to D18.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Recommendation</th><th>Blocks</th></tr></thead>
+    <tbody>
+      <tr><td class="id">Q1</td><td>The answer's lines once the front sends the picture first (finding 1). (a) A new
+        first line from the front, <code>{"part": "picture", "thumbnail": ...}</code>; then the host's
+        <code>preview</code> line without its thumbnail (mask, box, <code>cropped</code>,
+        <code>seg_fallback</code>, <code>needs_review</code>); then the classification or an error. A refusal from the
+        host after the picture (busy, offline, a failure) becomes an error line carrying the status the page maps
+        today. (b) The same, but the host's line keeps its thumbnail too, so a caller reading the old second-line rule
+        still finds a thumbnail in a <code>preview</code> line; the picture crosses the link twice.</td>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-26, the owner: "Q1 (a), Q2 (a), Q3 (a)" (ML-37 D16). The API's line order changes either way, since the picture is
+          now first; (b) keeps 150 KB on the link for no visitor. <code>openapi.json</code> and
+          <code>llms.txt</code> say so, and a refusal the front can still give before the picture (too large, not an
+          image, unreadable) stays an HTTP status. Amends ADR 0023.</td><td>P4</td></tr>
+      <tr><td class="id">Q2</td><td>The head's augmented views under D11 (b) (finding 2). (a) The <code>input</code>
+        pipeline runs on the float 224 px picture: JPEG compression and Downscale round to 8 bits inside (they are
+        8-bit by nature), the blurs move at most 0.5 level and the noise 1 against uint8 (D11's research). (b) The view
+        is rounded to uint8 before the <code>input</code> pipeline, as today, and only serving is float.</td>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-26, the owner: "Q1 (a), Q2 (a), Q3 (a)" (ML-37 D17). It is the input the model sees when serving, augmented; (b)
+          keeps a rounding in training that serving no longer has. A test holds each <code>input</code> transform to
+          float32 in [0, 1].</td><td>P2</td></tr>
+      <tr><td class="id">Q3</td><td>The segmenter's fine-tune code under D11 (b) (finding 3). (a)
+        <code>seg_finetune.TrainSet</code> keeps a uint8 resize at the frame, as today, and the difference from
+        serving's float resize is recorded for ML-33 to settle (b) it stores float16 at the frame (5.2 GB) now.</td>
+        <td><span class="pill sm ok">Answered</span> (a), 2026-11-26, the owner: "Q1 (a), Q2 (a), Q3 (a)" (ML-37 D18). No fine-tune runs in this ticket (D14); ML-33 chooses with its
+          own memory and its own run. Nothing trains on the departure before then.</td><td>P2</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>3. P1 &mdash; the read-back, the encoder and the header, not wired in</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+  <p>One new module, <code>coffeecv/readback.py</code>: uint16 linear Rec.2020 in, uint8 sRGB out, in numpy float32
+    (D2, D3, D9), in strips of rows on a thread pool, as <code>rec2020_to_srgb</code> is. It is the one function the
+    store, the host and the front will call. Nothing calls it yet, so no DVC stage moves.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The matrix from the two sets of primaries and D65, derived in code (not a
+      copied table) and checked against the inverse of ITU-R BT.2087's published BT.709-to-BT.2020 matrix; the sRGB curve in closed form
+      (IEC 61966-2-1); clip to [0, 1]; <code>rint</code> to uint8. In strips of 256 rows, never a whole-photo float copy
+      (the ticket's R10: 1,074 MB whole against 101 MB).</span></li>
+    <li><span class="box"></span><span>Tests, written first: grey ramps to their sRGB values exactly; the primaries
+      and white; a strip size and thread count that do not change a pixel; against LittleCMS float32 within 0.5 of a
+      level and a float64 reference within 0.01 before rounding, on synthetic pictures and on 20 dataset photos;
+      numpy's version pinned in the module as <code>imagecodecs</code> is (D9).</span></li>
+    <li><span class="box"></span><span><code>jxl_encode.encode_rec2020</code> takes the transfer and the intensity
+      target as arguments, today's values the default; <code>jxl_header</code> reads on past the colour encoding to the
+      tone-mapping fields and returns the intensity target (finding 5). Tests: a file written linear at 203 reads back
+      as linear, 203, 16-bit, lossy; imagecodecs decodes it to the samples written within the coding's error.</span></li>
+    <li><span class="box"></span><span>Checks: the defaults leave every encode byte-identical (a test on a known
+      photo's canonical bytes); <code>scripts/check.sh</code> green.</span></li>
+  </ol>
+
+  <h2>4. P2 &mdash; the resizes give float (D11)</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2, Q3 answered</span></span></div>
+  </div>
+  <p><code>model_io</code>'s two resizes take the 8-bit picture and give float32 in [0, 1], by PIL's bilinear in
+    mode "F", channel by channel: the same filter as today, with no rounding after it (D11's research). Serving and
+    training both go through <code>model_io</code>, so parity holds by construction.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>sam_resize</code> and <code>sam_input</code>: uint8 in, float32 out,
+      normalised without the <code>/ 255</code> of a uint8; <code>eval_resize</code> and <code>eval_patch</code> the
+      same. <code>_to_chw_normalised</code> takes [0, 1] float.</span></li>
+    <li><span class="box"></span><span><code>HeadAugment.view</code> as Q2 answers; <code>seg_finetune.TrainSet</code>
+      as Q3 answers, its departure written in its docstring and in ML-33's ticket.</span></li>
+    <li><span class="box"></span><span>Tests, written first: the float resize against torch's antialiased
+      <code>interpolate</code> within 0.01 of a level (D11's research named it the oracle); a picture already at size
+      unchanged; uint8 input fed through it within 1.0 level of today's 8-bit output; <code>tests/test_model_io.py</code>'s
+      torchvision parity moved to the new contract.</span></li>
+    <li><span class="box"></span><span>The litert export's check on the deploy fixtures (ADR 0020) re-run, since the
+      graphs' inputs change by the rounding only; <code>docs/inference_path.html</code> updated (CODING_STANDARDS,
+      "A serving change updates the serving path page").</span></li>
+    <li><span class="box"></span><span>Checks: on 13 photos, the segmenter's input and DINOv3's within 2.02 levels of
+      today's (D11's research), the masks' IoU against today's reported; the frozen head's fit run at toy scale through
+      its real entry point; <code>scripts/check.sh --full</code> green.</span></li>
+  </ol>
+
+  <h2>5. P3 &mdash; the linear canonical photo wired in</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P1</span></div>
+  </div>
+  <p>The switch, in one commit, since the writer and the readers must agree: the canonical photo becomes D1's, every
+    reader opens it through P1's read-back, and the front takes the store's colour path (D12).</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>canonical.to_rec2020</code> writes linear Rec.2020: LittleCMS into
+      <code>LINEAR_REC2020</code>, the EETF in place above white, clip, <code>rint(x &times; 65535)</code>; the second
+      transform goes (finding 6). <code>encode</code> passes the linear transfer and intensity target 203.</span></li>
+    <li><span class="box"></span><span><code>header_problems</code> accepts only the linear transfer and intensity
+      target 203, naming either when it is wrong (R6); <code>decode_canonical</code>'s docstring;
+      <code>load_canonical</code> = <code>decode_canonical</code> then <code>readback</code>.
+      <code>rec2020_to_srgb</code> and <code>PROFILE_PATH</code>'s use in <code>canonical</code> go;
+      <code>rec2020_bt709.icc</code> stays for <code>colour_declaration</code> (finding 4), its hash test kept, and
+      dvc.yaml's dependency on it moves with that.</span></li>
+    <li><span class="box"></span><span>The front: <code>FRONT_SETTINGS</code>' colour "float" (D12 (a));
+      <code>_to_rec2020_integer</code> removed with its tests, or kept only if a caller remains. ADR 0036's integer
+      path amended.</span></li>
+    <li><span class="box"></span><span>Every reader of the canonical photo moved to the one read-back (R7):
+      <code>canonical_store</code>, <code>photo_io</code>, <code>review_masks</code>,
+      <code>segcrop_session</code>, <code>scripts/make_example_photos.py</code>, the tests that call
+      <code>load_canonical</code>. Research scripts under <code>analysis/</code> are records and are left as they
+      are.</span></li>
+    <li><span class="box"></span><span>Tests, written first: jxlinfo-equivalent header fields on a made photo (linear,
+      BT2100, 16-bit integer, lossy, 203); a known photo through store and front settings read back within D27 of
+      today's 8-bit input; a today-form canonical JPEG XL sent as an original is read through
+      <code>rec2020_bt709.icc</code> and re-canonicalized, and refused by the host as it is; a reader that skipped
+      the read-back would see a darker picture (R7's test).</span></li>
+    <li><span class="box"></span><span>The front's time and peak memory, with the float path, on ML-29 R6's photos and
+      the 40 photos of the ticket's front-forms study, against its 600 MB (finding 7, R3). Over it: stop for the owner
+      (a higher <code>MemoryMax</code>, by hand on the proxy, or another D12 answer).</span></li>
+    <li><span class="box"></span><span>GLOSSARY.md's "Canonicalization" and "Canonical photo"; a new ADR, the linear
+      canonical photo and its one read-back, amending ADR 0033 (ML-19 D7, D31, D46) and ADR 0036.</span></li>
+    <li><span class="box"></span><span>Checks: <code>dvc status</code> shows every canonicalize and segcrop stage
+      changed and nothing else unexpected; <code>scripts/check.sh --full</code> green.</span></li>
+  </ol>
+
+  <h2>6. P4 &mdash; the preview: the front's picture, the host's mask and box</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P3 <span class="tag">Q1 answered</span></span></div>
+  </div>
+  <p>D4 and D15. The front makes the picture by P1's read-back from the canonical photo it has just made, and sends it
+    to the visitor while the photo crosses (D15 (b)). The host stops making a picture and sends the mask and the box.
+    OPS-25's trial ends.</p>
+  <ol class="tasks">
+    <li><span class="box"></span><span>The front: after the encode, open the 200 NDJSON stream with
+      <code>X-Accel-Buffering: no</code>, decode its own canonical photo, read it back, thumbnail to 1,024 px as
+      <code>_preview_part</code> does today, JPEG q85, and write the picture line, on a thread beside the crossing.
+      The host's lines are relayed after it; a host refusal or the host offline becomes an error line (Q1). Its log
+      line gains when the picture went out (OPS-3 D6); <code>timeline_schema</code> and
+      <code>coffeecv.timelines</code> follow.</span></li>
+    <li><span class="box"></span><span>The host: <code>_preview_part</code> without the thumbnail;
+      <code>_shrink_aside</code>, the previews part and <code>coffeecv/preview_formats.py</code> removed.</span></li>
+    <li><span class="box"></span><span>The page: the picture drawn when its line comes, the mask and box over it when
+      theirs comes, the picture kept beside a refusal; OPS-25's tabs and their test
+      (<code>tests/test_preview_tabs.py</code>) removed. <code>openapi.json</code>, <code>llms.txt</code> and
+      <code>webapp/README.md</code> describe the new lines; ADR 0023 amended.</span></li>
+    <li><span class="box"></span><span>The deploy's checks: <code>release_probe</code>,
+      <code>example_check</code> and <code>--verify</code> read the new lines.</span></li>
+    <li><span class="box"></span><span>Tests: the front's picture equals the host's read-back thumbnail of the same
+      file, byte for byte on this machine; the line order; the host offline after the picture; a cut stream.</span></li>
+    <li><span class="box"></span><span>Checks: <code>scripts/rehearse_deploy_local.sh</code> through both parts; the
+      front's peak memory with the picture after the encode, on P3's photos, within its limit;
+      <code>scripts/check.sh --full</code> green.</span></li>
+  </ol>
+
+  <h2>7. P5 &mdash; the store re-canonicalized; R1 and D13's mask check</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P2, P3</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Before: today's 8-bit inputs and masks kept for the comparison (the read-back of
+      today's store, on every dataset photo, in <code>tmp/ml37/</code>); free disk checked against about 70 GB (finding
+      8); the code committed (experiments.md).</span></li>
+    <li><span class="box"></span><span><code>dvc repro -s</code> each <code>canonicalize</code> stage
+      (<code>docs/agents/dvc.md</code> first); jxlinfo on a sample shows D1's header.</span></li>
+    <li><span class="box"></span><span>R1's report, <code>analysis/ml37/p5_report.txt</code>: the new input against
+      today's on every photo, 32 &times; 32 block means (ML-29 D27), mean and largest, per camera, gain-map photos
+      apart; the file sizes against today's.</span></li>
+    <li><span class="box"></span><span>D13's check before the retrain: the live segmenter's masks on the new input
+      against today's, median IoU at least 0.99 per camera. Below it: stop for the owner.</span></li>
+  </ol>
+
+  <h2>8. P6 &mdash; the pool re-cropped</h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P5</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span><code>dvc repro -s</code> each <code>segcrop</code> stage, then
+      <code>merge_segpool</code>, never a plain <code>dvc repro</code> (experiments.md, "Changing the segmenter").</span></li>
+    <li><span class="box"></span><span>A handful of crops opened at full size with the mask drawn, every D18 fallback
+      among them (CODING_STANDARDS). A photo that enters or leaves the pool through a fallback that changed is listed
+      for the owner to judge before it trains (ML-8 P4's tools).</span></li>
+    <li><span class="box"></span><span>Checks: the pool's photo and class counts against today's, any difference
+      explained; <code>dvc push</code> of the store and the crops, verified as dvc.md says.</span></li>
+  </ol>
+
+  <h2>9. P7 &mdash; the head and the OOD probe refitted, judged against D13 <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>D13's bar written into <code>analysis/ml37/</code> before any run: the
+      comparison script, with the photo bootstrap (new code, tested on exp289&ndash;291 against themselves), run on the
+      baseline alone first.</span></li>
+    <li><span class="box"></span><span>The head refitted as recorded runs, seeds 42, 123 and 7, from exp292, with the
+      live recipe; the config diffed against exp289&ndash;291's, key by key: only the data may differ
+      (experiments.md; remote-sweeps.md if it runs elsewhere). Toy scale first.</span></li>
+    <li><span class="box"></span><span>The comparison, paired by seed against exp289&ndash;291 (ADR 0002): mean test
+      macro-F1 change with its 95% photo-bootstrap lower bound above &minus;0.010; no class's mean change below
+      &minus;0.02; the OOD probe refitted on the seed-123 candidate, catching every test negative and refusing at most 4
+      of the 295 bean photos.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: adopt (P8's release) or not (P8's second branch).</span></li>
+  </ol>
+
+  <h2>10. P8 &mdash; one release, or the ticket closed unadopted <span class="pill sm open">stop</span></h2>
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v">P4, P7</span></div>
+  </div>
+  <ol class="tasks">
+    <li><span class="box"></span><span>Adopted: the candidate shipped under a new name with its OOD probe and its
+      <code>litert_export</code> (experiments.md); the examples re-made (<code>make_example_photos.py</code>) and the
+      deploy's expected answers re-made; <code>docs/status.md</code> and <code>docs/inference_path.html</code> name the
+      model; the front's unit changed if P3 or P4 needed it, set up by the owner as root first.</span></li>
+    <li><span class="box"></span><span>Stop for the owner: the go-ahead to merge, push and deploy
+      (<code>docs/agents/deploy.md</code>); photo answers are down during the flip.</span></li>
+    <li><span class="box"></span><span>The release with <code>--verify</code>; on the live site, a photo's lines in
+      order, the picture before the mask, an example's answer, and the front's log line read for its time and
+      memory.</span></li>
+    <li><span class="box"></span><span>Not adopted: the code reverted or kept behind nothing, the reasons in the ticket
+      and in <code>.out-of-scope/</code>.</span></li>
+    <li><span class="box"></span><span>The ticket's acceptance items ticked; the owner closes it.</span></li>
+  </ol>
+
+  <h2>11. Verification</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>P1: the read-back within 0.01 of float64 before rounding; the encoder's defaults
+      byte-identical.</span></li>
+    <li><span class="box"></span><span>P2: the float resizes against torch's oracle; the inputs within 2.02 levels of
+      today's on 13 photos.</span></li>
+    <li><span class="box"></span><span>P3: D1's header on made photos; the front within its memory on ML-29 R6's
+      photos.</span></li>
+    <li><span class="box"></span><span>P4: the front's picture identical to the host's read-back; the page's lines in
+      order through a local rehearsal.</span></li>
+    <li><span class="box"></span><span>P5: R1's report; D13's mask IoU at least 0.99 per camera.</span></li>
+    <li><span class="box"></span><span>P7: D13's bar, fixed before the runs.</span></li>
+    <li><span class="box"></span><span>Full suite green at each phase's last commit.</span></li>
+  </ul>
+
+  <h3>Explicitly not in this change</h3>
+  <ul>
+    <li>Everything in the ticket's "Out of scope". Any fine-tune of the segmenter, ML-33's included (D14), and a change
+      to its training resize beyond Q3's answer. The research scripts under <code>analysis/</code> that call
+      today's read-back.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-26</div>Claude reads ticket ML-37 at <code>8a81fd9</code>, with every decision taken,
+      and writes this plan. Eight findings not in the ticket; Q1&ndash;Q3 open for the owner. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>Q1&ndash;Q3 answered by the owner, (a) each, as recommended: the ticket's
+      D16&ndash;D18. Nothing blocks P1. Not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
+    <a href="ml-0029_plan_what_canonicalization_reads.html">ML-29's plan</a> (its store re-runs and P10&ndash;P11),
+    <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a> (Q3),
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>,
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>.</footer>
+</main>
