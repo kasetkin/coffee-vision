@@ -125,7 +125,7 @@
 
   <h2>3. P1 &mdash; the read-back, the encoder and the header, not wired in</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-26: <code>d575de7</code>; not wired in, the encoder's defaults byte-identical</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
   </div>
   <p>One new module, <code>coffeecv/readback.py</code>: uint16 linear Rec.2020 in, uint8 sRGB out, in numpy float32
@@ -377,6 +377,12 @@
       the reading script, the deploy's timeline check, the docs). P5: R1 measured against the uncoded reference, with
       a stop. P7: the miss branch. P8: the front's and the host's model picture compared, and "not adopted" defined
       as the branch unmerged. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>P1 done (<code>d575de7</code>), test-first: <code>coffeecv/readback.py</code>,
+      numpy float32 in strips of 256 rows, numpy pinned at 2.5.3; on 20 store photos made linear it is at most 0.01 of
+      a level off a float64 reference before rounding (about 0.0001 seen) and within 0.5 of LittleCMS (0.12 seen).
+      <code>encode_rec2020</code> takes the transfer and the intensity target, today's the default (a store photo
+      re-made byte for byte); <code>jxl_header</code> reads the intensity target. Nothing calls the read-back yet. The
+      dataset tests read DVC data from <code>COFFEECV_DATA_ROOT</code> (a worktree has none) and skip without it.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,

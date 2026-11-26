@@ -5,7 +5,12 @@ which every deploy runs (scripts/deploy_webapp.sh), includes it. Mark any test o
 Imported as `tests._tiers`, so run unittest from the repo root, as every test's docstring says."""
 import os
 import unittest
+from pathlib import Path
 
 FAST = os.environ.get("COFFEECV_FAST_TESTS") == "1"
 
 real_data = unittest.skipIf(FAST, "real-data tier: runs under scripts/check.sh --full")
+
+# Where the DVC-tracked dataset/ and data/canonical/ are: this checkout, or COFFEECV_DATA_ROOT, the main checkout's
+# root, for a git worktree that has no DVC data of its own. A test that needs them skips when they are absent.
+DATA_ROOT = Path(os.environ.get("COFFEECV_DATA_ROOT") or Path(__file__).resolve().parents[1])
