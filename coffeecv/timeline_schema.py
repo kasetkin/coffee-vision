@@ -63,8 +63,9 @@ MAX_BODY = 4096        # bytes (D23): a real timeline is well under 2 KB
 PROBE = "verify"       # the deploy's own checks (D14)
 REQUEST_ID = re.compile(r"[0-9a-f]{32}")   # nginx's $request_id (D8)
 
+_TIMES = {1: TIMES_V1, 2: TIMES}   # each version's times, by READ_VERSIONS
 _REQUIRED = {"v", "request_id", "control", "outcome", "attempts"}
-_KEYS = {1: _REQUIRED | {"rerun_of", "example", "probe", *TIMES_V1}, 2: _REQUIRED | {"rerun_of", "example", "probe", *TIMES}}
+_KEYS = {v: _REQUIRED | {"rerun_of", "example", "probe", *times} for v, times in _TIMES.items()}
 _ATTEMPT_KEYS = {"request_id", "status", *ATTEMPT_TIMES}
 
 
@@ -122,7 +123,7 @@ def check(data: object, examples: frozenset[str] | set[str] | None, versions: tu
         raise Invalid("example is not in examples.json")
     if "probe" in data and data["probe"] != PROBE:
         raise Invalid("probe is not the deploy's")
-    for key in TIMES:
+    for key in _TIMES[version]:
         if key in data:
             _ms(data[key], key)
     attempts = data["attempts"]
