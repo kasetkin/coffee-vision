@@ -62,7 +62,14 @@ class AgentFilesMatchApp(unittest.TestCase):
     def test_parts_and_verdicts_are_the_apps(self):
         schemas = OPENAPI["components"]["schemas"]
         parts = {s["properties"]["part"]["const"] for s in schemas.values() if "part" in s.get("properties", {})}
-        self.assertEqual(parts, set(re.findall(r'"part": "([a-z]+)"', APP_SRC)))
+        # The front writes the preview line and its own error lines (ML-37 D15, D26); the host the rest.
+        front_src = Path(check_service.__file__).read_text()
+        self.assertEqual(parts, set(re.findall(r'"part": "([a-z]+)"', APP_SRC + front_src)))
+        self.assertEqual(set(re.findall(r'"part": "([a-z]+)"', front_src)), {"preview", "error"})
+        outcomes = set(re.findall(r'self\.error_line\("([a-z]+)"', front_src))
+        self.assertEqual(set(schemas["ErrorPart"]["properties"]["outcome"]["enum"]), outcomes)
+        for outcome in outcomes:
+            self.assertIn(f'"{outcome}"', LLMS, f"llms.txt does not describe the error line's outcome {outcome}")
         verdicts = set(re.findall(r'"verdict": "([a-z_]+)"', APP_SRC)) | set(re.findall(r'\["verdict"\] = "([a-z_]+)"',
                                                                                         APP_SRC))
         self.assertEqual(set(schemas["ClassificationPart"]["properties"]["verdict"]["enum"]), verdicts)

@@ -53,6 +53,7 @@ FRONT_CODE = [
     "coffeecv/jxl_encode.py",
     "coffeecv/jxl_header.py",
     "coffeecv/readback.py",   # ticket ML-37 D2: the canonical photo's one read-back, which canonical imports
+    "coffeecv/preview.py",   # ticket ML-37 D15: the preview, made here from the canonical photo
     "coffeecv/data/rec2020_bt709.icc",   # since ML-37 colour_declaration's alone (a JPEG XL in the form before it)
     "coffeecv/data/accepted_formats.csv",   # ticket OPS-18 D13: the accepted formats, which canonical reads
     "coffeecv/timeline_schema.py",   # ticket OPS-3 P3: what POST /timeline accepts
@@ -66,12 +67,12 @@ FRONT_CODE = [
 LIBRARY = [f"coffeecv/{m}.py" for m in (
     "__init__", "bean_scale", "canonical", "class_list", "colour_declaration", "config", "crop_tray", "geometry", "infer",
     "jxl_encode",
-    "jxl_header", "litert", "model_io", "photo_io", "readback", "sam_loader", "segment_beans", "tone_map", "linear_dng",
-    "preview_formats")] + [   # ticket OPS-25 P1: the page's wide-gamut previews
+    "jxl_header", "litert", "model_io", "photo_io", "readback", "sam_loader", "segment_beans", "tone_map",
+    "linear_dng")] + [
     # Ticket ML-19 P9: the host reads canonical photos only (coffeecv.canonical), which reads both files (OPS-18 D13;
-    # the profile through colour_declaration since ML-37).
-    "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv",
-    "coffeecv/data/display_p3.icc"]   # ticket OPS-25: the P3 preview's profile, which preview_formats reads
+    # the profile through colour_declaration since ML-37). OPS-25's preview_formats and its P3 profile went with
+    # ML-37 (D4).
+    "coffeecv/data/rec2020_bt709.icc", "coffeecv/data/accepted_formats.csv"]
 # Beside models/<name>.pt, git-tracked. The first two are required; the rest ship when the ref has them
 # (a model without a probe runs the centroid guard -- the probe file's presence is the switch).
 MODEL_REQUIRED = (".pt.dvc", ".json")

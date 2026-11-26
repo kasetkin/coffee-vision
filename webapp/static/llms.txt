@@ -11,7 +11,7 @@ other sites' pages.
 
 ## API
 
-- [OpenAPI description](https://coffee.kasetkin.com/openapi.json): the request, both answer parts and every error,
+- [OpenAPI description](https://coffee.kasetkin.com/openapi.json): the request, every line of the answer and every error,
   machine-readable.
 - [Agent resource manifest](https://coffee.kasetkin.com/.well-known/ard.json): this file and the API, for agent
   registries.
@@ -30,20 +30,23 @@ curl -sS -F photo=@beans.jpg https://coffee.kasetkin.com/analyze
   tone-mapped into standard range; a JPEG XL with an embedded ICC profile is refused.
 - `skip_crop` (optional): send `1` to classify the whole photo instead of the beans the server finds in it.
 
-The answer is `application/x-ndjson`: two JSON objects, one per line, streamed (a third during a trial, below).
+The answer is `application/x-ndjson`: up to three JSON objects, one per line, streamed. The last line is always the
+result or an error.
 
-1. `{"part": "preview", ...}` after about 2 s: the photo as the model sees it (`thumbnail`, a base64 JPEG), the bean
-   region (`mask`, a base64 PNG or null), the crop (`box`, fractions of the photo as `[x0, y0, x1, y1]`, or null).
-   An agent can skip this line.
-2. The result, after about 9 s in all. `{"part": "classification", "verdict": ...}`, where `verdict` is one of:
+1. `{"part": "preview", "jpeg": ...}` after about 1-3 s: the photo as the model reads it, a base64 JPEG, long side at
+   most 1024 px. Left out if the server could not make it. An agent can skip this line.
+2. `{"part": "segmentation", ...}` after about 5 s: the bean region (`mask`, a base64 PNG or null) and the crop
+   (`box`, fractions of the photo as `[x0, y0, x1, y1]`, or null), to draw over the preview. An agent can skip this
+   line.
+3. The result, after about 9 s in all. `{"part": "classification", "verdict": ...}`, where `verdict` is one of:
    - `predicted`: `ranked` lists every country as `{"id", "label", "score"}`, best first; `label` is the country.
    - `warned`: the same `ranked`, plus `warning` ("Uncertain", "Uncertain framing"): say the answer is unsure.
    - `refused_ood`: the photo does not look like coffee beans the model knows. There is no country to report.
    - `refused_unreadable`: the photo could not be read as beans.
 
-   Or `{"part": "error", "message": ...}` if the server failed after the preview went out.
-3. During a trial of wide-gamut previews, after a classification: `{"part": "previews", "previews": ...}`, the
-   preview in three more formats for the page. An agent can skip this line; it will go when the trial ends.
+   Or `{"part": "error", "message": ...}` in place of the lines still to come. With `"outcome": "busy"` or
+   `"offline"`, the classifier could not take the photo after the preview went out: as the `503`s below. With
+   `"failed"`, or none, the server failed.
 
 Errors before the stream starts, each with `{"error": ...}`: `400` (no photo, or a file that is not an image), `413`
 (a photo over 40 MB, or over its megapixel limit), and `503`, which is one of two:
@@ -73,7 +76,7 @@ let text = "";
 for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
   text += chunk.value;
   for (let end; (end = text.indexOf("\n")) >= 0; text = text.slice(end + 1)) {
-    const part = JSON.parse(text.slice(0, end));   // "preview", then "classification" or "error", maybe "previews"
+    const part = JSON.parse(text.slice(0, end));   // "preview", "segmentation", then "classification" or "error"
     console.log(part.part, part.verdict);
   }
 }

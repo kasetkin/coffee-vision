@@ -16,7 +16,7 @@
       "post": {
         "operationId": "analyzeCoffeePhoto",
         "summary": "Classify the country of origin of the coffee beans in one photo",
-        "description": "The answer is two JSON objects, one per line (NDJSON), streamed: a preview after about 2 s, then the classification after about 9 s in all. Read to the end of the stream; the classification (or an error part) is always the second line. During a trial of wide-gamut previews a third line follows a classification, a PreviewsPart, which a caller may ignore.",
+        "description": "The answer is JSON objects, one per line (NDJSON), streamed: the preview, the photo as the model reads it, once the photo is converted (about 1-3 s); then the segmentation, where the beans are (about 5 s in all); then the classification (about 9 s in all). Read to the end of the stream: the classification, or an error part, is always the last line. A refusal before the stream (too large, not an image, unreadable, busy) is an HTTP status; once the preview has gone out, the classifier offline or busy, or a failure, is an error part.",
         "requestBody": {
           "required": true,
           "content": {
@@ -42,16 +42,16 @@
         },
         "responses": {
           "200": {
-            "description": "Two or three lines: a PreviewPart, then a ClassificationPart (or an ErrorPart if the server failed after the preview went out), then, during a trial and after a ClassificationPart only, a PreviewsPart, which a caller may ignore.",
+            "description": "Up to three lines: a PreviewPart (left out when the server could not make it), a SegmentationPart, then a ClassificationPart; an ErrorPart instead of the lines still to come if the server failed or the classifier could not take the photo after the stream began.",
             "content": {
               "application/x-ndjson": {
                 "schema": {
                   "description": "The schema of one line: the body is newline-delimited JSON, each line one of these.",
                   "oneOf": [
                     {"$ref": "#/components/schemas/PreviewPart"},
+                    {"$ref": "#/components/schemas/SegmentationPart"},
                     {"$ref": "#/components/schemas/ClassificationPart"},
-                    {"$ref": "#/components/schemas/ErrorPart"},
-                    {"$ref": "#/components/schemas/PreviewsPart"}
+                    {"$ref": "#/components/schemas/ErrorPart"}
                   ]
                 }
               }
@@ -66,7 +66,7 @@
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
           },
           "503": {
-            "description": "Not analyzed now, for one of two reasons told apart by the body. Busy: another photo is being analyzed, with {\"error\": \"the classifier is busy with another photo\"} or a body that is not JSON; wait about 10 s and retry. Offline: {\"error\": \"the classifier is offline\"}, the classifier is down or being updated; try again in a few minutes, not in a loop.",
+            "description": "Not analyzed now, for one of two reasons told apart by the body. Busy: another photo is being analyzed, with {\"error\": \"the classifier is busy with another photo\"} or a body that is not JSON; wait about 10 s and retry. Offline: {\"error\": \"the classifier is offline\"}, the classifier is down or being updated; try again in a few minutes, not in a loop. Once the preview has gone out, either comes as an ErrorPart with outcome busy or offline instead.",
             "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}
           }
         }
@@ -77,11 +77,19 @@
     "schemas": {
       "PreviewPart": {
         "type": "object",
-        "description": "The photo as the model sees it. Display only; an agent can skip it.",
-        "required": ["part", "thumbnail", "mask", "seg_fallback", "cropped", "box", "needs_review"],
+        "description": "The photo as the model reads it, sent before the photo is analyzed. Display only; an agent can skip it.",
+        "required": ["part", "jpeg"],
         "properties": {
           "part": {"const": "preview"},
-          "thumbnail": {"type": "string", "contentEncoding": "base64", "contentMediaType": "image/jpeg", "description": "The decoded photo, long side at most 1024 px."},
+          "jpeg": {"type": "string", "contentEncoding": "base64", "contentMediaType": "image/jpeg", "description": "The photo in sRGB, long side at most 1024 px."}
+        }
+      },
+      "SegmentationPart": {
+        "type": "object",
+        "description": "Where the beans are, to draw over the preview. Display only; an agent can skip it.",
+        "required": ["part", "mask", "seg_fallback", "cropped", "box", "needs_review"],
+        "properties": {
+          "part": {"const": "segmentation"},
           "mask": {"type": ["string", "null"], "contentEncoding": "base64", "contentMediaType": "image/png", "description": "The bean region over the whole photo, long side at most 1024 px; null when none was used."},
           "seg_fallback": {"type": "boolean", "description": "No usable bean region was found, so the whole photo is classified."},
           "cropped": {"type": "boolean"},
@@ -126,29 +134,12 @@
         "required": ["part", "message"],
         "properties": {
           "part": {"const": "error"},
-          "message": {"type": "string"}
-        }
-      },
-      "PreviewsPart": {
-        "type": "object",
-        "description": "During a trial of wide-gamut previews, after the ClassificationPart: the preview in three more formats, each the thumbnail's size, as {mime, data (base64)}. Display only; a caller may ignore it, and it will go.",
-        "required": ["part", "previews"],
-        "properties": {
-          "part": {"const": "previews"},
-          "previews": {
-            "type": "object",
-            "properties": {
-              "p3_jpeg": {"$ref": "#/components/schemas/PreviewFile", "description": "An 8-bit JPEG with a Display P3 ICC profile."},
-              "avif10": {"$ref": "#/components/schemas/PreviewFile", "description": "A 10-bit AVIF: Rec.2020 primaries, the sRGB transfer."},
-              "jxl": {"$ref": "#/components/schemas/PreviewFile", "description": "A 16-bit JPEG XL: Rec.2020 primaries, the sRGB transfer."}
-            }
+          "message": {"type": "string", "description": "A short reason."},
+          "outcome": {
+            "enum": ["busy", "offline", "failed"],
+            "description": "Present when the classifier did not answer after the preview went out: busy (wait about 10 s and retry), offline (try again in a few minutes) or failed. Absent: the classification itself failed."
           }
         }
-      },
-      "PreviewFile": {
-        "type": "object",
-        "required": ["mime", "data"],
-        "properties": {"mime": {"type": "string"}, "data": {"type": "string"}}
       },
       "Error": {
         "type": "object",

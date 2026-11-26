@@ -1,5 +1,6 @@
-"""The front's check service (ADR 0031, ticket OPS-15 P1; ADR 0033, ticket ML-19 P9): POST /analyze from the front's
-nginx, checked, canonicalized, then forwarded to the inference host, whose answer streams back as it arrives.
+"""The front's check service (ADR 0031, ticket OPS-15 P1; ADR 0033, ticket ML-19 P9; ADR 0043, ticket ML-37 P4): POST
+/analyze from the front's nginx, checked, canonicalized, then answered in a stream of its own: the preview first, made
+here, while the photo is forwarded to the inference host, whose lines follow as they arrive.
 
     python webapp/front/check_service.py --listen 127.0.0.1:8100 --inference http://<tailnet address>:12346
 
@@ -10,10 +11,19 @@ OPS-22 D1, ADR 0036: kept up to 18 MP, over that area-averaged to at most 15 MP;
 effort 3), not the store's. Every upload is canonicalized here, an already canonical one (each of the page's examples)
 included: ML-19 D17's pass-through is gone (OPS-22 D3). A photo over the pixel ceiling (D38; a RAW one over its own,
 D24) is refused with a 413 from its header before any pixel is decoded, and one that cannot be read is the 400 the
-inference host gives. The form goes on
+inference host gives. Those refusals,
+and busy, are HTTP statuses: they come before the answer's stream opens (ML-37 D16).
+
+Once the canonical photo is made, the answer opens: a 200 of NDJSON lines (ADR 0023), unbuffered by the front's nginx
+(X-Accel-Buffering: no). Its first line is the preview, {"part": "preview", "jpeg": <base64>} (ML-37 D15, D24): the
+photo's model picture, made here from the canonical photo just made (coffeecv.preview), on a thread of its own while
+the photo crosses. The inference host's lines are relayed after it, never before (its segmentation, then the
+classification or an error). A preview that cannot be made is left out and logged; the host's lines still go (D23).
+The form goes on
 with the canonical photo in place of the visitor's (named <stem>.jxl), every other field and header as sent; the
 original is never stored or forwarded (D21). An inference host that cannot be reached, or whose app is down behind its
-nginx, is a 503 "the classifier is offline" (D12), apart from its busy 503, which is relayed as it is. Every request
+nginx, is "the classifier is offline" (D12), its 503 "busy", and any other refusal "failed": each, the stream being
+open, an error line {"part": "error", "outcome": ..., "message": ...} after the preview (ML-37 D26). Every request
 keeps the ID the front's nginx made for it (OPS-3 D8): forwarded to the inference host, and on every answer.
 
 On http.server (D19): the front's nginx gates one request at a time (D11), so a thread per request never means more
@@ -27,13 +37,18 @@ It logs one JSON line per request to a file of its own (OPS-3 D9, requests.jsonl
 no client IP: it never sees one; the proxy's stream block logs the visitor's IP per session (D20). The line is what
 this service alone knows of the photo's timeline (OPS-3 D6): the visitor's original, its name, extension, detected
 format and size (D10); the settings it was canonicalized with (OPS-22: "as_sent" in a line from before that, for a
-photo sent canonical), its size, decoded depth, time and the process's peak and swapped memory while it was at work (ML-19 D38: the ceiling and MemoryMax are reviewed
-from these lines); the crossing to the inference host, and the answer's headers, preview and end as they passed.
+photo sent canonical), its size, decoded depth, time and the process's peak and swapped memory while it was at work,
+the preview's making included (ML-19 D38, ML-37 D27: the ceiling and MemoryMax are reviewed from these lines); the
+preview's build and when it went out, on this service's clock from the stream's opening, or why it was not made
+(preview_build_ms, to_preview_ms, preview_error); the crossing to the inference host, and its answer's headers, first
+line (to_segmentation_ms) and end as they passed, from the photo's last byte. After a host refusal past the preview,
+status is the stream's 200, upstream_status the host's and outcome the word the error line carries (ML-37 D26).
 Only its start-up line goes to stderr, for the journal.
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import http.client
 import json
 import logging
@@ -55,7 +70,7 @@ from pathlib import Path, PurePath
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))   # the release's root: coffeecv/
 from upload_check import HEAD_BYTES, refusal  # noqa: E402
 
-from coffeecv import canonical, timeline_schema  # noqa: E402
+from coffeecv import canonical, preview, timeline_schema  # noqa: E402
 
 # ML-19 D23: the photo's own size, as the page measures it. Since the front canonicalizes, the photo that crosses the
 # tunnel is the canonical one (at most about 14 MB at 60 MP, analysis/ml19/p4_sizes.md) and memory is held by the
@@ -82,19 +97,19 @@ ANSWER_TIMEOUT_S = 60
 SETTINGS = canonical.FRONT_SETTINGS
 OFFLINE = {"error": "the classifier is offline"}
 BUSY = {"error": "the classifier is busy with another photo"}   # the front's nginx gate says the same (D11)
+FAILED = "could not process this photo"   # a refusal of the inference host's that says nothing readable
 TOO_LARGE = {"error": f"this photo is over the {MAX_UPLOAD_BYTES // 2**20} MB limit"}   # and so does its 413
 # Statuses from the inference host's nginx that mean its app is not answering (stopped for a deploy, ADR 0026, or
-# down): the classifier is offline, as when the host cannot be reached.
+# down): the classifier is offline, as when the host cannot be reached. Its 503 is busy (its nginx's gate, or the app's
+# backstop, D11); any other refusal failed (ML-37 D26).
 APP_DOWN = {502, 504}
+REFUSAL_BYTES = 64 * 1024   # of a refusal's body read for its message
 # Not forwarded to the inference host: the hop-by-hop headers (RFC 9110 §7.6.1) and the two this request sets again
 # for its own hop, Host and Content-Length. Everything else the visitor's browser sent goes on (the app logs a coarse
 # User-Agent). No visitor IP is among them: the front's nginx knows none and drops a forged one (D20).
 # X-Request-Id is set again too: exactly one, in nginx's form (request_id).
 NOT_FORWARDED = {"connection", "keep-alive", "proxy-connection", "transfer-encoding", "te", "trailer", "upgrade",
                  "proxy-authorization", "proxy-authenticate", "host", "content-length", "x-request-id"}
-# Not relayed from the inference host's answer: its hop-by-hop headers, and Server and Date, which send_response
-# writes. Its Content-Length is relayed, since the body goes on as it came, and so is its X-Request-Id.
-NOT_RELAYED = NOT_FORWARDED - {"host", "content-length", "x-request-id"} | {"server", "date"}
 # The request ID (OPS-3 D8): nginx's $request_id, 32 lowercase hex characters, made by the front's nginx for every
 # request and carried on every hop, so the front's, this service's and the inference host's lines and the page's
 # timeline join on it.
@@ -164,6 +179,12 @@ def with_photo(content_type: str, body: bytes, filename: str, data: bytes) -> by
     parts[index] = (f'\r\nContent-Disposition: form-data; name="photo"; filename="{filename}"\r\n'
                     "Content-Type: image/jxl\r\n\r\n").encode() + data + b"\r\n"
     return boundary.join(parts)
+
+
+def make_preview(canon: bytes) -> bytes:
+    """The preview's JPEG of the canonical photo just made (coffeecv.preview, ML-37 D4, D15): the picture the inference
+    host's models read, made here."""
+    return preview.from_canonical(canon)
 
 
 def reset_peak_memory() -> bool:
@@ -373,7 +394,17 @@ class CheckHandler(BaseHTTPRequestHandler):
             self.record["canonical_bytes"] = len(canon)
             # The visitor's name, kept to a safe alphabet: it goes into the forwarded part's header.
             name = f"{re.sub(r'[^A-Za-z0-9._-]', '_', PurePath(filename).stem)[:100] or 'photo'}.jxl"
-            return self.forward(with_photo(content_type, body, name, canon))
+            forwarded = with_photo(content_type, body, name, canon)
+            del body
+            # ML-37 D15: the answer opens now; the preview is made beside the crossing and goes out first.
+            self.open_stream()
+            previewed = threading.Event()
+            threading.Thread(target=self.send_preview, args=(canon, time.monotonic(), previewed), daemon=True).start()
+            del canon
+            try:
+                return self.forward(forwarded, previewed)
+            finally:
+                previewed.wait()   # one photo's work at a time (D11): the preview's memory too
         finally:
             self.crossing.release()
 
@@ -383,17 +414,57 @@ class CheckHandler(BaseHTTPRequestHandler):
         (ML-19 D38)."""
         t0, measured = time.monotonic(), reset_peak_memory()
         made = canonical.canonicalize_with(data, filename, SETTINGS, max_pixels)
-        peak_mb, swap_mb = process_memory_mb()
         self.record.update(canonical="canonicalized", canonical_settings=SETTINGS.label,
-                           canonicalize_ms=ms_since(t0), width=made.width, height=made.height, bits=made.bits,
-                           peak_mb=peak_mb, swap_mb=swap_mb)
+                           canonicalize_ms=ms_since(t0), width=made.width, height=made.height, bits=made.bits)
+        self.note_memory()
         if not measured:
             self.record["peak_since_start"] = True
         return made.canonical
 
-    def forward(self, body: bytes) -> str:
-        """Sends the photo on and relays the answer. The log line's crossing_ms is the connection and the whole upload;
-        its to_*_ms count from the upload's last byte (OPS-3 D6, steps 9-16)."""
+    def note_memory(self) -> None:
+        """The process's peak and swapped memory since canonicalize reset the peak: after the canonicalization, then
+        again once the preview is made (ML-37 D27), so the line holds the request's peak however far it got."""
+        self.record["peak_mb"], self.record["swap_mb"] = process_memory_mb()
+
+    def open_stream(self) -> None:
+        """The answer's 200 and headers (ML-37 D16): NDJSON, which the front's nginx must not buffer (OPS-7 D11), ended
+        by this connection's close."""
+        self.send_response(200)
+        self.record["status"] = 200
+        self.send_header("Content-Type", "application/x-ndjson")
+        self.send_header("X-Accel-Buffering", "no")
+        self.send_header("X-Request-Id", self.request_id)
+        self.end_headers()
+        self.close_connection = True
+
+    def send_preview(self, canon: bytes, opened: float, previewed: threading.Event) -> None:
+        """The answer's first line (ML-37 D15, D24), on its own thread beside the crossing; `previewed` set once it has
+        gone out or failed, since the host's lines wait for it. A preview that cannot be made is left out, its error in
+        the log line (D23); one that cannot be sent finds the visitor gone, which the relay meets too."""
+        try:
+            t = time.monotonic()
+            try:
+                line = json.dumps({"part": "preview",
+                                   "jpeg": base64.b64encode(make_preview(canon)).decode("ascii")}).encode() + b"\n"
+            except Exception as exc:   # noqa: BLE001 -- the classification is still worth having (D23)
+                self.record["preview_error"] = f"{type(exc).__name__}: {exc}"[:ERROR_CAP]
+                return
+            del canon
+            self.record["preview_build_ms"] = ms_since(t)
+            try:
+                self.wfile.write(line)
+                self.wfile.flush()
+            except OSError:
+                return
+            self.record["to_preview_ms"] = ms_since(opened)
+        finally:
+            self.note_memory()
+            previewed.set()
+
+    def forward(self, body: bytes, previewed: threading.Event) -> str:
+        """Sends the photo on and relays the answer's lines after the preview's (`previewed`). The log line's
+        crossing_ms is the connection and the whole upload; its to_*_ms of the host's answer count from the upload's
+        last byte (OPS-3 D6, steps 9-16)."""
         t = time.monotonic()
         conn = http.client.HTTPConnection(*self.inference, timeout=UPLOAD_TIMEOUT_S)
         try:
@@ -404,6 +475,7 @@ class CheckHandler(BaseHTTPRequestHandler):
             conn.putheader("X-Request-Id", self.request_id)
             conn.putheader("Content-Length", str(len(body)))
             conn.endheaders(body)
+            del body
             sent = time.monotonic()
             self.record["crossing_ms"] = ms_since(t)
             conn.sock.settimeout(ANSWER_TIMEOUT_S)   # the photo has crossed: from here, each read of the answer
@@ -412,41 +484,57 @@ class CheckHandler(BaseHTTPRequestHandler):
         except (OSError, http.client.HTTPException) as exc:   # refused, unreachable, timed out, not HTTP
             conn.close()
             self.record["error"] = type(exc).__name__
-            return self.json(503, OFFLINE, "offline")
+            return self.error_line("offline", OFFLINE["error"], previewed)
         try:
-            return self.relay(resp, sent)
+            return self.relay(resp, sent, previewed)
         finally:
             conn.close()
 
-    def relay(self, resp: http.client.HTTPResponse, sent: float) -> str:
-        if resp.status in APP_DOWN:
+    def relay(self, resp: http.client.HTTPResponse, sent: float, previewed: threading.Event) -> str:
+        """The inference host's answer: its lines as they arrive (ADR 0023; read1 returns what is there, so the
+        segmentation goes out before the classification exists), or its refusal as an error line (ML-37 D26)."""
+        if resp.status != 200:
             self.record["upstream_status"] = resp.status
-            return self.json(503, OFFLINE, "offline")
-        self.send_response(resp.status)
-        self.record["status"] = resp.status
-        for k, v in resp.getheaders():
-            if k.lower() not in NOT_RELAYED:
-                self.send_header(k, v)
-        if resp.getheader("X-Request-Id") is None:   # an answer of the inference host's nginx, not of its app
-            self.send_header("X-Request-Id", self.request_id)
-        self.end_headers()
-        # The answer as it arrives (ADR 0023): read1 returns what is there, so the preview goes out before the
-        # classification exists. Without a Content-Length, the end of the answer is this connection's close.
+            if resp.status in APP_DOWN:
+                return self.error_line("offline", OFFLINE["error"], previewed)
+            if resp.status == 503:
+                return self.error_line("busy", BUSY["error"], previewed)
+            return self.error_line("failed", self.refusal_message(resp), previewed)
+        previewed.wait()
         sent_bytes, outcome = 0, "relayed"
-        # A streamed answer's first line is its preview (ADR 0023): when its end has gone out, step 13's front half.
-        preview_pending = resp.getheader("Content-Type", "").startswith("application/x-ndjson")
+        segmentation_pending = True   # the host's first line (ML-37 D24): when its end has gone out, D27
         try:
             while chunk := resp.read1(65536):
                 self.wfile.write(chunk)
                 self.wfile.flush()
                 sent_bytes += len(chunk)
-                if preview_pending and b"\n" in chunk:
-                    self.record["to_preview_ms"], preview_pending = ms_since(sent), False
+                if segmentation_pending and b"\n" in chunk:
+                    self.record["to_segmentation_ms"], segmentation_pending = ms_since(sent), False
         except (OSError, http.client.HTTPException) as exc:
             # Either side gone mid-answer (IncompleteRead: the inference host's): the visitor's answer ends where it
             # was cut, as when the app fails mid-answer, and the page says so.
             self.record["error"], outcome = type(exc).__name__, "cut"
         self.record.update(to_end_ms=ms_since(sent), relayed_bytes=sent_bytes)
+        return outcome
+
+    @staticmethod
+    def refusal_message(resp: http.client.HTTPResponse) -> str:
+        """What the inference host's refusal says, from its JSON body's error, else FAILED."""
+        try:
+            message = json.loads(resp.read(REFUSAL_BYTES)).get("error")
+        except (OSError, http.client.HTTPException, ValueError, AttributeError):
+            message = None
+        return message[:ERROR_CAP] if isinstance(message, str) and message else FAILED
+
+    def error_line(self, outcome: str, message: str, previewed: threading.Event) -> str:
+        """The answer's last line when the inference host gives none of its own (ML-37 D26): the outcome's word, which
+        the page maps to its own, and what to say. After the preview, as every line of the host's would be."""
+        previewed.wait()
+        try:
+            self.wfile.write(json.dumps({"part": "error", "outcome": outcome, "message": message}).encode() + b"\n")
+            self.wfile.flush()
+        except OSError as exc:
+            self.record["error"] = type(exc).__name__
         return outcome
 
     def json(self, status: int, payload: dict, outcome: str) -> str:

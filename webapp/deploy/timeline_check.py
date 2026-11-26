@@ -26,8 +26,9 @@ TIMEOUT_S = 30
 
 
 def timeline(request_id: str) -> dict:
-    """verify's own photo's timeline: Choose Photo, answered at the first attempt. No times: verify measures none."""
-    return {"v": 1, "request_id": request_id, "control": "choose_photo", "outcome": "answered",
+    """verify's own photo's timeline, at the schema's version 2 (ML-37 D25): Choose Photo, answered at the first
+    attempt. No times: verify measures none."""
+    return {"v": 2, "request_id": request_id, "control": "choose_photo", "outcome": "answered",
             "attempts": [{"request_id": request_id, "status": 200}], "probe": PROBE}
 
 

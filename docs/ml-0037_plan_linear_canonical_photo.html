@@ -216,7 +216,7 @@
 
   <h2>6. P4 &mdash; the preview: the front's picture, the host's mask and box</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-26: <code>3db4896</code>, <code>87eb9dd</code>; the front's peak with the preview at most 537 MB against 600M; the local rehearsal passed</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P3 <span class="tag">Q1 answered</span></span></div>
   </div>
   <p>D4 and D15. The front makes the picture by P1's read-back from the canonical photo it has just made, and sends it
@@ -405,6 +405,37 @@
       does not yet name <code>coffeecv/readback.py</code> among the <code>segcrop</code> and
       <code>seg_ml19_predict</code> stages' dependencies: <code>tests/test_incremental</code> holds them to
       <code>dvc.lock</code>, so it is added with P5's re-run. The store is not re-run.</div>
+    <div><div class="when">2026-11-26</div>P4 done (<code>3db4896</code>; its measurement <code>87eb9dd</code>),
+      test-first. The front opens the answer once the canonical photo is made (200 NDJSON,
+      <code>X-Accel-Buffering: no</code>) and writes <code>{"part": "preview", "jpeg": ...}</code> first, made by
+      <code>coffeecv/preview.py</code> (<code>load_canonical</code>, then Pillow's 1,024 px thumbnail, JPEG q85) on a
+      thread beside the crossing; the host's lines are relayed after it. A host offline, busy or failing past the preview
+      is an error line with its <code>outcome</code>, logged status 200 with <code>upstream_status</code> (D26); a preview
+      the front cannot make is left out and logged as <code>preview_error</code> (D23). The host sends
+      <code>{"part": "segmentation"}</code> (mask, box, <code>cropped</code>, <code>seg_fallback</code>,
+      <code>needs_review</code>) and no picture; <code>_shrink_aside</code>, the previews part,
+      <code>coffeecv/preview_formats.py</code>, <code>display_p3.icc</code> and OPS-25's tabs are gone. The page draws
+      the preview, then the mask and box; the timeline is at version 2, the reading script reads 1 and 2 and counts the
+      preview failures; <code>release_probe</code> and <code>--verify</code> read the new lines. ADR 0043 written; ADR
+      0023 and 0031 amended; <code>openapi.json</code>, <code>llms.txt</code>, <code>webapp/README.md</code>,
+      <code>docs/inference_path.html</code>, <code>docs/logging_plan.html</code> and <code>docs/agents/deploy.md</code>
+      follow. The front's preview equals the one made from the host's read-back of the photo that crossed, byte for
+      byte, in a test. The front's cost, <code>analysis/ml37/p4_front_cost.py</code> (<code>p4_front_cost.jsonl</code>):
+      each photo through the check service itself, a fresh process on 2 pinned CPUs of this workstation (load average
+      2&ndash;9, so the seconds are rough), against a stand-in host, once each. Every one of the 44 photos the front
+      accepts answered preview, segmentation, classification in that order, with no preview failure (the three RAWs over
+      16 MP refused with a 413 before the stream, as before). Peak resident memory, the preview's making in it: at most
+      537 MB (a 48 MP iPhone gain-map HEIC; 495 MB in P3's run), against the unit's 600M, 63 MB to spare; ML-29 R6's
+      seven photos 471 MB mean (P3's run 401), the 60 MP ceiling 482 MB (285), where the preview's decode and read-back
+      are the peak; the front-forms study's 37 photos 379 MB mean, 46 MB above P3's run on average. The preview built
+      in 0.96 s mean on R6's photos (1.05 s at most), 0.71 s on the 37, and went out that long after the stream opened;
+      its JPEG 127 and 156 KB mean. Not measured on the front itself.
+      <code>scripts/rehearse_deploy_local.sh</code> passed through both hosts' parts (deploy 1 at
+      <code>3db4896</code>, deploy 2 an empty commit after it, the served
+      <code>dino3b16_segxl0v7r_country_aug8_ml29gm_s123</code>): the host's smoke answered segmentation then
+      classification, mask IoU 1.0 against the local run; <code>--compare</code> within D7 on 12 photos, no top-1
+      change; the refusals, rollbacks and prune as before. The public checks, the front's preview line among them, are
+      skipped there as always: they run at P8's release.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,

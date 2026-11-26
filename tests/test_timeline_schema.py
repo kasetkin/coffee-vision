@@ -4,7 +4,9 @@
 
 coffeecv/timeline_schema.py is what the check service accepts on POST /timeline and what the reading script
 (coffeecv/timelines.py) reads: known keys only, fixed sets of values, whole milliseconds in a range, IDs in nginx's
-form, an example named in examples.json. These tests hold each refusal, and the page's sets to the schema's.
+form, an example named in examples.json. These tests hold each refusal, and the page's sets to the schema's. Since
+ML-37 (D25) the page sends version 2, with the segmentation's times beside the preview's; the reading script reads
+version 1 too.
 """
 from __future__ import annotations
 
@@ -22,9 +24,11 @@ RID2 = "fedcba9876543210fedcba9876543210"
 
 
 def timeline(**changes) -> dict:
-    """A real-looking timeline: an own photo from Choose Photo, retried once while busy, then answered."""
-    base = {"v": 1, "request_id": RID, "control": "choose_photo", "outcome": "answered",
-            "pick_ms": 5200, "size_check_ms": 0, "to_preview_ms": 9100, "preview_drawn_ms": 40,
+    """A real-looking timeline: an own photo from Choose Photo, retried once while busy, then answered; its preview
+    from the front before the photo crossed, then the segmentation from the host (ML-37 D25)."""
+    base = {"v": 2, "request_id": RID, "control": "choose_photo", "outcome": "answered",
+            "pick_ms": 5200, "size_check_ms": 0, "to_preview_ms": 1100, "preview_drawn_ms": 40,
+            "to_segmentation_ms": 9100, "segmentation_drawn_ms": 25,
             "to_answer_ms": 11800, "answer_shown_ms": 12, "total_ms": 30400,
             "attempts": [{"request_id": RID2, "status": 503, "connect_ms": 80, "upload_ms": 900, "headers_ms": 20,
                           "wait_ms": 3000},
@@ -42,7 +46,7 @@ class Accepts(unittest.TestCase):
         self.assertEqual(ts.check(t, EXAMPLES), t)
 
     def test_a_photo_refused_on_the_page_has_no_id(self):
-        t = {"v": 1, "request_id": None, "control": "camera", "outcome": "refused_on_page", "size_check_ms": 1,
+        t = {"v": 2, "request_id": None, "control": "camera", "outcome": "refused_on_page", "size_check_ms": 1,
              "total_ms": 3000, "attempts": []}
         self.assertEqual(ts.check(t, EXAMPLES), t)
 
@@ -58,6 +62,16 @@ class Accepts(unittest.TestCase):
             for outcome in ts.OUTCOMES:
                 extra = {"example": "cappuccino"} if control == "example" else {}
                 ts.check(timeline(control=control, outcome=outcome, **extra), EXAMPLES)
+
+
+    def test_version_1_only_where_the_reader_asks_for_it(self):   # ML-37 D25: the logs keep the lines before it
+        old = timeline(v=1, to_segmentation_ms=None, segmentation_drawn_ms=None)
+        self.assertEqual(ts.check(old, None, versions=ts.READ_VERSIONS), old)
+        with self.assertRaises(ts.Invalid):
+            ts.check(old, EXAMPLES)
+        with self.assertRaises(ts.Invalid) as caught:   # the segmentation's times are version 2's only
+            ts.check(timeline(v=1), None, versions=ts.READ_VERSIONS)
+        self.assertIn("unknown key", str(caught.exception))
 
 
 class Refuses(unittest.TestCase):
@@ -86,7 +100,8 @@ class Refuses(unittest.TestCase):
                 self.refused(data, key)
 
     def test_a_value_outside_its_set(self):
-        self.refused(timeline(v=2), "v")
+        self.refused(timeline(v=1), "v")
+        self.refused(timeline(v=3), "v")
         self.refused(timeline(control="Choose Photo"), "control")
         self.refused(timeline(outcome="answered\n"), "outcome")
         self.refused(timeline(probe="yes"), "probe")
@@ -161,12 +176,16 @@ class ThePage(unittest.TestCase):
                 self.assertEqual(tuple(re.findall(r"'([a-z_]+)'", found[1])), values)
 
     def test_every_outcome_the_page_ends_a_photo_with_is_the_schemas(self):
-        """Each endRun('...') of the page, and each outcome its refusalOutcome() returns."""
+        """Each endRun('...') of the page, and each outcome its refusalOutcome() and errorLineOutcome() return (the
+        second, ML-37 D26, an error line's word or failed)."""
         ended = set(re.findall(r"endRun\('([a-z_]+)'", self.SCRIPT))
-        refusals = re.search(r"function refusalOutcome\(.*?\n\}", self.SCRIPT, re.S)
-        self.assertIsNotNone(refusals, "the page has no refusalOutcome()")
-        ended |= set(re.findall(r"'([a-z_]+)'", refusals[0]))
+        for function in ("refusalOutcome", "errorLineOutcome"):
+            found = re.search(rf"function {function}\(.*?\n\}}", self.SCRIPT, re.S)
+            self.assertIsNotNone(found, f"the page has no {function}()")
+            ended |= set(re.findall(r"'([a-z_]+)'", found[0]))
         self.assertEqual(ended, set(ts.OUTCOMES))
+        line_outcome = re.search(r"function errorLineOutcome\(.*?\n\}", self.SCRIPT, re.S)[0]
+        self.assertEqual(set(re.findall(r"'([a-z_]+)'", line_outcome)), {"offline", "busy", "failed"})
 
     def test_the_limits_are_the_schemas(self):
         self.assertIn(f"const TIMELINE_MAX_MS = {ts.MAX_MS};", self.SCRIPT)
