@@ -62,7 +62,6 @@ from pathlib import Path
 import numpy as np
 import torch
 import yaml
-from PIL import Image
 
 from coffeecv import augment, model_io
 from coffeecv.archive_experiment import EXPERIMENTS_DIR, archive
@@ -129,8 +128,10 @@ def run_slug(backbone: str, readout: str, views: int, seed: int) -> str:
 
 class HeadAugment:
     """params.yaml head_augment: `views` augmented views of a training patch (ticket ML-8 D4, ADR 0025). A view is
-    the `patch` pipeline on the stored patch, the eval transform's resize to `resize` (model_io.eval_resize, the
-    one serving's eval_patch calls), then the `input` pipeline on the model's input pixels. Both pipelines are built
+    the `patch` pipeline on the stored uint8 patch, the eval transform's resize to `resize` (model_io.eval_resize, the
+    one serving's eval_patch calls), which gives float32 in [0, 1] (ML-37 D11 (b)), then the `input` pipeline on that
+    float picture, the model's input pixels (ML-37 D17 (a): its JPEG compression and Downscale round to 8 bits
+    inside, as they are 8-bit by nature; the blurs and the noise stay float). Both pipelines are built
     by coffeecv.augment's strict builder and reseeded per view from (run seed, patch index, view), so a view
     is the same whatever was drawn before it, and one seed repeats its stream."""
 
@@ -152,14 +153,14 @@ class HeadAugment:
         return cls(block["views"], block["patch"], block["input"], cfg.patch_resize)
 
     def view(self, patch: np.ndarray, seed: int, index: int, k: int) -> np.ndarray:
-        """View `k` of training patch `index` (HxWx3 uint8, as stored) -> resize x resize x 3 uint8."""
+        """View `k` of training patch `index` (HxWx3 uint8, as stored) -> resize x resize x 3 float32 in [0, 1]."""
         s_patch, s_input = np.random.SeedSequence([seed, index, k]).generate_state(2)
         self._patch.set_random_seed(int(s_patch))
         self._input.set_random_seed(int(s_input))
         x = self._patch(image=patch)["image"]
         if x.shape != patch.shape:
             raise ValueError(f"head_augment.patch changed the patch's shape {patch.shape} to {x.shape}")
-        x = np.asarray(model_io.eval_resize(Image.fromarray(x), self.resize))
+        x = model_io.eval_resize(x, self.resize)
         out = self._input(image=x)["image"]
         if out.shape != (self.resize, self.resize, 3):
             raise ValueError(f"head_augment.input changed the input's shape to {out.shape}")
@@ -208,7 +209,6 @@ def embed_views(patches: list[np.ndarray] | None, indices, bb: FrozenBackbone, r
     are made and embedded EMBED_BATCH at a time and dropped; no view is written. With `store`, the embeddings go
     to disk a chunk of VIEW_CHUNK_BATCHES batches at a time, and a chunk already there is loaded, not embedded
     (`patches` may then be None if every chunk is)."""
-    eval_tf = build_eval_transform(aug.resize)
     jobs = [(row, i, k) for row, i in enumerate(indices) for k in range(aug.views)]
     size = VIEW_CHUNK_BATCHES * EMBED_BATCH
     feats, spent, wall, loaded = None, 0.0, 0.0, 0
@@ -223,7 +223,8 @@ def embed_views(patches: list[np.ndarray] | None, indices, bb: FrozenBackbone, r
             f_part = []
             for start in range(0, len(part), EMBED_BATCH):
                 batch = part[start:start + EMBED_BATCH]
-                x = torch.stack([eval_tf(Image.fromarray(aug.view(patches[i], seed, i, k))) for _, i, k in batch])
+                x = torch.stack([torch.from_numpy(model_io.eval_input(aug.view(patches[i], seed, i, k)))
+                                 for _, i, k in batch])
                 t = time.perf_counter()
                 f_part.append(bb.features(x)[readout].float().numpy())
                 rec["spent"] += time.perf_counter() - t

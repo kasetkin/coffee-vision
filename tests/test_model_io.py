@@ -3,8 +3,10 @@ Plain unittest.
 
 Run from the repo root:  python -m unittest tests.test_model_io -v
 
-The resizes, normalisations, pad and box must be bit-identical. The mask's upsampling and the head round
-differently from torch, so they are held to tolerances: the mask to ML-7 D7's IoU bar, the head to float rounding.
+The normalisations, pad and box must be bit-identical. The resizes give float since ML-37 D11 (b): they are held to
+torch's antialiased bilinear within 0.01 of a level (the oracle D11's research named), and to today's 8-bit resize
+within one level (one rounding). The mask's upsampling and the head round differently from torch, so they are held
+to tolerances: the mask to ML-7 D7's IoU bar, the head to float rounding.
 """
 import sys
 import types
@@ -72,47 +74,131 @@ def _iou(a: np.ndarray, b: np.ndarray) -> float:
     return 1.0 if union == 0 else np.count_nonzero(a & b) / union
 
 
+LEVEL = 1 / 255
+ORACLE_LEVELS = 0.01      # the float resize against torch's antialiased bilinear (ML-37 D11's research: <= 0.006)
+
+
+def _torch_resize(rgb: np.ndarray, h: int, w: int) -> np.ndarray:
+    """The oracle (ML-37 D11's research): torch's antialiased bilinear, which its documentation says matches Pillow's
+    downsampling, on the 8-bit picture / 255, HxWx3 float32."""
+    x = torch.from_numpy(rgb.astype(np.float32) / 255).permute(2, 0, 1)[None]
+    return F.interpolate(x, (h, w), mode="bilinear", align_corners=False, antialias=True)[0].permute(1, 2, 0).numpy()
+
+
 class TestEvalPatch(unittest.TestCase):
-    def test_bit_identical_to_torchvision(self):
-        """Against the torchvision pipeline build_eval_transform held before ML-7 P8."""
-        import torchvision.transforms as T
-        tf = T.Compose([T.Resize((224, 224), interpolation=T.InterpolationMode.BILINEAR), T.ToTensor(),
-                        T.Normalize(mean=model_io.IMAGENET_MEAN, std=model_io.IMAGENET_STD)])
-        for seed, side in enumerate((900, 448, 224, 97)):
+    """ML-37 D11 (b): the stored 8-bit patch to the model's input with no rounding after the resize."""
+
+    def test_eval_resize_against_torchs_antialiased_bilinear(self):
+        for seed, side in enumerate((900, 448, 97)):
+            rgb = _smooth_rgb(side, side, seed)
+            with self.subTest(side=side):
+                ours = model_io.eval_resize(Image.fromarray(rgb), 224)
+                self.assertEqual((ours.dtype, ours.shape), (np.float32, (224, 224, 3)))
+                self.assertLessEqual(float(np.abs(ours - _torch_resize(rgb, 224, 224)).max()), ORACLE_LEVELS * LEVEL)
+                np.testing.assert_array_equal(model_io.eval_resize(rgb, 224), ours)   # an array is the same patch
+
+    def test_eval_resize_within_one_level_of_todays_8_bit_resize(self):
+        for seed, side in enumerate((900, 448, 97)):
             patch = Image.fromarray(_smooth_rgb(side, side, seed))
+            today = np.asarray(patch.resize((224, 224), Image.BILINEAR), dtype=np.float32)
+            with self.subTest(side=side):
+                self.assertLessEqual(float(np.abs(model_io.eval_resize(patch, 224) * 255 - today).max()), 1.0)
+
+    def test_a_patch_already_at_size_is_not_resampled(self):
+        rgb = _smooth_rgb(224, 224, 0)
+        np.testing.assert_array_equal(model_io.eval_resize(rgb, 224), rgb.astype(np.float32) / np.float32(255))
+
+    def test_eval_patch_is_torchvisions_eval_transform_on_the_float_resize(self):
+        import torchvision.transforms as T
+        norm = T.Normalize(mean=model_io.IMAGENET_MEAN, std=model_io.IMAGENET_STD)
+        for seed, side in enumerate((900, 448, 224, 97)):
+            rgb = _smooth_rgb(side, side, seed)
+            patch = Image.fromarray(rgb)
             with self.subTest(side=side):
                 ours = model_io.eval_patch(patch, 224)
-                self.assertEqual(ours.dtype, np.float32)
-                np.testing.assert_array_equal(ours, tf(patch).numpy())
+                self.assertEqual((ours.dtype, ours.shape), (np.float32, (3, 224, 224)))
+                ref = norm(torch.from_numpy(_torch_resize(rgb, 224, 224)).permute(2, 0, 1)).numpy()
+                self.assertLessEqual(float(np.abs(ours - ref).max()), _normalised_bound(model_io.IMAGENET_STD))
                 np.testing.assert_array_equal(build_eval_transform(224)(patch).numpy(), ours)
 
-    def test_is_the_shared_resize_then_normalise(self):
+    def test_a_patch_at_size_is_todays_input_to_the_bit(self):
+        import torchvision.transforms as T
+        patch = Image.fromarray(_smooth_rgb(224, 224, 0))
+        tf = T.Compose([T.ToTensor(), T.Normalize(mean=model_io.IMAGENET_MEAN, std=model_io.IMAGENET_STD)])
+        np.testing.assert_array_equal(model_io.eval_patch(patch, 224), tf(patch).numpy())
+
+    def test_is_the_shared_resize_then_the_input_normalisation(self):
         patch = Image.fromarray(_smooth_rgb(448, 448, 0))
-        with mock.patch.object(model_io, "eval_resize", wraps=model_io.eval_resize) as resize:
-            model_io.eval_patch(patch, 224)
+        with mock.patch.object(model_io, "eval_resize", wraps=model_io.eval_resize) as resize, \
+                mock.patch.object(model_io, "eval_input", wraps=model_io.eval_input) as to_input:
+            out = model_io.eval_patch(patch, 224)
         resize.assert_called_once_with(patch, 224)
-        sized = patch.resize((224, 224))
-        self.assertIs(model_io.eval_resize(sized, 224), sized)   # a patch already at size is not resampled
+        to_input.assert_called_once()
+        np.testing.assert_array_equal(out, model_io.eval_input(model_io.eval_resize(patch, 224)))
+
+
+class TestSamResize(unittest.TestCase):
+    """ML-37 D11 (b): the 8-bit photo in, float32 in [0, 1] out, by PIL's bilinear with no rounding after it."""
+
+    def test_against_torchs_antialiased_bilinear(self):
+        for seed, (h, w, side) in enumerate(((3000, 4000, 1024), (4032, 3024, 1024), (512, 384, 1024),
+                                             (700, 500, 512))):
+            rgb = _smooth_rgb(h, w, seed)
+            nh, nw = model_io.sam_preprocess_shape(h, w, side)
+            with self.subTest(hw=(h, w), side=side):
+                ours = model_io.sam_resize(rgb, side)
+                self.assertEqual((ours.dtype, ours.shape), (np.float32, (nh, nw, 3)))
+                self.assertLessEqual(float(ours.max()), 1.0)
+                self.assertGreaterEqual(float(ours.min()), 0.0)
+                self.assertLessEqual(float(np.abs(ours - _torch_resize(rgb, nh, nw)).max()), ORACLE_LEVELS * LEVEL)
+
+    def test_a_photo_already_at_size_is_only_scaled_to_one(self):
+        rgb = _smooth_rgb(768, 1024, 3)
+        np.testing.assert_array_equal(model_io.sam_resize(rgb, 1024), rgb.astype(np.float32) / np.float32(255))
+
+    def test_within_one_level_of_todays_8_bit_samresize(self):
+        sam = _efficientvit_sam()
+        for seed, (h, w, side) in enumerate(((3000, 4000, 512), (4032, 3024, 1024), (512, 384, 1024))):
+            rgb = _smooth_rgb(h, w, seed)
+            with self.subTest(hw=(h, w), side=side):
+                today = sam.SamResize(side)(rgb).astype(np.float32)
+                self.assertLessEqual(float(np.abs(model_io.sam_resize(rgb, side) * 255 - today).max()), 1.0)
+
+    def test_a_picture_not_8_bit_is_refused(self):
+        with self.assertRaisesRegex(TypeError, "uint8"):
+            model_io.sam_resize(np.zeros((300, 400, 3), np.float32), 1024)
+
+
+def _sam_oracle(rgb: np.ndarray, side: int) -> np.ndarray:
+    """EfficientViT-SAM's transform with ML-37 D11's float resize: torch's antialiased bilinear in SamResize's place,
+    then its ToTensor-less Normalize and SamPad, [1, 3, side, side]."""
+    import torchvision.transforms as T
+    sam = _efficientvit_sam()
+    nh, nw = model_io.sam_preprocess_shape(*rgb.shape[:2], side)
+    x = torch.from_numpy(_torch_resize(rgb, nh, nw)).permute(2, 0, 1)
+    x = T.Normalize(mean=model_io.SAM_MEAN, std=model_io.SAM_STD)(x)
+    return sam.SamPad(side)(x).unsqueeze(0).numpy()
+
+
+def _normalised_bound(std: list[float]) -> float:
+    """ORACLE_LEVELS after Normalize divides by the smallest std, with float32's own rounding beside it."""
+    return ORACLE_LEVELS * LEVEL / min(std) + 1e-6
 
 
 class TestSamInput(unittest.TestCase):
-    def test_bit_identical_to_efficientvit_transform(self):
-        tf = _sam_transform(1024)
+    def test_efficientvit_transform_with_the_float_resize(self):
         for seed, (h, w) in enumerate(((3000, 4000), (4032, 3024), (1024, 768), (500, 700), (1024, 1024))):
             rgb = _smooth_rgb(h, w, seed)
             with self.subTest(hw=(h, w)):
                 x, input_size = model_io.sam_input(rgb, 1024)
-                ref = tf(rgb).unsqueeze(0).numpy()
-                self.assertEqual(x.shape, (1, 3, 1024, 1024))
-                np.testing.assert_array_equal(x, ref)
+                self.assertEqual((x.dtype, x.shape), (np.float32, (1, 3, 1024, 1024)))
+                self.assertLessEqual(float(np.abs(x - _sam_oracle(rgb, 1024)).max()),
+                                     _normalised_bound(model_io.SAM_STD))
                 self.assertEqual(input_size, model_io.sam_preprocess_shape(h, w, 1024))
 
-    def test_sam_resize_bit_identical_to_samresize(self):
-        sam = _efficientvit_sam()
-        for seed, (h, w, side) in enumerate(((3000, 4000, 512), (4032, 3024, 1024), (512, 384, 512))):
-            rgb = _smooth_rgb(h, w, seed)
-            with self.subTest(hw=(h, w), side=side):
-                np.testing.assert_array_equal(model_io.sam_resize(rgb, side), sam.SamResize(side)(rgb))
+    def test_a_photo_at_the_frame_is_todays_input_to_the_bit(self):
+        rgb = _smooth_rgb(768, 1024, 0)
+        np.testing.assert_array_equal(model_io.sam_input(rgb, 1024)[0], _sam_transform(1024)(rgb).unsqueeze(0).numpy())
 
     def test_input_size_matches_segment_anything(self):
         from segment_anything.utils.transforms import ResizeLongestSide
@@ -175,12 +261,21 @@ class TestOnFixturePhotos(unittest.TestCase):
             raise unittest.SkipTest("fixture photos missing -- dvc pull dataset")
         cls.photos = [(Path(p).name, load_rgb_image(p)) for p in paths]
 
-    def test_sam_input_bit_identical(self):
-        tf = _sam_transform(1024)
+    def test_sam_input_against_the_float_oracle(self):
         for name, rgb in self.photos:
             with self.subTest(photo=name):
                 x, _ = model_io.sam_input(rgb, 1024)
-                np.testing.assert_array_equal(x, tf(rgb).unsqueeze(0).numpy())
+                self.assertLessEqual(float(np.abs(x - _sam_oracle(rgb, 1024)).max()),
+                                     _normalised_bound(model_io.SAM_STD))
+
+    def test_sam_input_within_one_level_of_todays(self):
+        """Today's 8-bit SamResize against the float resize, in levels: one rounding, no filter change."""
+        tf = _sam_transform(1024)
+        scale = np.asarray(model_io.SAM_STD, np.float32)[None, :, None, None] * 255
+        for name, rgb in self.photos:
+            with self.subTest(photo=name):
+                d = (model_io.sam_input(rgb, 1024)[0] - tf(rgb).unsqueeze(0).numpy()) * scale
+                self.assertLessEqual(float(np.abs(d).max()), 1.0 + 1e-3)
 
 
 if __name__ == "__main__":

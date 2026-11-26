@@ -14,8 +14,9 @@ from coffeecv.model_io import eval_patch
 
 class EvalTransform:
     """A patch to the model's input tensor: `model_io.eval_patch`, the port serving calls without torch (ticket
-    ML-7 D5 (b)), so training's eval patches and serving's are one implementation. Bit-identical to the
-    torchvision Resize, ToTensor and Normalize it replaced (tests/test_model_io.py)."""
+    ML-7 D5 (b)), so training's eval patches and serving's are one implementation. Since ML-37 D11 (b) its resize
+    gives float with no rounding after it: torchvision's Resize, ToTensor and Normalize on the float picture, to 0.01
+    of a level (tests/test_model_io.py)."""
 
     def __init__(self, resize: int):
         self.resize = resize

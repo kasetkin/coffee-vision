@@ -148,6 +148,13 @@
       <code>dvc.yaml</code>. pass17 done by the owner: 888 positives, 286 new, every new one corrected.
       <code>data/ml5_labels/pass17</code> added to DVC and pushed. ML-23 closed by the owner, superseded by this
       ticket. Decisions open; not planned.</div>
+    <div><div class="when">2026-11-26</div>For this ticket to settle, from <a
+      href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a> D18 (a) (its P2): serving's segmenter resize
+      (<code>model_io.sam_resize</code>) now gives float with no rounding after it (ML-37 D11 (b)), while the
+      fine-tune's <code>seg_finetune.TrainSet</code> keeps today's 8-bit resize at the frame
+      (<code>frame_resize_8_bit</code>, about 2.6 GB in memory for pass17 against 10.4 GB in float32). The two differ by
+      at most one level. Choose with this ticket's own memory and run: keep the departure, or hold float16 at the frame
+      (about 5.2 GB), converted to float32 per sample.</div>
   </div>
 
   <footer>Related: <a href="ml-0023_ticket_segmenter_misses_green.html">ML-23</a> (superseded),
