@@ -18,7 +18,7 @@
     planned, not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D15 decided 2026-11-26; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; not planned, not implemented</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
@@ -296,7 +296,8 @@
           stay 8-bit. The resizes after it are D11's.</li>
         <li>The preview is a JPEG of that picture: the visitor sees what the models read. No tabs. The front makes
           the picture and sends it first; the host sends the mask and box (D15).</li>
-        <li>LittleCMS still converts originals into Rec.2020. The read-back's maths is D9's choice.</li>
+        <li>LittleCMS still converts originals into Rec.2020, on float in the store and on the front alike (D12). The
+          read-back is numpy (D9).</li>
       </ul>
     </div>
   </div>
@@ -341,8 +342,9 @@
         <td>The front's integer path uses LittleCMS's optimized 8-bit matrix-shaper, which into a <em>linear</em>
           uint16 output quantizes light to 1/16384, about 0.2 sRGB levels a step near black, up to 0.8 levels before
           the encode (D12's research). Gain maps already take the front to 392&ndash;487 MB and 12&ndash;15 s on the
-          largest photos, against its 600M (ML-29 R6). D12 chooses the path; measured on ML-29 R6's photos before the
-          release.</td></tr>
+          largest photos, against its 600M (ML-29 R6). D12 (a) takes the float path, which the research found faster
+          on gain-map photos and about 2.4 s slower on plain ones, worst 10.6 s and 433 MB; measured on ML-29 R6's
+          photos before the release.</td></tr>
       <tr><td class="id">R4</td><td><strong>The inference host's read-back is slower or larger.</strong></td>
         <td>Small after 2026-11-25: uint16 in, uint8 out, as today, with no float copy of the photo kept and no peak
           pass. D9's numpy read-back took 0.89 s at 15 MP against today's 1.85 s (research, on this machine). Measured
@@ -433,7 +435,7 @@
         <td>(a) numpy in float32: the matrix from the two sets of primaries, the sRGB curve in closed form, rounded to
           uint8, tested against LittleCMS (b) LittleCMS, as ML-19 D31 has it, with a linear Rec.2020 profile in place
           of <code>rec2020_bt709.icc</code></td>
-        <td>Open. Recommended (a). Research, 2026-11-23
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"). Research, 2026-11-23
           (<a href="../analysis/ml37/research_d9_readback_maths.md">research_d9_readback_maths.md</a>), notes that (a)
           <strong>reverses ML-19 D31</strong> and amends ADR 0033's "one library does all colour". On 20 photos,
           LittleCMS is up to 0.15 of an 8-bit level off a float64 reference (its profiles' s15.16 values), numpy
@@ -450,7 +452,9 @@
         <td>(a) yes, as today: PIL bilinear on uint8 (b) no: PIL's bilinear in float mode ("F"), channel by channel,
           on the 8-bit picture, so the model's input is rounded only at the read-back (and in the 448 px patch
           store)</td>
-        <td>Open. Recommended (b), done in this ticket's re-crop. Today's repeated roundings are the largest bit-depth
+        <td>(b), 2026-11-26, the owner ("D11 answer (b)"), done in this ticket's re-crop. The resizes take the 8-bit
+          picture and give float, so the segmenter's input is rounded once and the classifier's twice (the 448 px
+          patch store, D10). Today's repeated roundings are the largest bit-depth
           effect the research measured (130&times; one rounding for the classifier, 30&times; for the segmenter),
           though they changed no accuracy (&sect;2). (b) is the same filter, within 2.02 levels of today's on 13 photos,
           about 2&times; slower
@@ -459,7 +463,8 @@
       <tr><td class="id">D12</td><td>The front's colour path to linear uint16 (ADR 0036)?</td>
         <td>(a) the store's float path for every upload (b) per-channel tables (the LUT path), within 0.14 of a level of
           (a) (c) today's integer path, LittleCMS's optimized transform into linear uint16</td>
-        <td>Open. To be measured on ML-29 R6's photos (R3). The research
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"): the float path for every upload, as the store; amends ADR 0036's integer colour
+          on the front. Its time and memory measured on ML-29 R6's photos (R3). The research
           (<a href="../analysis/ml37/research_d12_front_colour_path.md">research_d12_front_colour_path.md</a>), done for
           half-float, recommended (a): gain-map photos faster (11.7 &rarr; 4.4 s, 15.5 &rarr; 7.1 s), plain photos about
           2.4 s slower, worst 10.6 s and 433 MB. (b) is 7&ndash;10&times; faster than (a). (c) quantizes linear light to
@@ -468,7 +473,7 @@
         <td>(a) no regression: the classifier refitted on seeds 42, 123 and 7, paired with today's
           (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>), the overall test metric and no class's
           F1 dropping beyond the seed range (b) an improvement beyond the seed range, as ML-29 D16</td>
-        <td>Open. Recommended (a): the aim is a correct pipeline with nothing lost; &sect;2's research expects no gain.
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"), with the research's wording below. The aim is a correct pipeline with nothing lost; &sect;2's research expects no gain.
           Research, 2026-11-23 (<a href="../analysis/ml37/research_d13_adoption_bar.md">research_d13_adoption_bar.md</a>),
           rewords (a): the mean paired change in test macro-F1 over the three seeds, with its 95% photo-bootstrap lower
           bound above &minus;0.010; no class's mean paired F1 change below &minus;0.02; the OOD probe still catching
@@ -479,9 +484,10 @@
         fine-tune?</td>
         <td>(a) xl0_v7r_s123 kept and run on the new input; ML-33 fine-tunes after this ticket, on the new canonical
           photos (b) ML-33 first, on today's input, then this ticket</td>
-        <td>Open. The research
-          (<a href="../analysis/ml37/research_d14_segmenter_and_ml33.md">research_d14_segmenter_and_ml33.md</a>)
-          recommends (b): the masks barely move under the new input (median IoU 0.9999 against today's), nothing in a
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"): this ticket first, xl0_v7r_s123 kept on the new input; ML-33 and any other
+          fine-tune after it, on the new canonical photos. Against the research
+          (<a href="../analysis/ml37/research_d14_segmenter_and_ml33.md">research_d14_segmenter_and_ml33.md</a>), which
+          recommended (b): the masks barely move under the new input (median IoU 0.9999 against today's), nothing in a
           fine-tune is keyed to the canonical photo's bytes, so ML-33 on today's input need not be redone. Since
           2026-11-25 the input changes less still (8-bit, tone map unchanged), which strengthens (b).</td></tr>
       <tr><td class="id">D15</td><td>Where is the preview's picture made?</td>
@@ -501,8 +507,8 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>D9 and D11&ndash;D14 decided; ADR 0033 and the ML-19 decisions D1 amends
-      amended, ADR 0023 amended for D15, and a new ADR for the linear canonical photo and its read-back.</span></li>
+    <li><span class="box"></span><span>ADR 0033 and the ML-19 decisions D1 and D9 amend (D7, D31, D46) amended, ADR 0036 for
+      D12, ADR 0023 for D15, and a new ADR for the linear canonical photo and its read-back.</span></li>
     <li><span class="box"></span><span>The canonical photo written as D1 says by both settings, the store's and the
       front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
       16-bit integer, lossy, intensity target 203) and by tests.</span></li>
@@ -583,6 +589,11 @@
       implemented.</div>
     <div><div class="when">2026-11-26</div>D15 decided by the owner: (b), the front's picture made by D2's read-back,
       as recommended. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-26</div>Decided by the owner: D9 (a), numpy read-back (reverses ML-19 D31); D12 (a),
+      the float colour path on the front (amends ADR 0036); D13 (a), no regression, the bar as worded; D14 (a), this
+      ticket first and every fine-tune, ML-33's included, after it, against the research's (b). Then D11 (b): the
+      resizes after the read-back give float, with no second 8-bit rounding. Every decision is now taken. Not
+      planned, not implemented.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
