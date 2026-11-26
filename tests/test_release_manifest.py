@@ -196,7 +196,8 @@ class TestTwoReleases(unittest.TestCase):
                           "coffeecv/jxl_encode.py",
                           "coffeecv/jxl_header.py", "coffeecv/data/rec2020_bt709.icc",
                           "coffeecv/data/accepted_formats.csv", "coffeecv/timeline_schema.py", "coffeecv/tone_map.py",
-                          "coffeecv/linear_dng.py", "coffeecv/gain_map.py"})
+                          "coffeecv/linear_dng.py", "coffeecv/gain_map.py",
+                          "coffeecv/readback.py"})   # ML-37 D2: the read-back, which canonical imports
         self.assertFalse(any(p.startswith("models/") or p == "webapp/app.py" for p in front["git"]))
         for p in front["git"]:
             with self.subTest(path=p):

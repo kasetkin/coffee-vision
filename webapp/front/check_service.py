@@ -6,7 +6,7 @@ nginx, checked, canonicalized, then forwarded to the inference host, whose answe
 It refuses an upload over 40 MB (ML-19 D23; OPS-15 D15 and OPS-16 D8 before) and a file in no accepted format
 (upload_check; ADR 0034, OPS-18). Then the photo becomes its
 canonical photo (coffeecv.canonical, ML-19 D12, D35), made with the front's own settings (canonical.FRONT_SETTINGS,
-OPS-22 D1, ADR 0036: kept up to 18 MP, over that area-averaged to at most 15 MP; the integer colour path; quality 90,
+OPS-22 D1, ADR 0036: kept up to 18 MP, over that area-averaged to at most 15 MP; the store's float colour path since ML-37 D12; quality 90,
 effort 3), not the store's. Every upload is canonicalized here, an already canonical one (each of the page's examples)
 included: ML-19 D17's pass-through is gone (OPS-22 D3). A photo over the pixel ceiling (D38; a RAW one over its own,
 D24) is refused with a 413 from its header before any pixel is decoded, and one that cannot be read is the 400 the

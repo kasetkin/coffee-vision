@@ -3,7 +3,8 @@ canonical photo, and the models read only canonical photos.
 
     canonicalize(data, name)  -> bytes        an original's bytes to its canonical photo (lossy JPEG XL)
     canonicalize_file(path)   -> bytes
-    load_canonical(data)      -> np.ndarray   a canonical photo to 8-bit sRGB, H x W x 3 uint8 (refuses anything else)
+    load_canonical(data)      -> np.ndarray   a canonical photo to 8-bit sRGB, H x W x 3 uint8 (refuses anything else):
+                                              the model picture, through coffeecv.readback (ML-37 D2)
     is_canonical(data)        -> bool         and canonical_problems(data) -> list[str], why not
 
 The canonical photo (D1-D7, D13, D16, D20, D21, D27, D28, D36, D50):
@@ -15,19 +16,21 @@ The canonical photo (D1-D7, D13, D16, D20, D21, D27, D28, D36, D50):
 - transparent pixels over the segmenter's fill grey;
 - from its colour declaration (ML-29, ADR 0040, coffeecv.colour_declaration): its ICC profile, else its coded tag or
   JPEG XL header enumeration, else a JPEG's R03 (Adobe RGB), else sRGB; a declaration that cannot be converted, PQ
-  and HLG included until a tone-mapping operator is chosen, is refused. Through LittleCMS on float32, relative
-  colorimetric, into Rec.2020 (D65, BT.709 transfer; the profile libjxl itself generates,
-  coffeecv/data/rec2020_bt709.icc), clipped after the conversion (a float JPEG XL's values outside 0-1 included);
-- stored as lossy JPEG XL, quality 95, effort 7, 16 bits, with D7's encoding as an enumeration and nothing else: no
-  EXIF, no XMP, no ICC, no orientation, no alpha, bare codestream.
-Read back for the models: decoded at 16 bits, LittleCMS without its lossy optimization to 8-bit sRGB, clipped; on
-every CPU the process may use (ML-21), with the same pixels as on one.
+  and HLG tone-mapped. Through LittleCMS on float32, relative colorimetric, into linear Rec.2020 (D65); light above
+  white rolled off there by ML-29 D33's EETF; clipped to [0, 1] (a float JPEG XL's values outside it included);
+- stored as linear light (ML-37 D1, amending D7 and D46): lossy JPEG XL, quality 95, effort 7, 16-bit integers,
+  Rec.2020 primaries, D65, the linear transfer and intensity target 203 (ML-37 D8) as an enumeration, and nothing
+  else: no EXIF, no XMP, no ICC, no orientation, no alpha, bare codestream.
+Read back for the models: decoded at 16 bits, then coffeecv.readback (ML-37 D2, D3, D9): numpy's 3 x 3 matrix to linear
+sRGB, clipped, the sRGB curve, rounded to 8 bits once; on every CPU the process may use (ML-21), with the same pixels
+as on one. coffeecv/data/rec2020_bt709.icc, the form before ML-37, stays only as the source profile of a JPEG XL that
+declares it (coffeecv.colour_declaration; ML-37 plan, finding 4).
 
 Those are the store's settings (STORE_SETTINGS), every function's default: the store and training use nothing else.
 The front makes its own, cheaper canonical photo (FRONT_SETTINGS, OPS-22 D1, ADR 0036): kept up to 18,000,000 pixels
-and over that area-averaged to at most 15,000,000; LittleCMS's optimized integer transform from the source's own
-samples (a source with transparency, or whose profile is built from a declaration, keeps the float path: OPS-22 D4,
-ML-29 D26); quality 90, effort 3. Everything else, the format the
+and over that area-averaged to at most 15,000,000; quality 90, effort 3. Its colour is the store's float path since
+ML-37 D12 (a), which retired OPS-22 D4's integer transform (into linear uint16 it quantized light to 1/16384).
+Everything else, the format the
 inference host checks included, is the same, and canonicalize() and its pass-through stay the store's.
 
 No torch: the front imports this module (D35). Every library that decodes, converts or encodes a photo is held at one
@@ -37,11 +40,8 @@ output depends on the CPU (D51): canonical photos are made only on the store's m
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
-import os
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -51,7 +51,7 @@ import numpy as np
 from PIL import Image
 
 from coffeecv import colour_declaration as cd
-from coffeecv import linear_dng
+from coffeecv import linear_dng, readback
 from coffeecv import tone_map as tm
 from coffeecv.jxl_encode import encode_rec2020
 from coffeecv.jxl_header import Header, HeaderError, read_header
@@ -62,17 +62,13 @@ from coffeecv.jxl_header import Header, HeaderError, read_header
 IMAGECODECS = "2026.10.10"
 if ic.__version__ != IMAGECODECS:
     raise ImportError(f"coffeecv.canonical is written for imagecodecs {IMAGECODECS}, found {ic.__version__}")
-PROFILE_PATH = Path(__file__).resolve().parent / "data" / "rec2020_bt709.icc"
-PROFILE_SHA256 = "877c5b36808954f322af187b56c3b3ebfd1cc8bad569f27f67f1a0c450d11b9c"   # D46
-REC2020 = PROFILE_PATH.read_bytes()
-if hashlib.sha256(REC2020).hexdigest() != PROFILE_SHA256:
-    raise ImportError(f"{PROFILE_PATH} is not the committed Rec.2020 profile (ML-19 D46)")
-SRGB = ic.cms_profile("srgb")            # LittleCMS's own sRGB: the read-back's target, and an untagged photo's source
-# RAW: rawpy's linear Rec.2020 (gamma 1), D65; LittleCMS then applies the BT.709 curve
+SRGB = ic.cms_profile("srgb")            # LittleCMS's own sRGB: an untagged photo's source
+# Linear Rec.2020 (gamma 1), D65: the canonical photo's own (ML-37 D1), and RAW's from rawpy
 LINEAR_REC2020 = ic.cms_profile("rgb", whitepoint=(0.3127, 0.3290),
                                 primaries=(0.708, 0.292, 0.170, 0.797, 0.131, 0.046), gamma=1.0)
 RELATIVE = ic.CMS.INTENT.RELATIVE_COLORIMETRIC
-NOOPTIMIZE = ic.CMS.FLAGS.NOOPTIMIZE
+TRANSFER = "Linear"                      # ML-37 D1, by jxl_header's name
+INTENSITY_TARGET = 203.0                 # ML-37 D8: BT.2408's reference white, the cd/m2 of (1, 1, 1)
 
 KEEP_MAX_PIXELS = 60_000_000             # D27: at or under this, kept at its size
 CAP_PIXELS = 50_000_000                  # D27: over KEEP_MAX_PIXELS, area-averaged to at most this
@@ -94,8 +90,8 @@ class Settings:
     quality, and the size thresholds (at or under `keep_max_pixels` kept; over, area-averaged to at most
     `cap_pixels`)."""
     name: str
-    colour: str            # "float": LittleCMS on float32 (D31); "integer": its optimized transform on the source's own
-    #                        samples (OPS-22 D4)
+    colour: str            # "float": LittleCMS on float32 (D31), the only path since ML-37 D12 retired OPS-22 D4's
+    #                        "integer"; kept by name for the front's log line
     effort: int
     quality: int
     keep_max_pixels: int
@@ -104,19 +100,20 @@ class Settings:
     #                          since the owner adopted it, store and front in one release (P11, 2026-11-18; D15, D16)
 
     def __post_init__(self):
-        if self.colour not in ("float", "integer"):
-            raise ValueError(f"colour is float or integer, not {self.colour!r}")
+        if self.colour != "float":
+            raise ValueError(f"colour is float (ML-37 D12), not {self.colour!r}")
 
     @property
     def label(self) -> str:
-        """What the front's log line names it by: "front: integer e3 q90 18/15 MP"."""
+        """What the front's log line names it by: "front: float e3 q90 18/15 MP"."""
         return (f"{self.name}: {self.colour} e{self.effort} q{self.quality} "
                 f"{self.keep_max_pixels / 1e6:g}/{self.cap_pixels / 1e6:g} MP")
 
 
-# The store's and training's (ADR 0033), every function's default; the front's own (OPS-22 D1, ADR 0036).
+# The store's and training's (ADR 0033), every function's default; the front's own (OPS-22 D1, ADR 0036; its colour
+# the store's since ML-37 D12).
 STORE_SETTINGS = Settings("store", "float", EFFORT, QUALITY, KEEP_MAX_PIXELS, CAP_PIXELS)
-FRONT_SETTINGS = Settings("front", "integer", 3, 90, 18_000_000, 15_000_000)
+FRONT_SETTINGS = Settings("front", "float", 3, 90, 18_000_000, 15_000_000)
 
 
 # ----- the accepted formats (ADR 0034; ticket OPS-18 D11, D13-D18) -----
@@ -522,34 +519,28 @@ def _decode_jxl(data: bytes, max_pixels: int | None, settings: Settings) -> Sour
 def to_rec2020(pixels: np.ndarray, full: float, profile: bytes | None, strip: int = STRIP_ROWS,
                settings: Settings = STORE_SETTINGS, linearize: Callable[[np.ndarray], None] | None = None,
                peak: float | None = None) -> np.ndarray:
-    """Source values to Rec.2020 uint16, relative colorimetric. The store's float path (D31): `linearize` (the curve
-    of a declaration whose profile is built, ML-29 D20) undone in place, then LittleCMS on float32, clipped to [0, 1]
-    after the conversion, rounded; transparent pixels over the fill (D13). With a `peak` above white (Source.peak,
-    the whole picture's: ML-29 D33), LittleCMS goes to linear Rec.2020 first, the tone map rolls light above white
-    off there, and a second transform takes it to the canonical profile. `pixels` may be a turned view, grey (2-D, or 1-2
-    channels) or RGB(A), integer or float; each strip is copied out of it once and every later step works in place.
-    With settings.colour "integer" (the front's, OPS-22 D4), an integer source without transparency and without a
-    built profile goes the integer path instead (_to_rec2020_integer); any other stays on this one (D4, ML-29 D26)."""
+    """Source values to linear Rec.2020 uint16 (ML-37 D1), relative colorimetric, by the float path (D31; the front's
+    too since ML-37 D12, so `settings` changes nothing here): `linearize` (the curve of a declaration whose profile is
+    built, ML-29 D20) undone in place, then LittleCMS on float32 into linear Rec.2020; with a `peak` above white
+    (Source.peak, the whole picture's: ML-29 D33), the tone map rolls light above white off in place, with no second
+    transform after it (ML-37 plan, finding 6); clipped to [0, 1]; transparent pixels over the fill (D13), blended in
+    linear light; x 65535, rounded. `pixels` may be a turned view, grey (2-D, or 1-2 channels) or RGB(A), integer or
+    float; each strip is copied out of it once and every later step works in place."""
     h, w = pixels.shape[:2]
     channels = 1 if pixels.ndim == 2 else pixels.shape[2]
     alpha_at = {2: 1, 4: 3}.get(channels)
-    if settings.colour == "integer" and alpha_at is None and linearize is None and pixels.dtype.kind == "u":
-        return _to_rec2020_integer(pixels, full, profile)
     out = np.empty((h, w, 3), np.uint16)
     colour = 1 if channels <= 2 else 3           # grey is spread over R, G and B by broadcasting
     source_profile = profile or SRGB
     fill = None
     if alpha_at is not None:
-        fill = ic.cms_transform(np.array([[FILL_SRGB]], np.float32) / 255, SRGB, REC2020, intent=RELATIVE,
+        fill = ic.cms_transform(np.array([[FILL_SRGB]], np.float32) / 255, SRGB, LINEAR_REC2020, intent=RELATIVE,
                                 outdtype=np.float32)[0, 0]
     for y in range(0, h, strip):
         part, f = _light(pixels[y:y + strip], full, linearize, colour)
-        if peak is None or peak <= 1:            # nothing above white: the conversion every other photo takes
-            c = ic.cms_transform(f, source_profile, REC2020, intent=RELATIVE, outdtype=np.float32)
-        else:
-            c = ic.cms_transform(f, source_profile, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
+        c = ic.cms_transform(f, source_profile, LINEAR_REC2020, intent=RELATIVE, outdtype=np.float32)
+        if peak is not None and peak > 1:        # light above white, rolled off where it is
             tm.eetf_in_place(c, peak)
-            c = ic.cms_transform(c, LINEAR_REC2020, REC2020, intent=RELATIVE, outdtype=np.float32)
         if part.dtype.kind == "f":               # a float JPEG XL's NaN, which no clip removes, is black
             np.nan_to_num(c, copy=False, nan=0.0)
         np.clip(c, 0, 1, out=c)
@@ -598,21 +589,6 @@ def measure_peak(pixels: np.ndarray, full: float, profile: bytes | None,
     return tm.picture_peak(maxima)
 
 
-def _to_rec2020_integer(pixels: np.ndarray, full: float, profile: bytes | None) -> np.ndarray:
-    """OPS-22 D4: the front's colour path for a source without transparency. LittleCMS's default (optimized) transform,
-    relative colorimetric, from the source's own 8- or 16-bit samples, grey spread over R, G and B, straight into
-    Rec.2020 uint16: about 8x less time than the float path, within one 8-bit level of it once read back
-    (tests/test_canonical.py, IntegerColour). One call for the whole rectangle libjxl asks for (at most 2048 x 2048)."""
-    a = pixels if pixels.ndim == 3 else pixels[..., None]
-    if a.shape[2] == 1:
-        a = np.broadcast_to(a, a.shape[:2] + (3,))
-    top = np.iinfo(a.dtype).max
-    if full != top:   # pillow-heif's 10- and 12-bit samples sit in the top of 16 bits: scaled so `full` is the top
-        f = int(full)
-        a = np.minimum((a.astype(np.uint32) * top + f // 2) // f, top).astype(a.dtype)
-    return ic.cms_transform(np.ascontiguousarray(a), profile or SRGB, REC2020, intent=RELATIVE, outdtype=np.uint16)
-
-
 def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: int = THREADS) -> bytes:
     """A decoded original as its canonical JPEG XL, each rectangle libjxl asks for converted when it asks (D52), with
     `settings`' colour path, quality and effort."""
@@ -621,7 +597,8 @@ def encode(source: Source, *, settings: Settings = STORE_SETTINGS, numthreads: i
     return encode_rec2020(h, w, lambda y, x, ys, xs: to_rec2020(source.pixels[y:y + ys, x:x + xs], source.full,
                                                                 source.profile, settings=settings,
                                                                 linearize=source.linearize, peak=peak),
-                          level=settings.quality, effort=settings.effort, numthreads=numthreads)
+                          level=settings.quality, effort=settings.effort, numthreads=numthreads,
+                          transfer=TRANSFER, intensity_target=INTENSITY_TARGET)
 
 
 @dataclass(frozen=True)
@@ -684,10 +661,12 @@ def header_problems(h: Header) -> list[str]:
     if h.boxes:
         problems.append(f"a container ({', '.join(h.boxes)}), not a bare codestream")
     if (c.want_icc, c.colour_space, c.white_point, c.primaries, c.transfer, c.rendering_intent) != \
-            (False, "RGB", "D65", "BT2100", "BT709", "Relative"):
+            (False, "RGB", "D65", "BT2100", TRANSFER, "Relative"):
         what = "an ICC profile" if c.want_icc else \
             f"{c.colour_space} {c.white_point} {c.primaries} {c.transfer} {c.rendering_intent}"
-        problems.append(f"colour encoding {what}, not D7's RGB D65 BT2100 BT709 Relative")
+        problems.append(f"colour encoding {what}, not ML-37 D1's RGB D65 BT2100 {TRANSFER} Relative")
+    if h.intensity_target != INTENSITY_TARGET:
+        problems.append(f"intensity target {h.intensity_target:g}, not ML-37 D8's {INTENSITY_TARGET:g}")
     if (h.bits_per_sample, h.float_sample, h.xyb_encoded) != (16, False, True):
         problems.append(f"{h.bits_per_sample}-bit{' float' if h.float_sample else ''}"
                         f"{'' if h.xyb_encoded else ' lossless'}, not 16-bit lossy")
@@ -715,19 +694,15 @@ def is_canonical(data: bytes) -> bool:
     return not canonical_problems(data)
 
 
-def usable_cpus() -> int:
-    """The CPUs this process may run on: its affinity, which taskset and systemd's CPUAffinity= narrow."""
-    try:
-        return len(os.sched_getaffinity(0))
-    except AttributeError:   # not Linux
-        return os.cpu_count() or 1
+usable_cpus = readback.usable_cpus   # the CPUs this process may use: its affinity (ML-21)
 
 
 def decode_canonical(data: bytes, numthreads: int | None = None) -> np.ndarray:
-    """A canonical photo's own samples, H x W x 3 uint16 Rec.2020 with the BT.709 transfer (D7): the first of
-    load_canonical's two steps, apart for the page's wide-gamut previews (ticket OPS-25 P1). Anything else is refused
-    with NotCanonical; a canonical header over a broken codestream raises Unreadable. libjxl decodes on `numthreads`
-    threads (None: every CPU this process may use); its output does not depend on the count (ML-21)."""
+    """A canonical photo's own samples, H x W x 3 uint16 linear Rec.2020 (ML-37 D1): the first of load_canonical's two
+    steps. No model reads them: a reader that skipped readback.to_srgb would take linear light for the picture, much
+    darker (ML-37 R7). Anything else is refused with NotCanonical; a canonical header over a broken codestream raises
+    Unreadable. libjxl decodes on `numthreads` threads (None: every CPU this process may use); its output does not
+    depend on the count (ML-21)."""
     problems = canonical_problems(data)
     if problems:
         raise NotCanonical("not a canonical photo: " + "; ".join(problems))
@@ -737,32 +712,11 @@ def decode_canonical(data: bytes, numthreads: int | None = None) -> np.ndarray:
         raise Unreadable(f"unreadable canonical photo ({type(exc).__name__})") from exc
 
 
-def rec2020_to_srgb(rec: np.ndarray, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
-    """decode_canonical's samples as 8-bit sRGB, H x W x 3 uint8 (D7), load_canonical's second step: LittleCMS without
-    its lossy optimization (the same as float32's output, P1), relative colorimetric, clipped and rounded, in strips
-    of `strip` rows on `numthreads` threads (None: every CPU this process may use). A strip's conversion does not
-    depend on the thread count, so the pixels do not either; imagecodecs releases the GIL."""
-    threads = numthreads or usable_cpus()
-    out = np.empty(rec.shape, np.uint8)
-
-    def convert(y: int) -> None:
-        ic.cms_transform(rec[y:y + strip], REC2020, SRGB, intent=RELATIVE, flags=NOOPTIMIZE, outdtype=np.uint8,
-                         out=out[y:y + strip])
-
-    rows = range(0, rec.shape[0], strip)
-    if threads == 1:
-        for y in rows:
-            convert(y)
-    else:
-        with ThreadPoolExecutor(threads) as pool:   # per call: no threads left over across gunicorn's fork
-            list(pool.map(convert, rows))
-    return out
-
-
-def load_canonical(data: bytes, strip: int = 128, numthreads: int | None = None) -> np.ndarray:
-    """A canonical photo's 8-bit sRGB, H x W x 3 uint8 (D7): what every model reads, in training and in serving.
-    decode_canonical, then rec2020_to_srgb, both on `numthreads` threads (ML-21: the pixels do not depend on it)."""
-    return rec2020_to_srgb(decode_canonical(data, numthreads), strip, numthreads)
+def load_canonical(data: bytes, numthreads: int | None = None) -> np.ndarray:
+    """A canonical photo's model picture, H x W x 3 uint8 sRGB (GLOSSARY.md): what every model reads, in training and
+    in serving, and what the preview is made from. decode_canonical, then the one read-back (readback.to_srgb, ML-37
+    D2, D3), both on `numthreads` threads (ML-21: the pixels do not depend on it)."""
+    return readback.to_srgb(decode_canonical(data, numthreads), numthreads=numthreads)
 
 
 __all__ = ["CAP_PIXELS", "FRONT_SETTINGS", "KEEP_MAX_PIXELS", "NotCanonical", "STORE_SETTINGS", "Settings",
@@ -770,4 +724,4 @@ __all__ = ["CAP_PIXELS", "FRONT_SETTINGS", "KEEP_MAX_PIXELS", "NotCanonical", "S
            "canonical_path",
            "canonical_problems", "canonicalize", "canonicalize_file", "canonicalize_with", "Made", "capped_size", "decode",
            "decode_canonical", "encode",
-           "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "rec2020_to_srgb", "to_rec2020"]
+           "header_problems", "is_canonical", "is_photo", "load_canonical", "orient", "to_rec2020"]

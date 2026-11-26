@@ -10,6 +10,8 @@ The owner chose this for time: with the store's settings a 50 MP photo took abou
 
 Amended 2026-11-14 by [ML-29](../ml-0029_ticket_what_canonicalization_reads.html) D26: a photo whose colour profile is built from a declaration that is not an ICC profile (ADR 0040), and a float JPEG XL, take the float colour path on the front too, since the integer path cannot carry a linear, PQ or HLG source at 8 bits; every other upload keeps the integer one.
 
+Amended 2026-11-26 by [ADR 0042](0042-the-canonical-photo-is-linear-light-read-back-once.md) ([ML-37](../ml-0037_ticket_linear_canonical_photo.html) D12): the front's integer colour path is gone; every upload takes the store's float path into linear Rec.2020. The effort, the quality and the cap stay the front's own.
+
 ## Consequences
 
 - **Amends [ADR 0033](0033-photos-are-canonicalized-once-at-the-front.md):** training and serving no longer read the same canonical photo. The served photo carries less fine detail (q90 at effort 3 multiplies the error in fine detail by 2 to 7, OPS-22 §2, and a 50 MP photo keeps about 30% of its pixels), so the reported metrics describe the store's photos, not the live site's. This is a recorded departure from `CODING_STANDARDS.md`'s train/inference parity, like [ADR 0019](0019-serving-runs-litert-accelerator-per-host.md)'s precision, and unlike it unmeasured: no check of the models' answers on the front's photos beyond the deploy's examples (OPS-22 D5).

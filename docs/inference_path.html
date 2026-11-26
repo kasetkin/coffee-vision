@@ -573,12 +573,12 @@
     <p>During ticket OPS-25's trial a classification is followed by a third line, <code>previews</code>: the preview as
       a Display P3 JPEG, a 10-bit AVIF and a JPEG XL, for the page's format tabs (<code>coffeecv/preview_formats.py</code>).
       The photo is read in <code>load_canonical</code>'s two steps, so the app can keep the canonical photo's 16-bit
-      Rec.2020 samples: a thread shrinks them to the preview's size while the photo is segmented, and they are encoded
+      linear Rec.2020 samples (ticket ML-37 D1): a thread shrinks them to the preview's size while the photo is segmented, and they are encoded
       after the classification has gone out. Display only: the models read the same 8-bit sRGB as before. A failure
       there leaves the part out; the answer is already complete.</p>
     <pre>problems = canonical.canonical_problems(data)  <span class="c"># 400 if not a canonical photo (ML-19 D12)</span>
-rec = canonical.decode_canonical(data)         <span class="c"># 16-bit Rec.2020; 400 if it cannot be read</span>
-photo = canonical.rec2020_to_srgb(rec)         <span class="c"># 8-bit sRGB: load_canonical's second step</span>
+rec = canonical.decode_canonical(data)         <span class="c"># 16-bit linear Rec.2020; 400 if it cannot be read</span>
+photo = readback.to_srgb(rec)                  <span class="c"># 8-bit sRGB, the model picture: load_canonical's second step (ML-37 D2)</span>
 small = _shrink_aside(rec)                     <span class="c"># OPS-25: on its own thread</span>
 seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter)
 <span class="k">yield</span> json.dumps(_preview_part(seg)) + <span class="s">"\n"</span>     <span class="c"># part 1</span>

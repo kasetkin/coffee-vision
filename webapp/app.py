@@ -48,6 +48,7 @@ from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PRO
                             reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv import canonical  # noqa: E402
+from coffeecv import readback  # noqa: E402
 from coffeecv import preview_formats  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
@@ -492,7 +493,7 @@ def analyze():
         _log_decode_failure(exc)
         return jsonify(error=f"could not read this as an image: {exc}"), 400
     del data
-    photo = canonical.rec2020_to_srgb(rec)   # load_canonical's two steps: what the models read
+    photo = readback.to_srgb(rec)   # load_canonical's two steps: the model picture (ML-37 D2)
     decode_ms = round((time.monotonic() - t0) * 1000)
     small = _shrink_aside(rec)   # OPS-25 P1: the third part's samples, while the photo is segmented
     del rec
@@ -574,7 +575,7 @@ def _previews_part(small: np.ndarray) -> dict:
 def _preview_part(seg) -> dict:
     """The answer's first part (ticket OPS-7 D8): the photo as a JPEG thumbnail, so the browser never needs to
     decode HEIC/AVIF/JXL/RAW itself, and the canonical photo as the page shows it (OPS-25 D7): its 8-bit sRGB, the
-    pixels the model reads (`canonical.rec2020_to_srgb`'s); the
+    pixels the model reads (`readback.to_srgb`'s, ML-37 D2); the
     whole photo's bean mask (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model);
     `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. During OPS-25's trial the
     thumbnail names its format in its corner (D9, D10). Display only: nothing here is ever trusted back from the
