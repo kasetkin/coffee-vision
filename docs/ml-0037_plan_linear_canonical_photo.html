@@ -150,7 +150,7 @@
 
   <h2>4. P2 &mdash; the resizes give float (D11)</h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-26: <code>64eddc5</code>, <code>3dbd27f</code>; the inputs within 1.0 level of today&rsquo;s, masks&rsquo; IoU at least 0.9996; the litert check passed on the deploy fixtures</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">Q2, Q3 answered</span></span></div>
   </div>
   <p><code>model_io</code>'s two resizes take the 8-bit picture and give float32 in [0, 1], by PIL's bilinear in
@@ -436,6 +436,22 @@
       classification, mask IoU 1.0 against the local run; <code>--compare</code> within D7 on 12 photos, no top-1
       change; the refusals, rollbacks and prune as before. The public checks, the front's preview line among them, are
       skipped there as always: they run at P8's release.</div>
+    <div><div class="when">2026-11-26</div>P2 done (<code>64eddc5</code>, <code>3dbd27f</code>), test-first:
+      <code>model_io.sam_resize</code> and <code>eval_resize</code> take uint8 and give float32 in [0, 1] by PIL's
+      bilinear in mode "F"; within 0.01 of a level of torch's antialiased bilinear, and within 1.0 of the 8-bit resize
+      they replace. <code>HeadAugment.view</code> returns the float view (D17 (a)); <code>seg_finetune.TrainSet</code>
+      keeps an 8-bit resize at the frame (<code>frame_resize_8_bit</code>, D18 (a)), its departure written in its
+      docstring and in ML-33's ticket. The DINOv3 reference fixture is regenerated on the float eval input (the old one
+      drifted by up to 0.077). <code>analysis/ml37/p2_inputs_and_masks.py</code> on D11's 13 photos, read back as before
+      P3: segmenter input at most 0.999 level off today's (mean 0.251), DINOv3's at most 1.000 (mean 0.285), within
+      2.02; the live segmenter's masks against today's, IoU median 1.00000, least 0.99962. It cannot run again until
+      P5, as P3's read-back refuses the store's photos of the form before. On top of P3 (merge of
+      <code>2f7efe7</code>): the litert export's D7 check (ADR 0020) on the 13 deploy fixtures, the live model's
+      existing graphs against PyTorch on the CPU, in memory with nothing written, passed: mask IoU at least 0.999999,
+      readout cosine at least 0.9999998, no verdict or top-1 changed, largest class-probability change 0.00013. The
+      frozen head's fit at toy scale through its entry point (<code>--smoke</code>, seed 42, 60 training patches with 8
+      views each): augmented head val macro-F1 0.759, test 0.752; unaugmented 0.705, 0.744 (smoke budgets, not
+      comparable to a recorded run). No stored output moved.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,

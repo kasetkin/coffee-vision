@@ -252,7 +252,7 @@ class Stream(unittest.TestCase):
         cls.addClassCleanup(cls.tmp.cleanup)
         rows = toy_rows(Path(cls.tmp.name), [("train", 300, 400), ("train", 200, 300), ("train", 400, 300),
                                              ("neg_train", 300, 300), ("val", 300, 400)])
-        cls.data = ft.TrainSet(rows, 256)
+        cls.data, cls.rows = ft.TrainSet(rows, 256), rows
         cls.p = ft.FtParams.from_config(RunConfig.from_params_yaml())
         cls.p = ft.FtParams(**{**ft.asdict(cls.p), "batch_size": 2})
 
@@ -269,6 +269,15 @@ class Stream(unittest.TestCase):
         self.assertEqual((rgb.shape, label.shape), ((192, 256, 3), (256, 256)))
         self.assertTrue((label[192:] == ft.IGNORE).all())
         np.testing.assert_allclose(box[0].numpy(), ft.whole_box(300, 400))
+
+    def test_the_photos_are_held_8_bit_by_pils_bilinear_unlike_servings_float_resize(self):
+        # ML-37 D18 (a): the fine-tune keeps a uint8 resize at the frame (about 2.6 GB for pass17's photos, against
+        # 10.4 GB in float32); serving's resize gives float (D11 (b)). The departure is ML-33's to settle.
+        from PIL import Image
+        rgb, _, _ = self.data.sample(self.data.pos[0], aug=None)
+        photo = ft.load_pair(self.rows[0])[0]
+        self.assertEqual(rgb.dtype, np.uint8)
+        np.testing.assert_array_equal(rgb, np.asarray(Image.fromarray(photo).resize((256, 192), Image.BILINEAR)))
 
     def test_a_transform_that_changes_the_photos_shape_is_refused(self):
         aug = ft.build_augment(one("Transpose"), seed=0)
