@@ -105,6 +105,8 @@ stages:
         - coffeecv/linear_dng.py
         - coffeecv/gain_map.py   # ML-29 P11: Settings.gain_maps on (adopted 2026-11-18)
         - coffeecv/crop_io.py
+        - coffeecv/readback.py   # ML-37 P3: canonical.load_canonical reads every canonical photo back through it
+        - coffeecv/model_io.py   # ML-37 P2: segment_beans' sam_input, a float resize since
         - coffeecv/segcrop_session.py
         - coffeecv/segment_beans.py
         - coffeecv/sam_loader.py
