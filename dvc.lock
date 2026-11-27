@@ -3627,16 +3627,16 @@ stages:
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3651,12 +3651,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3673,24 +3673,24 @@ stages:
     outs:
     - path: data/canonical/2026-09-11__oneplus
       hash: md5
-      md5: 42f338b24eeea8911020aa9d12423c95.dir
-      size: 39606096
+      md5: 3d2d3cb4801f19335db040e5e305aa77.dir
+      size: 38124705
       nfiles: 20
   canonicalize@random_date_raccoon:
     cmd: python -m coffeecv.canonicalize_folder random_date_raccoon --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3705,12 +3705,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3727,24 +3727,24 @@ stages:
     outs:
     - path: data/canonical/random_date_raccoon
       hash: md5
-      md5: e702a6e340195706ede3eed5019be034.dir
-      size: 1726493479
+      md5: 4ee437e9e29348bf0a01bcb3a8434b23.dir
+      size: 1654941600
       nfiles: 536
   canonicalize@ood_negatives:
     cmd: python -m coffeecv.canonicalize_folder ood_negatives --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3759,12 +3759,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3781,24 +3781,24 @@ stages:
     outs:
     - path: data/canonical/ood_negatives
       hash: md5
-      md5: 5b9f7422c6a54d2c297a37778a27b2fd.dir
-      size: 1496328703
+      md5: e3673f885ec1055b487ed215ac029b60.dir
+      size: 1448992102
       nfiles: 632
   canonicalize@2026-08-09__pixel_cam:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-09__pixel_cam --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3813,12 +3813,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3835,24 +3835,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-09__pixel_cam
       hash: md5
-      md5: 2641343c12d50c944c8d6296be7e8315.dir
-      size: 356255973
+      md5: 056d572d9b66d27c4c96a973a17638f1.dir
+      size: 344174823
       nfiles: 180
   canonicalize@2026-08-30__oneplus:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-30__oneplus --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3867,12 +3867,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3889,24 +3889,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-30__oneplus
       hash: md5
-      md5: 869cacd0a81c6a9f54cc0436d9793fe2.dir
-      size: 69159064
+      md5: 94729f32377f7c882410be0f95d5533d.dir
+      size: 66229692
       nfiles: 40
   canonicalize@2026-09-24__sony:
     cmd: python -m coffeecv.canonicalize_folder 2026-09-24__sony --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3921,12 +3921,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3943,24 +3943,24 @@ stages:
     outs:
     - path: data/canonical/2026-09-24__sony
       hash: md5
-      md5: d106cc16e6318a2cbeab5fe72ea92150.dir
-      size: 284236220
+      md5: cb83a028dd96f11e1482320147549ee5.dir
+      size: 274061819
       nfiles: 70
   canonicalize@2026-08-25__iphone:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-25__iphone --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -3975,12 +3975,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -3997,24 +3997,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-25__iphone
       hash: md5
-      md5: 3c18612fa424d5535cd770d57f081f01.dir
-      size: 285884758
+      md5: 2dfacd9396a10d4dc9f36e35daa2b72d.dir
+      size: 276197316
       nfiles: 91
   canonicalize@2026-09-24__oneplus:
     cmd: python -m coffeecv.canonicalize_folder 2026-09-24__oneplus --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4029,12 +4029,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4051,24 +4051,24 @@ stages:
     outs:
     - path: data/canonical/2026-09-24__oneplus
       hash: md5
-      md5: 78ee85049963f9e495a214ff73b74fc2.dir
-      size: 146227982
+      md5: 7b999de3f9f198d022db92c1dca15225.dir
+      size: 141330487
       nfiles: 69
   canonicalize@2026-08-09__sony_cam:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-09__sony_cam --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4083,12 +4083,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4105,24 +4105,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-09__sony_cam
       hash: md5
-      md5: c7027fe99a2c1bf690e17f56771334b8.dir
-      size: 472734230
+      md5: 5a0f89b9bc0fa46d307c73d4864a473e.dir
+      size: 446283064
       nfiles: 180
   canonicalize@2026-08-30__pixel:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-30__pixel --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4137,12 +4137,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4159,24 +4159,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-30__pixel
       hash: md5
-      md5: c263e343e8bd8d9bcc23dc5a75f3a551.dir
-      size: 98187841
+      md5: 7ed615d0444e5b72423aa5e5eb5981e4.dir
+      size: 94731754
       nfiles: 46
   canonicalize@segmenter_positives:
     cmd: python -m coffeecv.canonicalize_folder segmenter_positives --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4191,12 +4191,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4213,24 +4213,24 @@ stages:
     outs:
     - path: data/canonical/segmenter_positives
       hash: md5
-      md5: 56113568582f444d623e434f8b7cc78c.dir
-      size: 873829189
+      md5: 98360b4eed5da738ff4a07986103d461.dir
+      size: 833507136
       nfiles: 311
   canonicalize@ood_positives_internet:
     cmd: python -m coffeecv.canonicalize_folder ood_positives_internet --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4245,12 +4245,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4267,8 +4267,8 @@ stages:
     outs:
     - path: data/canonical/ood_positives_internet
       hash: md5
-      md5: 081a882b69d556a40dedf94f11150048.dir
-      size: 3522608
+      md5: 10256dd17979f5df5033aaa9cd987585.dir
+      size: 3422925
       nfiles: 11
   canonicalize@2026-08-07__box_pictures_all_classes:
     cmd: python -m coffeecv.canonicalize_folder 
@@ -4276,16 +4276,16 @@ stages:
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4300,12 +4300,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4322,24 +4322,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-07__box_pictures_all_classes
       hash: md5
-      md5: 5da7ddccb2c95311b090adbcd534327e.dir
-      size: 304110077
+      md5: 6cf303dd0efb2c1510a81f09823c57af.dir
+      size: 296715776
       nfiles: 180
   canonicalize@2026-08-30__sony:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-30__sony --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4354,12 +4354,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4376,24 +4376,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-30__sony
       hash: md5
-      md5: 732e6747b5f40c71f0b174b3317430e9.dir
-      size: 45869840
+      md5: 132825e4c69701002486571fa9312027.dir
+      size: 42933542
       nfiles: 39
   canonicalize@2026-08-25__oneplus:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-25__oneplus --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4408,12 +4408,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4430,24 +4430,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-25__oneplus
       hash: md5
-      md5: 5fba388209f7c508b0606a94bccff3e0.dir
-      size: 124454430
+      md5: 41e3d0cbc874611b31a7dc0b1d88d49e.dir
+      size: 118569354
       nfiles: 90
   canonicalize@2026-10-21__new_green:
     cmd: python -m coffeecv.canonicalize_folder 2026-10-21__new_green --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4462,12 +4462,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4484,8 +4484,8 @@ stages:
     outs:
     - path: data/canonical/2026-10-21__new_green
       hash: md5
-      md5: 0ae261d65b3c3faec28c71483cbed08c.dir
-      size: 98390900
+      md5: cd914045d8aeb26c57e80d212a5902ec.dir
+      size: 94291290
       nfiles: 41
   canonicalize@2026-08-27__oneplus_flash:
     cmd: python -m coffeecv.canonicalize_folder 2026-08-27__oneplus_flash --jobs
@@ -4493,16 +4493,16 @@ stages:
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4517,12 +4517,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4539,24 +4539,24 @@ stages:
     outs:
     - path: data/canonical/2026-08-27__oneplus_flash
       hash: md5
-      md5: 7a3303cd22492fef63c03ae5bd8eae7d.dir
-      size: 211670966
+      md5: f93c9f4bfc5fce71ecdfbfba7560cd3d.dir
+      size: 205991303
       nfiles: 90
   canonicalize@2026-09-24__pixel:
     cmd: python -m coffeecv.canonicalize_folder 2026-09-24__pixel --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4571,12 +4571,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4593,24 +4593,24 @@ stages:
     outs:
     - path: data/canonical/2026-09-24__pixel
       hash: md5
-      md5: 0c2692584fe01c5d4f67b25a38ed4486.dir
-      size: 178004805
+      md5: 21696983f1abb36151b7c8f9bbcb3bd4.dir
+      size: 173217811
       nfiles: 70
   canonicalize@2026-09-11__pixel:
     cmd: python -m coffeecv.canonicalize_folder 2026-09-11__pixel --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4625,12 +4625,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4647,24 +4647,24 @@ stages:
     outs:
     - path: data/canonical/2026-09-11__pixel
       hash: md5
-      md5: a08c6514ca3f476f408e4081f456819e.dir
-      size: 50915441
+      md5: 06eae38c8c5e5991a83f4ee6d5aff02c.dir
+      size: 49559852
       nfiles: 20
   canonicalize@2026-09-11__sony:
     cmd: python -m coffeecv.canonicalize_folder 2026-09-11__sony --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -4679,12 +4679,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -4701,8 +4701,8 @@ stages:
     outs:
     - path: data/canonical/2026-09-11__sony
       hash: md5
-      md5: f738d9d08f8593f386cd082a217b73e8.dir
-      size: 78386251
+      md5: d560c61d75c70744191273a76cfb390f.dir
+      size: 75441197
       nfiles: 20
   seg_ml16_finetune@xl0_v7_s42:
     cmd: python -m coffeecv.seg_finetune train --labels pass16 --seed 42 --name 
@@ -5306,16 +5306,16 @@ stages:
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -5330,12 +5330,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -5352,24 +5352,24 @@ stages:
     outs:
     - path: data/canonical/massimo
       hash: md5
-      md5: d0ecd45822803cad2b18ad63a18f1f02.dir
-      size: 12338746
+      md5: 4d354a91b59f4e6f9775516b458a0e0d.dir
+      size: 11913646
       nfiles: 6
   canonicalize@tasty_coffee:
     cmd: python -m coffeecv.canonicalize_folder tasty_coffee --jobs 4
     deps:
     - path: coffeecv/canonical.py
       hash: md5
-      md5: 7395f670e9e67b5d0346dfe050705270
-      size: 42797
+      md5: e625cc81924ddee7b0f54d3344d1bf99
+      size: 40355
     - path: coffeecv/canonicalize_folder.py
       hash: md5
       md5: a0d4ce82557e4d6d041695a94256747f
       size: 7013
     - path: coffeecv/colour_declaration.py
       hash: md5
-      md5: b3b828f9b5803859a730aeac5005c4d0
-      size: 22437
+      md5: 41d8055485b7c5fac1602ab2c0644793
+      size: 22888
     - path: coffeecv/data/accepted_formats.csv
       hash: md5
       md5: e2b505e403c5888a5893f4e2c49dc6f2
@@ -5384,12 +5384,12 @@ stages:
       size: 20381
     - path: coffeecv/jxl_encode.py
       hash: md5
-      md5: a7295467d3eccc4c4c11493555e4a2ee
-      size: 13057
+      md5: 9057b9133b51b86b4475c1fcf62993c6
+      size: 13859
     - path: coffeecv/jxl_header.py
       hash: md5
-      md5: 32fe6fbf98d9c2b590888f8c2cb62952
-      size: 9063
+      md5: 1db8f0a1641e44cc5649c87824b5dd0f
+      size: 9710
     - path: coffeecv/linear_dng.py
       hash: md5
       md5: 8ec3e9f073adb6d87064ba5125249d91
@@ -5406,8 +5406,8 @@ stages:
     outs:
     - path: data/canonical/tasty_coffee
       hash: md5
-      md5: 6c4a2b77874fabb91f3e2311140e06ed.dir
-      size: 240548320
+      md5: b1775037a157b2ff7bfa9db398fd839a.dir
+      size: 227702732
       nfiles: 80
   segcrop@massimo:
     cmd: python -m coffeecv.segcrop_session --session massimo --threads 4
