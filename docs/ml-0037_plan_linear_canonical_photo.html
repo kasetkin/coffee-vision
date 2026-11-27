@@ -297,7 +297,7 @@
 
   <h2>9. P7 &mdash; the head and the OOD probe refitted, judged against D13 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-27: the bar and its script written; baseline exp295&ndash;297 by ML-37 D29</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
   </div>
   <ol class="tasks">
@@ -506,6 +506,13 @@
       remote, <code>yappy</code>'s root filesystem and the live inference host's, with about 0.3 GB of its 21 GB
       free. They are in this machine's DVC cache only: under ADR 0028 none of them leaves it until pushed. P6 Done
       without the push; P7 next.</div>
+    <div><div class="when">2026-11-27</div>P7 started. D13's bar fixed before any run:
+      <code>analysis/ml37/p7_bar.md</code>, applied by <code>analysis/ml37/p7_compare.py</code> (the photo bootstrap,
+      tested in <code>tests/test_p7_compare.py</code>: exp289&ndash;291 against themselves give 0 and a bound of 0;
+      run on ML-29's pair it reproduces <code>d13_seed_range.py</code>). The baseline changed before the runs by
+      ML-37 D29: exp295&ndash;297, <code>main</code>'s code and pool refitted, in place of exp289&ndash;291 (only
+      199&ndash;205 of their 266 test photos per seed are in today's split). The candidate exp292&ndash;294 first,
+      then the baseline; each seed about 3.3 h.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
