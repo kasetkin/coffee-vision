@@ -3,9 +3,10 @@ model, no state. /analyze runs `coffeecv.infer.classify_one`'s two steps,
 `segment_decoded` and `classify_segmented`, rather than reimplementing any of
 its scale/OOD logic, so this service and the CLI can never silently drift on
 what counts as a refusal (see `coffeecv/infer.py`'s own docstring on parity).
-Its answer streams back in two parts, the preview and then the classification
-(ticket OPS-7, ADR 0023), and during ticket OPS-25's trial a third, the preview in
-three wide-gamut formats (D5).
+Its answer streams back in two lines, the segmentation (the photo's mask and box)
+and then the classification (ticket OPS-7, ADR 0023). The preview, the picture they
+are drawn over, is the front's, sent before the photo crosses to this host (ticket
+ML-37 D15, D24; ADR 0043).
 
 Model, config, class labels and the OOD reference are all loaded once here, at
 import time -- gunicorn is run with a single sync worker (see
@@ -29,7 +30,6 @@ import resource
 import subprocess
 import time
 import uuid
-from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timezone
 from logging.handlers import WatchedFileHandler
 from pathlib import Path
@@ -48,7 +48,8 @@ from coffeecv.infer import (_sha, classify_segmented, config_for_checkpoint, PRO
                             reference_path_for, segment_decoded, sig12, warm_up)
 from coffeecv.litert import gpu_idle_ms, gpu_mapped, gpu_proof, litert_dir_for, load_models  # noqa: E402
 from coffeecv import canonical  # noqa: E402
-from coffeecv import preview_formats  # noqa: E402
+from coffeecv import preview  # noqa: E402 -- the preview's size, which the mask is scaled to (ML-37 D15)
+from coffeecv import readback  # noqa: E402
 from coffeecv.segment_beans import BeanSegmenter, seg_params  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
@@ -56,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 # The shipped model. COFFEE_CV_CHECKPOINT (a path relative to the repo) overrides it without a code
 # edit -- for smoke-testing a candidate inside the real systemd sandbox before repointing this line.
-CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v7r_country_aug8_ml29gm_s123.pt")
+CHECKPOINT = REPO_ROOT / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v7r_country_aug8_ml37lin_s123.pt")
 # Its converted model (coffeecv.litert): beside it unless COFFEE_CV_LITERT_DIR (relative to the repo) names another,
 # for the same smoke tests. COFFEE_CV_LITERT_RUNTIME is LiteRT's accelerator directory (release.env names the
 # release venv's ai_edge_litert/, which holds the WebGPU library) and COFFEE_CV_WARMUP_PHOTO the boot's warm-up
@@ -67,7 +68,6 @@ LITERT_RUNTIME = REPO_ROOT / os.environ["COFFEE_CV_LITERT_RUNTIME"] if os.enviro
     else None
 N_PATCHES = 40
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024  # matches nginx's client_max_body_size
-PREVIEW_MAX_DIM = 1024  # a thumbnail, not the classification input -- keep it light
 
 # static_folder=None: this app serves exactly one route. nginx serves the static
 # page and only proxies /analyze here -- disabling Flask's own default
@@ -195,8 +195,8 @@ class _JsonFormatter(logging.Formatter):
     """
 
     _FIELDS = (
-        "request_id", "endpoint", "status", "latency_ms", "preview_ms", "preview_build_ms", "outcome", "parts_sent",
-        "classification_ms", "previews_shrink_ms", "previews_build_ms", "previews_bytes",
+        "request_id", "endpoint", "status", "latency_ms", "segmentation_ms", "segmentation_build_ms", "outcome",
+        "parts_sent", "classification_ms",
         "model", "build",
         "verdict",
         "top1_class", "top1_score", "ood_median", "ood_probe", "ood_method", "ood_warned",
@@ -313,8 +313,7 @@ def _write_request_line(status: int) -> None:
         "model": CHECKPOINT.name,
         "build": BUILD,
     }
-    for field in ("preview_ms", "preview_build_ms", "outcome", "parts_sent",
-                  "classification_ms", "previews_shrink_ms", "previews_build_ms", "previews_bytes",
+    for field in ("segmentation_ms", "segmentation_build_ms", "outcome", "parts_sent", "classification_ms",
                   "verdict", "top1_class", "top1_score", "ood_median", "ood_probe",
                   "ood_method", "ood_warned",
                   "crop_needs_review", "skip_crop", "upload_format", "upload_bytes",
@@ -441,13 +440,12 @@ def _log_classify_fields(entry: dict, body: dict) -> None:
 
 
 def _mask_png_b64(mask: np.ndarray) -> str:
-    """The whole photo's bool mask as the preview part sends it (ticket OPS-6 D7): scaled to long side <= PREVIEW_MAX_DIM,
-    aspect kept, never up (area average, then >= 0.5), as a 1-bit palette PNG, index 0 (not bean) transparent
-    and index 1 (bean) white, base64. The page stretches it to the photo's displayed rect, as it does the
-    box's fractions, so its size need not equal the thumbnail's to the pixel."""
+    """The whole photo's bool mask as the segmentation line sends it (ticket OPS-6 D7): scaled to the preview's size
+    (coffeecv.preview.size: long side <= MAX_DIM, aspect kept, never up; area average, then >= 0.5), as a 1-bit palette
+    PNG, index 0 (not bean) transparent and index 1 (bean) white, base64. The page stretches it to the photo's
+    displayed rect, as it does the box's fractions; the deploy's check holds it to the preview's size to the pixel."""
     h, w = mask.shape
-    scale = min(1.0, PREVIEW_MAX_DIM / max(h, w))
-    size = (max(1, round(w * scale)), max(1, round(h * scale)))
+    size = preview.size(w, h)
     frac = Image.fromarray(mask.astype(np.float32))   # mode "F": BOX averages the 0/1 values exactly
     if frac.size != size:
         frac = frac.resize(size, Image.Resampling.BOX)
@@ -460,15 +458,15 @@ def _mask_png_b64(mask: np.ndarray) -> str:
 
 @app.post("/analyze")
 def analyze():
-    """One photo, one upload, one answer in parts (ticket OPS-7, ADR 0023): `application/x-ndjson`, one JSON
+    """One photo, one upload, one answer in lines (ticket OPS-7, ADR 0023): `application/x-ndjson`, one JSON
     object per line. The photo is decoded and segmented once, before the answer starts, so an unreadable photo is
-    still a plain 400 and a segmenter error the error handler's 500. Then the stream: the preview part
-    (`_preview_part`), then the classification part, `_entry_to_response`'s body, or an error part if the
-    classification fails, since the 200 has gone out with the preview (R4). After a classification, during ticket
-    OPS-25's trial, the previews part (`_previews_part`, D5).
+    still a plain 400 and a segmenter error the error handler's 500. Then the stream: the segmentation line
+    (`_segmentation_part`, ML-37 D24), then the classification line, `_entry_to_response`'s body, or an error line if
+    the classification fails, since the 200 has gone out with the segmentation (R4). The front relays both after its
+    own preview line (ADR 0043).
 
     skip_crop=1 is the user's override (D1, "Use full photo instead"): the segmenter does not run and the whole
-    photo is classified -- the server never takes a box from the client, only this one bit. Its preview has no
+    photo is classified -- the server never takes a box from the client, only this one bit. Its segmentation has no
     mask and no box (D9).
     """
     upload = request.files.get("photo")
@@ -492,108 +490,61 @@ def analyze():
         _log_decode_failure(exc)
         return jsonify(error=f"could not read this as an image: {exc}"), 400
     del data
-    photo = canonical.rec2020_to_srgb(rec)   # load_canonical's two steps: what the models read
+    photo = readback.to_srgb(rec)   # load_canonical's two steps: the model picture (ML-37 D2)
     decode_ms = round((time.monotonic() - t0) * 1000)
-    small = _shrink_aside(rec)   # OPS-25 P1: the third part's samples, while the photo is segmented
     del rec
     g.decoded_h, g.decoded_w = photo.shape[:2]
     seg = segment_decoded(photo, cfg, skip_crop=skip_crop, segmenter=segmenter, decode_ms=decode_ms)
     t0 = time.monotonic()
-    preview = _preview_part(seg)
-    g.preview_build_ms = round((time.monotonic() - t0) * 1000)   # OPS-3 D6 step 12: the thumbnail, mask and box
+    segmentation = _segmentation_part(seg)
+    g.segmentation_build_ms = round((time.monotonic() - t0) * 1000)   # ML-37 D27: the mask's PNG and the box
     g.stream_logs_itself = True
-    return Response(stream_with_context(_analyze_stream(seg, preview, small)), mimetype="application/x-ndjson",
+    return Response(stream_with_context(_analyze_stream(seg, segmentation)), mimetype="application/x-ndjson",
                     # Both nginx servers stream it only if asked to; ours passes the header on (OPS-7 D11).
                     headers={"X-Accel-Buffering": "no"})
 
 
-def _shrink_aside(rec: np.ndarray) -> Future:
-    """The Rec.2020 samples at the preview's size (`preview_formats.shrink`) and the milliseconds it took, made on a
-    thread of its own (OPS-25 P1): the previews part needs them only after the classification, so neither the preview
-    part nor the classification waits for them; the full-size samples go once it is done. A pool per call, as
-    canonical's: no thread is left over across gunicorn's fork."""
-    def run() -> tuple[np.ndarray, int]:
-        t0 = time.monotonic()
-        return preview_formats.shrink(rec, PREVIEW_MAX_DIM), round((time.monotonic() - t0) * 1000)
-
-    pool = ThreadPoolExecutor(1)
-    try:
-        return pool.submit(run)
-    finally:
-        pool.shutdown(wait=False)
-
-
-def _analyze_stream(seg, preview: dict, small: Future):
+def _analyze_stream(seg, segmentation: dict):
     """/analyze's lines, and its one request-log line when the stream ends, however it ends (OPS-7 R2, D19):
     `outcome` is complete, error, or client_gone (the generator closed at a yield: the client left, or the server
-    gave up writing to it), and `parts_sent` counts the lines handed to the server. After a classification, the
-    previews part (OPS-25 D5): the answer is complete without it, so its failure is logged and the part left out."""
+    gave up writing to it), and `parts_sent` counts the lines handed to the server."""
     g.parts_sent, g.outcome = 0, "client_gone"
     try:
-        g.parts_sent, g.preview_ms = 1, round((time.monotonic() - g.t0) * 1000)   # D13: when the preview went out
-        yield json.dumps(preview) + "\n"
+        # When the segmentation went out (ML-37 D27; OPS-3 D13's preview_ms before it).
+        g.parts_sent, g.segmentation_ms = 1, round((time.monotonic() - g.t0) * 1000)
+        yield json.dumps(segmentation) + "\n"
         try:
             entry = classify_segmented(seg, cfg, class_ids, class_labels, classifier, ref, n_patches=N_PATCHES,
                                        tta=TTA, probe=probe)
-            body, _ = _entry_to_response(entry)   # the status went out with the preview
+            body, _ = _entry_to_response(entry)   # the status went out with the segmentation
             _log_classify_fields(entry, body)
             line, ending = {"part": "classification", **body}, "complete"
-        except Exception as exc:   # any failure after the 200 is an error part, logged as the handler logs one
+        except Exception as exc:   # any failure after the 200 is an error line, logged as the handler logs one
             _log_exception(exc)
             line, ending = {"part": "error", "message": "Something went wrong -- try a different photo."}, "error"
         g.parts_sent = 2
-        g.classification_ms = round((time.monotonic() - g.t0) * 1000)   # OPS-25 R4: latency_ms now ends later
+        g.classification_ms = round((time.monotonic() - g.t0) * 1000)
         yield json.dumps(line) + "\n"
         g.outcome = ending
-        if ending == "complete":
-            try:
-                samples, g.previews_shrink_ms = small.result()
-                t0 = time.monotonic()
-                previews = _previews_part(samples)
-                g.previews_build_ms = round((time.monotonic() - t0) * 1000)
-            except Exception as exc:
-                _log_exception(exc)
-            else:
-                g.parts_sent = 3
-                yield json.dumps(previews) + "\n"
     finally:
         _write_request_line(200)
 
 
-def _previews_part(small: np.ndarray) -> dict:
-    """The answer's third part during ticket OPS-25's trial (D1, D5): the preview in three wide-gamut formats, made
-    from the canonical photo's Rec.2020 samples at the preview's size (`coffeecv.preview_formats`), each as
-    {"mime", "data": base64}, in the page's order. `previews_bytes` is their size before base64."""
-    files = preview_formats.encode_all(small)
-    g.previews_bytes = sum(len(b) for b in files.values())
-    return {"part": "previews", "previews": {name: {"mime": preview_formats.MIME[name],
-                                                    "data": base64.b64encode(b).decode("ascii")}
-                                             for name, b in files.items()}}
-
-
-def _preview_part(seg) -> dict:
-    """The answer's first part (ticket OPS-7 D8): the photo as a JPEG thumbnail, so the browser never needs to
-    decode HEIC/AVIF/JXL/RAW itself, and the canonical photo as the page shows it (OPS-25 D7): its 8-bit sRGB, the
-    pixels the model reads (`canonical.rec2020_to_srgb`'s); the
-    whole photo's bean mask (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model);
-    `seg_fallback` (ML-2 D18: the whole photo is classified); and the crop box. During OPS-25's trial the
-    thumbnail names its format in its corner (D9, D10). Display only: nothing here is ever trusted back from the
+def _segmentation_part(seg) -> dict:
+    """The host's first line (ML-37 D24; OPS-7 D8's preview part before it): the whole photo's bean mask
+    (`_mask_png_b64`; null on a fallback, on skip_crop and for a tray-heuristic model), `seg_fallback` (ML-2 D18: the
+    whole photo is classified) and the crop box, which the page draws over the front's preview. No picture: the front
+    made and sent it from the same canonical photo (D15). Display only: nothing here is ever trusted back from the
     client.
     """
-    thumb = Image.fromarray(seg.photo)
-    thumb.thumbnail((PREVIEW_MAX_DIM, PREVIEW_MAX_DIM))
-    thumb = Image.fromarray(preview_formats.label(np.asarray(thumb), "srgb_jpeg"))   # OPS-25 D9, D10: its label
-    buf = io.BytesIO()
-    thumb.save(buf, format="JPEG", quality=85)
-    part = {"part": "preview", "thumbnail": base64.b64encode(buf.getvalue()).decode("ascii"),
-            "mask": None if seg.photo_mask is None else _mask_png_b64(seg.photo_mask),
+    part = {"part": "segmentation", "mask": None if seg.photo_mask is None else _mask_png_b64(seg.photo_mask),
             "seg_fallback": seg.seg_fallback}
     if seg.crop_info is None:
         return {**part, "cropped": False, "box": None, "needs_review": False}
     h, w = seg.photo.shape[:2]
     x, y, bw, bh = seg.crop_info["box"]
-    # Fractions of the full decoded photo (x0, y0, x1, y1), not thumbnail pixels -- keeps this independent of
-    # PREVIEW_MAX_DIM, so the page can scale it against whatever it is actually displaying.
+    # Fractions of the full decoded photo (x0, y0, x1, y1), not preview pixels -- keeps this independent of
+    # the preview's size, so the page can scale it against whatever it is actually displaying.
     return {**part, "cropped": True, "box": [x / w, y / h, (x + bw) / w, (y + bh) / h],
             "needs_review": seg.crop_info["needs_review"]}
 

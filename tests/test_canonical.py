@@ -2,7 +2,7 @@
 
 (i) Synthetic patches of known colour (sRGB and Display P3 primaries, a P3 green outside sRGB, greys, white) through
 original -> canonical -> 8-bit sRGB, against colour maths written here from the primaries' chromaticities, not
-LittleCMS; (ii) a canonical file's header (D7's encoding, nothing else); (iii) a committed golden file, exact on the
+LittleCMS; (ii) a canonical file's header (ML-37 D1's encoding, nothing else); (iii) a committed golden file, exact on the
 store's machine (D30, D51). Also: the eight EXIF orientations against Pillow's exif_transpose, the cap's two
 thresholds, transparency, an untagged photo, is_canonical on near misses.
 
@@ -27,8 +27,9 @@ import numpy as np
 from PIL import Image, ImageCms, ImageOps
 
 from coffeecv import canonical as cn
+from coffeecv import readback
 from coffeecv.jxl_header import read_header
-from tests._tiers import real_data
+from tests._tiers import DATA_ROOT, real_data
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 GOLDEN = FIXTURES / "canonical_golden.json"
@@ -65,12 +66,12 @@ def bt709_encode(lin):
 
 
 def convert(rgb8, source: str):
-    """8-bit source values (sRGB curve, `source` primaries) to the expected canonical Rec.2020 encoding (0-1) and the
-    expected 8-bit sRGB read-back."""
+    """8-bit source values (sRGB curve, `source` primaries) to the expected canonical samples, linear Rec.2020 (0-1,
+    ML-37 D1), and the expected 8-bit sRGB read-back."""
     lin = srgb_decode(np.asarray(rgb8, np.float64) / 255)
     rec_lin = np.clip(lin @ (np.linalg.inv(rgb_to_xyz("rec2020")) @ rgb_to_xyz(source)).T, 0, 1)
     srgb_lin = rec_lin @ (np.linalg.inv(rgb_to_xyz("srgb")) @ rgb_to_xyz("rec2020")).T
-    return bt709_encode(rec_lin), np.round(srgb_encode(srgb_lin) * 255)
+    return rec_lin, np.round(srgb_encode(srgb_lin) * 255)
 
 
 # ----- test photos -----
@@ -119,8 +120,7 @@ class Colour(unittest.TestCase):
         want_stored, want_back = convert(colours, source)
         src = cn.decode(data)
         rec = cn.to_rec2020(src.pixels, src.full, src.profile)       # the conversion alone, no JPEG XL
-        direct = ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
-                                  outdtype=np.uint8)
+        direct = readback.to_srgb(rec)
         canon = cn.canonicalize(data)
         stored = centres(ic.jpegxl_decode(canon).astype(np.float64) / 65535, n)
         back = centres(cn.load_canonical(canon).astype(np.float64), n)
@@ -161,8 +161,7 @@ class Colour(unittest.TestCase):
         a[:, PATCH:] = (10, 200, 30, 255)      # opaque: its own colour
         src = cn.decode(png(a))
         rec = cn.to_rec2020(src.pixels, src.full, src.profile)
-        back = centres(ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
-                                        outdtype=np.uint8).astype(np.float64), 2)
+        back = centres(readback.to_srgb(rec).astype(np.float64), 2)
         np.testing.assert_allclose(back[0], cn.FILL_SRGB, atol=1.0)
         np.testing.assert_allclose(back[1], (10, 200, 30), atol=1.0)
         self.assertTrue(cn.is_canonical(cn.canonicalize(png(a))))   # no alpha channel left
@@ -175,27 +174,44 @@ class Colour(unittest.TestCase):
 
 
 class Header(unittest.TestCase):
-    """D8 (ii): the canonical file declares D7's encoding and holds nothing else."""
+    """D8 (ii): the canonical file declares ML-37 D1's encoding and holds nothing else."""
 
-    def test_the_file_declares_d7_and_nothing_else(self):
-        canon = cn.canonicalize(jpeg(patches(SRGB_PATCHES), orientation=6))
-        h = read_header(canon)
-        c = h.colour
-        self.assertEqual((c.want_icc, c.colour_space, c.white_point, c.primaries, c.transfer, c.rendering_intent),
-                         (False, "RGB", "D65", "BT2100", "BT709", "Relative"))
-        self.assertEqual((h.orientation, h.num_extra_channels, h.boxes, h.bits_per_sample, h.xyb_encoded),
-                         (1, 0, [], 16, True))
-        self.assertNotIn(b"Exif", canon)
-        self.assertTrue(cn.is_canonical(canon))
+    def test_the_file_declares_ml37_d1_and_nothing_else(self):   # what jxlinfo reports, in both settings
+        data = jpeg(patches(SRGB_PATCHES), orientation=6)
+        for settings in (cn.STORE_SETTINGS, cn.FRONT_SETTINGS):
+            with self.subTest(settings.name):
+                canon = cn.canonicalize_with(data, "p.jpg", settings).canonical
+                h = read_header(canon)
+                c = h.colour
+                self.assertEqual((c.want_icc, c.colour_space, c.white_point, c.primaries, c.transfer,
+                                  c.rendering_intent), (False, "RGB", "D65", "BT2100", "Linear", "Relative"))
+                self.assertEqual((h.orientation, h.num_extra_channels, h.boxes, h.bits_per_sample, h.float_sample,
+                                  h.xyb_encoded, h.intensity_target), (1, 0, [], 16, False, True, 203.0))
+                self.assertNotIn(b"Exif", canon)
+                self.assertTrue(cn.is_canonical(canon))
+
+    def test_the_check_names_a_wrong_transfer_or_intensity_target(self):   # ML-37 R6
+        h = read_header(cn.canonicalize(png(patches(SRGB_PATCHES))))
+        self.assertEqual(cn.header_problems(h), [])
+        bt709 = cn.header_problems(replace(h, colour=replace(h.colour, transfer="BT709")))
+        self.assertEqual(len(bt709), 1)
+        self.assertIn("BT709", bt709[0])
+        self.assertIn("Linear", bt709[0])
+        at255 = cn.header_problems(replace(h, intensity_target=255.0))
+        self.assertEqual(len(at255), 1)
+        self.assertIn("255", at255[0])
+        self.assertIn("203", at255[0])
 
     def test_the_imagecodecs_pin_is_the_locks(self):   # D44
         import tomllib
         lock = tomllib.loads((Path(__file__).resolve().parents[1] / "uv.lock").read_text())
         self.assertEqual([p["version"] for p in lock["package"] if p["name"] == "imagecodecs"], [cn.IMAGECODECS])
 
-    def test_the_profile_is_the_committed_one(self):   # D46
-        self.assertEqual(hashlib.sha256(cn.PROFILE_PATH.read_bytes()).hexdigest(), cn.PROFILE_SHA256)
-        self.assertEqual(len(cn.REC2020), 536)
+    def test_the_profile_is_the_committed_one(self):   # D46; since ML-37 (finding 4) colour_declaration's alone
+        from coffeecv import colour_declaration as cd
+        self.assertEqual(hashlib.sha256(cd.REC2020_PROFILE_PATH.read_bytes()).hexdigest(),
+                         "877c5b36808954f322af187b56c3b3ebfd1cc8bad569f27f67f1a0c450d11b9c")
+        self.assertEqual(len(cd.REC2020_PROFILE), 536)
 
 
 class Golden(unittest.TestCase):
@@ -310,10 +326,10 @@ class Settings(unittest.TestCase):
     def test_the_fronts_are_d1s(self):
         f = cn.FRONT_SETTINGS
         self.assertEqual((f.colour, f.effort, f.quality, f.keep_max_pixels, f.cap_pixels),
-                         ("integer", 3, 90, 18_000_000, 15_000_000))
+                         ("float", 3, 90, 18_000_000, 15_000_000))   # ML-37 D12 (a): the store's colour path
 
     def test_each_names_itself(self):   # the front's log line (OPS-22 §7)
-        self.assertEqual(cn.FRONT_SETTINGS.label, "front: integer e3 q90 18/15 MP")
+        self.assertEqual(cn.FRONT_SETTINGS.label, "front: float e3 q90 18/15 MP")
         self.assertEqual(cn.STORE_SETTINGS.label, "store: float e7 q95 60/50 MP")
 
     def test_the_encoder_is_given_the_settings_effort_and_quality(self):
@@ -323,7 +339,7 @@ class Settings(unittest.TestCase):
                 cn.encode(src, settings=settings)
                 self.assertEqual((enc.call_args.kwargs["level"], enc.call_args.kwargs["effort"]), (level, effort))
 
-    def test_the_fronts_photo_declares_d7_and_nothing_else(self):   # the inference host cannot tell them apart
+    def test_the_fronts_photo_declares_ml37_d1_and_nothing_else(self):   # the inference host cannot tell them apart
         data = jpeg(patches(SRGB_PATCHES), orientation=6)
         front = cn.encode(cn.decode(data, settings=cn.FRONT_SETTINGS), settings=cn.FRONT_SETTINGS)
         store = cn.canonicalize(data)
@@ -353,25 +369,11 @@ class Settings(unittest.TestCase):
         self.assertTrue(cn.header_problems(replace(h, width=10_001, height=6_000)))
 
 
-def through_srgb(rec: np.ndarray) -> np.ndarray:
-    """A Rec.2020 uint16 conversion read back as the inference host reads a canonical photo, as ints."""
-    return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
-                            outdtype=np.uint8).astype(int)
+class OneColourPath(unittest.TestCase):
+    """ML-37 D12 (a): the front converts as the store does, every source alike; only the encoder's settings differ.
+    OPS-22 D4's integer path is gone (into linear uint16 it quantized light to 1/16384)."""
 
-
-class IntegerColour(unittest.TestCase):
-    """OPS-22 D4: the front's colour path, LittleCMS's optimized transform from the source's own integers, within one
-    8-bit level of the store's float path after the read-back, before any encode; a source with transparency on the
-    float path itself."""
-
-    def check(self, pixels: np.ndarray, full: float, profile: bytes | None):
-        fl = cn.to_rec2020(pixels, full, profile)
-        it = cn.to_rec2020(pixels, full, profile, settings=cn.FRONT_SETTINGS)
-        self.assertEqual((it.dtype, it.shape), (np.uint16, fl.shape))
-        self.assertLessEqual(int(np.abs(through_srgb(it) - through_srgb(fl)).max()), 1)
-        return fl, it
-
-    def test_sources_without_transparency(self):
+    def test_both_settings_convert_every_source_alike(self):
         rng = np.random.default_rng(5)
         rgb8 = rng.integers(0, 256, (300, 260, 3), dtype=np.uint8)   # strips of 256 rows and a short last one
         rgb16 = rng.integers(0, 65536, (64, 96, 3), dtype=np.uint16)
@@ -383,47 +385,26 @@ class IntegerColour(unittest.TestCase):
             "10-bit HEIC": (heif10, float(1023 << 6), DISPLAY_P3),
             "16-bit linear Rec.2020 (RAW)": (rgb16, 65535.0, cn.LINEAR_REC2020),
             "8-bit grey, 2-D": (rgb8[..., 0], 255.0, None),
-            "8-bit grey, one channel": (rgb8[..., :1], 255.0, None),
             "a turned view": (cn.orient(rgb8, 6), 255.0, None),
-            "the patches": (patches(SRGB_PATCHES), 255.0, None),
+            "with transparency": (rng.integers(0, 256, (40, 50, 4), dtype=np.uint8), 255.0, None),
         }
         for what, (pixels, full, profile) in cases.items():
             with self.subTest(what):
-                fl, it = self.check(pixels, full, profile)
-        self.assertFalse(np.array_equal(*self.check(rgb8, 255.0, None)), "the integer path is the float path")
+                np.testing.assert_array_equal(cn.to_rec2020(pixels, full, profile, settings=cn.FRONT_SETTINGS),
+                                              cn.to_rec2020(pixels, full, profile))
 
-    def test_white_and_black_read_back_as_white_and_black(self):
-        """8-bit white comes out at 65521 of 65535 (LittleCMS's optimized 8-bit input), 10-bit white at 65535: both
-        read back as 255."""
-        for pixels, full in ((np.full((8, 8, 3), 255, np.uint8), 255.0), (np.full((8, 8, 3), 1023 << 6, np.uint16),
-                                                                             float(1023 << 6))):
+    def test_white_and_black_are_white_and_black(self):
+        for pixels, full in ((np.full((8, 8, 3), 255, np.uint8), 255.0),
+                             (np.full((8, 8, 3), 1023 << 6, np.uint16), float(1023 << 6))):
             with self.subTest(full=full):
-                it = cn.to_rec2020(pixels, full, None, settings=cn.FRONT_SETTINGS)
-                self.assertGreaterEqual(int(it.min()), 65535 - 16)
-                self.assertEqual(int(through_srgb(it).min()), 255)
-        it = cn.to_rec2020(np.zeros((8, 8, 3), np.uint8), 255.0, None, settings=cn.FRONT_SETTINGS)
-        self.assertEqual(int(it.max()), 0)
+                rec = cn.to_rec2020(pixels, full, None, settings=cn.FRONT_SETTINGS)
+                self.assertGreaterEqual(int(rec.min()), 65535 - 2)   # LittleCMS's own sRGB white, in float
+                self.assertEqual(int(readback.to_srgb(rec).min()), 255)
+        self.assertEqual(int(cn.to_rec2020(np.zeros((8, 8, 3), np.uint8), 255.0, None).max()), 0)
 
-    def test_a_source_with_transparency_keeps_the_float_path(self):   # D4 (a): laid over the fill grey (ML-19 D13)
-        rng = np.random.default_rng(6)
-        for pixels in (rng.integers(0, 256, (40, 50, 4), dtype=np.uint8),
-                       rng.integers(0, 256, (40, 50, 2), dtype=np.uint8)):
-            with self.subTest(channels=pixels.shape[2]):
-                np.testing.assert_array_equal(cn.to_rec2020(pixels, 255.0, None, settings=cn.FRONT_SETTINGS),
-                                              cn.to_rec2020(pixels, 255.0, None))
-
-    def test_the_encode_uses_it(self):
-        src = cn.decode(png(patches(SRGB_PATCHES)))
-        rects = []
-        real = cn.to_rec2020
-
-        def spy(*args, **kw):
-            rects.append(kw.get("settings"))
-            return real(*args, **kw)
-        with mock.patch.object(cn, "to_rec2020", spy):
-            cn.encode(src, settings=cn.FRONT_SETTINGS)
-        self.assertTrue(rects)
-        self.assertEqual(set(rects), {cn.FRONT_SETTINGS})
+    def test_integer_is_no_longer_a_colour_path(self):
+        with self.assertRaises(ValueError):
+            cn.Settings("front", "integer", 3, 90, 18_000_000, 15_000_000)
 
 
 class IsCanonical(unittest.TestCase):
@@ -469,12 +450,12 @@ class IsCanonical(unittest.TestCase):
             with self.subTest(threads=threads):
                 np.testing.assert_array_equal(cn.load_canonical(canon, numthreads=threads), one)
 
-    def test_load_canonical_is_its_two_steps(self):   # OPS-25 P1: the webapp keeps the Rec.2020 samples between them
+    def test_load_canonical_is_its_two_steps(self):   # ML-37 D2: decode_canonical, then the one read-back
         a = (np.random.default_rng(5).random((300, 200, 3)) * 255).astype(np.uint8)
         canon = cn.canonicalize(png(a))
         rec = cn.decode_canonical(canon)
         self.assertEqual((rec.shape, rec.dtype), ((300, 200, 3), np.dtype(np.uint16)))
-        np.testing.assert_array_equal(cn.rec2020_to_srgb(rec), cn.load_canonical(canon))
+        np.testing.assert_array_equal(readback.to_srgb(rec), cn.load_canonical(canon))
         with self.assertRaises(cn.NotCanonical):
             cn.decode_canonical(jpeg(patches(SRGB_PATCHES)))
         with self.assertRaises(cn.Unreadable):
@@ -498,13 +479,129 @@ class Encoder(unittest.TestCase):
         def bad(y, x, ys, xs):
             raise RuntimeError("no rectangle")
         with self.assertRaisesRegex(RuntimeError, "no rectangle"):
-            encode_rec2020(64, 64, bad, level=95, effort=7, numthreads=1)
+            encode_rec2020(64, 64, bad, level=95, effort=7, numthreads=1, transfer="Linear", intensity_target=203)
 
     def test_a_rectangle_of_the_wrong_shape_is_raised(self):
         from coffeecv.jxl_encode import encode_rec2020
         with self.assertRaises(ValueError):
             encode_rec2020(64, 64, lambda y, x, ys, xs: np.zeros((1, 1, 3), np.uint16), level=95, effort=7,
+                           numthreads=1, transfer="Linear", intensity_target=203)
+
+    def test_a_linear_photo_at_intensity_target_203(self):   # ML-37 D1, D8, P1
+        from coffeecv.jxl_encode import encode_rec2020
+        h, w = 96, 160
+        yy, xx = np.mgrid[0:h, 0:w] / np.array([h - 1, w - 1]).reshape(2, 1, 1)
+        a = (np.stack([xx, yy, (xx + yy) / 2], -1) * 65535).round().astype(np.uint16)   # smooth ramps, black to white
+        data = encode_rec2020(h, w, lambda y, x, ys, xs: a[y:y + ys, x:x + xs], level=95, effort=7, numthreads=1,
+                              transfer="Linear", intensity_target=203)
+        hd = read_header(data)
+        c = hd.colour
+        self.assertEqual((c.colour_space, c.white_point, c.primaries, c.transfer, c.rendering_intent),
+                         ("RGB", "D65", "BT2100", "Linear", "Relative"))
+        self.assertEqual((hd.bits_per_sample, hd.float_sample, hd.xyb_encoded, hd.intensity_target),
+                         (16, False, True, 203.0))
+        back = ic.jpegxl_decode(data)
+        self.assertEqual((back.dtype, back.shape), (np.dtype(np.uint16), a.shape))
+        err = np.abs(back.astype(np.int64) - a)
+        self.assertLess(err.mean(), 65535 * 0.002)   # the lossy coding's error on smooth ramps: a fraction of a level
+        self.assertLess(err.max(), 65535 * 0.02)
+
+    def test_every_caller_names_the_transfer_and_intensity_target(self):   # review S2: no default form to drift
+        from coffeecv.jxl_encode import encode_rec2020
+        with self.assertRaises(TypeError):
+            encode_rec2020(8, 8, lambda y, x, ys, xs: np.zeros((ys, xs, 3), np.uint16), level=95, effort=7,
                            numthreads=1)
+
+    def test_an_unknown_transfer_is_refused(self):
+        from coffeecv.jxl_encode import encode_rec2020
+        with self.assertRaises(ValueError):
+            encode_rec2020(8, 8, lambda y, x, ys, xs: np.zeros((ys, xs, 3), np.uint16), level=95, effort=7,
+                           numthreads=1, transfer="PQ", intensity_target=203)
+
+
+def bt709_form(a: np.ndarray) -> bytes:
+    """8-bit sRGB patches as the canonical photo was before ML-37 (ML-19 D7): Rec.2020 with the BT.709 curve, intensity
+    target 255, through the committed profile, by the strip encoder."""
+    from coffeecv import colour_declaration as cd
+    from coffeecv.jxl_encode import encode_rec2020
+    rec = ic.cms_transform(a.astype(np.float32) / 255, cn.SRGB, cd.REC2020_PROFILE, intent=cn.RELATIVE,
+                           outdtype=np.float32)
+    rec = np.rint(np.clip(rec, 0, 1) * 65535).astype(np.uint16)
+    return encode_rec2020(*rec.shape[:2], lambda y, x, ys, xs: rec[y:y + ys, x:x + xs], level=95, effort=7,
+                          numthreads=1, transfer="BT709", intensity_target=255)
+
+
+def bt709_read_back(data: bytes) -> np.ndarray:
+    """A JPEG XL's samples read as the canonical photo was read before ML-37: through the committed BT.709-curve
+    profile to 8-bit sRGB by LittleCMS (ML-19 D31, D46)."""
+    from coffeecv import colour_declaration as cd
+    return ic.cms_transform(ic.jpegxl_decode(data), cd.REC2020_PROFILE, cn.SRGB, intent=cn.RELATIVE,
+                            flags=ic.CMS.FLAGS.NOOPTIMIZE, outdtype=np.uint8)
+
+
+def block_means(a: np.ndarray, n: int = 32) -> np.ndarray:
+    """ML-29 D27's measure: each n x n block's mean, per channel (the edge's partial blocks dropped)."""
+    h, w = (a.shape[0] // n) * n, (a.shape[1] // n) * n
+    return a[:h, :w].astype(np.float64).reshape(h // n, n, w // n, n, -1).mean((1, 3))
+
+
+class LinearForm(unittest.TestCase):
+    """ML-37 P3: the canonical photo is linear light (D1), read back once (D2); the form before it is an original."""
+
+    def test_the_form_before_ml37_is_refused_naming_its_transfer_and_target(self):   # R6
+        old = bt709_form(patches(SRGB_PATCHES))
+        problems = cn.canonical_problems(old)
+        self.assertEqual(len(problems), 2, problems)
+        self.assertIn("BT709", problems[0])
+        self.assertIn("intensity target 255", problems[1])
+        with self.assertRaises(cn.NotCanonical):
+            cn.load_canonical(old)
+
+    def test_the_form_before_ml37_sent_as_an_original_is_re_canonicalized(self):   # finding 4
+        from coffeecv import colour_declaration as cd
+        a = patches(SRGB_PATCHES)
+        old = bt709_form(a)
+        self.assertEqual(cn.decode(old, "old.jxl").profile, cd.REC2020_PROFILE)   # read through rec2020_bt709.icc
+        for settings in (cn.STORE_SETTINGS, cn.FRONT_SETTINGS):
+            with self.subTest(settings.name):
+                made = cn.canonicalize_with(old, "old.jxl", settings).canonical
+                self.assertTrue(cn.is_canonical(made))
+                back = centres(cn.load_canonical(made).astype(np.float64), len(SRGB_PATCHES))
+                want = np.array(SRGB_PATCHES, np.float64)
+                # two lossy codings: greys to the level; a saturated colour's near-zero channel in linear light, as
+                # in Colour (up to 13 levels where sRGB's curve is steepest, 0.005 in linear light)
+                np.testing.assert_allclose(back[:5], want[:5], atol=1.0)
+                self.assertLess(float(np.abs(srgb_decode(back / 255) - srgb_decode(want / 255)).max()), 0.008)
+        self.assertTrue(cn.is_canonical(cn.canonicalize(old, "old.jxl")))   # no pass-through for it
+
+    def test_a_reader_that_skipped_the_read_back_sees_a_darker_picture(self):   # R7
+        greys = [(64, 64, 64), (128, 128, 128), (192, 192, 192)]
+        canon = cn.canonicalize(png(patches(greys)))
+        right = centres(cn.load_canonical(canon).astype(np.float64), 3)
+        wrong = centres(bt709_read_back(canon).astype(np.float64), 3)
+        np.testing.assert_allclose(right, np.array(greys), atol=1.0)
+        self.assertTrue((right - wrong > 25).all(), f"read as BT.709: {wrong[:, 0]}, through the read-back: "
+                                                    f"{right[:, 0]}")
+
+    @real_data
+    def test_a_known_photo_reads_back_within_d27_of_the_form_before(self):
+        """A Pixel photo through both settings, against its store photo as made before ML-37 and read as then: ML-29
+        D27's bar on 32 x 32 block means (mean at most 1.0 level, no block over 6)."""
+        original = DATA_ROOT / "dataset/2026-08-09__pixel_cam/class_009__Vietnam_Robusta/PXL_20260809_140759935.jpg"
+        stored = cn.canonical_path(original, DATA_ROOT / "dataset", DATA_ROOT / "data" / "canonical")
+        if not (original.is_file() and stored.is_file()):
+            self.skipTest(f"no DVC data under {DATA_ROOT} (COFFEECV_DATA_ROOT)")
+        before = stored.read_bytes()
+        if read_header(before).colour.transfer != "BT709":
+            self.skipTest("the store is re-canonicalized (ML-37 P5): no photo in the form before it to compare with")
+        today = block_means(bt709_read_back(before))
+        data = original.read_bytes()
+        for settings in (cn.STORE_SETTINGS, cn.FRONT_SETTINGS):
+            with self.subTest(settings.name):
+                made = cn.load_canonical(cn.canonicalize_with(data, original.name, settings).canonical)
+                diff = np.abs(block_means(made) - today)
+                self.assertLessEqual(diff.mean(), 1.0)
+                self.assertLessEqual(diff.max(), 6.0)
 
 
 def pillow_bytes(fmt: str, mode: str = "RGB", **save) -> bytes:
@@ -611,8 +708,7 @@ def srgb_back(data: bytes) -> np.ndarray:
     assert cn.is_canonical(cn.canonicalize(data))
     src = cn.decode(data)
     rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize, peak=src.peak())
-    return ic.cms_transform(rec, cn.REC2020, cn.SRGB, intent=cn.RELATIVE, flags=cn.NOOPTIMIZE,
-                            outdtype=np.uint8).astype(int)
+    return readback.to_srgb(rec).astype(int)
 
 
 class GifAndBmp(unittest.TestCase):
@@ -989,10 +1085,6 @@ def hdr_file(lin: np.ndarray, curve: str, container: str) -> bytes:
     return data[:end] + png_chunk(b"cICP", bytes([9, code, 0, 1])) + data[end:]
 
 
-def bt709_decode(v: np.ndarray) -> np.ndarray:
-    return np.where(v < 0.081, v / 4.5, ((v + 0.099) / 1.099) ** (1 / 0.45))
-
-
 class Hdr(unittest.TestCase):
     """ML-29 P5: PQ and HLG main images, in each container, through D33's operator into the standard-range canonical
     photo; light at or below white read as it is (BT.2408's reference white), light above it rolled off."""
@@ -1020,7 +1112,7 @@ class Hdr(unittest.TestCase):
                     src = cn.decode(hdr_file(lin, curve, container))
                     rec = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize,
                                         peak=src.peak())
-                    light = bt709_decode(centres(rec.astype(np.float64) / 65535, 7))
+                    light = centres(rec.astype(np.float64) / 65535, 7)   # linear light (ML-37 D1)
                     want = np.asarray(linear_rec2020(np.array(SRGB_PATCHES[:5])))
                     self.assertLess(float(np.abs(light[1:5] - want[1:5]).max()), 0.01)   # below the knee: as is
                     self.assertGreater(light[5].min(), 0.97)                   # the peak to white
@@ -1084,31 +1176,6 @@ class Avif(unittest.TestCase):
         Image.fromarray(rgba).save(buf, "AVIF", quality=100)
         back = srgb_back(buf.getvalue())
         self.assertLessEqual(np.abs(back[8:24, 8:24] - np.array(cn.FILL_SRGB)).max(), 1)
-
-
-class FrontPath(unittest.TestCase):
-    """ML-29 D26: on the front, a photo whose profile is built from its declaration takes the float path; every
-    other keeps the integer one."""
-
-    def test_which_path(self):
-        a = patches(SRGB_PATCHES)
-        cases = {"linear Rec.2020 AVIF": (nclx_avif(linear_rec2020(a), 9, 8, bits=10), False),
-                 "float JPEG XL": (ic.jpegxl_encode(a.astype(np.float32) / 255, distance=0.1), False),
-                 "sRGB AVIF": (nclx_avif(a / 255, 1, 13), True),
-                 "untagged PNG": (png(a), True),
-                 "Display P3 PNG": (png(a, icc=DISPLAY_P3), True)}
-        for name, (data, integer) in cases.items():
-            with self.subTest(name), mock.patch.object(cn, "_to_rec2020_integer",
-                                                       wraps=cn._to_rec2020_integer) as path:
-                made = cn.canonicalize_with(data, settings=cn.FRONT_SETTINGS)
-                self.assertTrue(cn.is_canonical(made.canonical))
-                self.assertEqual(path.called, integer)
-
-    def test_a_built_declaration_converts_alike_on_both(self):   # only the encoder's settings differ
-        src = cn.decode(nclx_avif(linear_rec2020(patches(SRGB_PATCHES)), 9, 8, bits=12))
-        store = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize)
-        front = cn.to_rec2020(src.pixels, src.full, src.profile, linearize=src.linearize, settings=cn.FRONT_SETTINGS)
-        self.assertEqual(store.tolist(), front.tolist())
 
 
 if __name__ == "__main__":

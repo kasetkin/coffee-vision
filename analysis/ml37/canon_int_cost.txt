@@ -1,0 +1,35 @@
+# libjxl 0.12.0 via imagecodecs 2026.10.10; 2 threads per call; load at start 3.69; 12 CPUs
+photo                                               MP setting form      bytes   bpp  enc s  enc MB  dec s  dec MB
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 store   today   1555596  1.02   2.70     233   0.12      71
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 store   I       1480786  0.97   2.80     231   0.08      71
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 store   Hs      1481026  0.97   2.76     232   0.08      72
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 store   Hh      1550190  1.02   2.75     166   0.08      72
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 front   today    984880  0.65   1.24     152   0.11      71
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 front   I        921618  0.60   1.24     146   0.09      72
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 front   Hs       921581  0.60   1.30     146   0.09      71
+20261020_122800_iPhone_15_Pro_ Apple iPho map pk3.2  12.2 front   Hh       980646  0.64   1.27     147   0.09      71
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 store   today   2551072  1.70   2.92     167   0.12      71
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 store   I       2471187  1.65   2.90     121   0.10      71
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 store   Hs      2470377  1.65   2.93     106   0.10      70
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 store   Hh      2636742  1.76   2.98     107   0.10      70
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 front   today   1518189  1.01   1.27     104   0.12      70
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 front   I       1388363  0.93   1.29     100   0.11      70
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 front   Hs      1388085  0.93   1.29     100   0.10      70
+20261028_112710_Galaxy_Z_Fold6 samsung Ga map pk3.0  12.0 front   Hh      1509054  1.01   1.30     100   0.10      70
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 store   today   2966583  1.39   3.86     108   0.15      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 store   I       2845802  1.34   4.00     155   0.13      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 store   Hs      2845144  1.34   4.04     187   0.13      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 store   Hh      2845144  1.34   4.09     154   0.14      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 front   today   1671125  0.78   1.75     122   0.16      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 front   I       1569935  0.74   1.80     147   0.14      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 front   Hs      1570010  0.74   1.87     149   0.14      99
+DSC_0001.JPG Sony G8441 pk1.0                     17.0 front   Hh      1570010  0.74   1.82     146   0.13      99
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 store   today   1542548  1.01   2.77     133   0.10      72
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 store   I       1444280  0.95   2.90     150   0.08      71
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 store   Hs      1444533  0.95   2.89     152   0.08      71
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 store   Hh      1444533  0.95   2.91     152   0.08      71
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 front   today    907664  0.60   1.15     136   0.11      74
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 front   I        827223  0.54   1.24     100   0.09      74
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 front   Hs       827311  0.54   1.26      95   0.09      74
+20261030_185843_iPhone_13_Ethi Apple iPho pk1.0   12.2 front   Hh       827311  0.54   1.27      95   0.09      71
+load at end 3.34; process peak RSS 4006 MB virtual

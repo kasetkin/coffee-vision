@@ -1,0 +1,40 @@
+30 crops (20 measured on a centre band of 8 MP), 201 MP encoded, 310 MP of crop; 19 sessions; peak RSS 811 MB
+stand-in check: rounded to 8 bits, share of samples equal to the stored crop: min 0.999993, mean 0.999995; largest difference 1 level(s)
+whole crops: today's encoder at 2 threads gives the stored file's size in 10 of 10
+bit-exact: u8 30/30, u16 30/30, f16 30/30
+
+form  bytes/px  x u8   enc s/MP  dec s/MP   (effort 5, 2 threads; sums over the sample)
+u8      0.702   1.00     0.365     0.125
+u16     3.028   4.31     0.445     0.142
+f16     1.906   2.71     0.496     0.156
+per-crop size ratio u16/u8: min 3.28, median 4.38, max 4.84
+per-crop size ratio f16/u8: min 2.03, median 2.68, max 3.57
+per session (ratio of sums): 2026-08-07__box_pictures_all_classes 3.60/2.75; 2026-08-09__pixel_cam 4.47/2.50; 2026-08-09__sony_cam 4.59/2.62; 2026-08-25__iphone 4.26/2.49; 2026-08-25__oneplus 4.36/2.54; 2026-08-27__oneplus_flash 4.05/2.03; 2026-08-30__oneplus 4.50/2.59; 2026-08-30__pixel 4.52/2.93; 2026-08-30__sony 4.84/2.92; 2026-09-11__oneplus 4.32/2.66; 2026-09-11__pixel 4.24/2.77; 2026-09-11__sony 4.61/2.65; 2026-09-24__oneplus 4.40/3.19; 2026-09-24__pixel 3.88/2.60; 2026-09-24__sony 4.36/2.73; 2026-10-21__new_green 4.12/2.75; massimo 4.43/2.79; random_date_raccoon 4.43/3.03; tasty_coffee 3.28/2.43  (u16/f16)
+
+effort sweep, 5 crops, 22 MP (u8 at efforts 1, 3, 7 = the f16 crop rounded to 8 bits, untagged; at 5 the stored pixels)
+form effort  bytes/px  enc s/MP  dec s/MP  exact
+u8        1     0.998     0.007     0.030  True
+u8        3     0.813     0.149     0.106  True
+u8        5     0.781     0.451     0.149  True
+u8        7     0.742     0.895     0.183  True
+u16       1     3.549     0.015     0.031  True
+u16       3     3.271     0.198     0.125  True
+u16       5     3.255     0.514     0.167  True
+u16       7     3.200     1.774     0.250  True
+f16       1     2.475     0.011     0.032  True
+f16       3     2.132     0.203     0.127  True
+f16       5     2.017     0.597     0.182  True
+f16       7     1.966     1.738     0.274  True
+
+(c) rebuilding the crop at fit time, per photo (2 threads): canonical decode (whole photo) + float read-back of the box + fill, scaled to the whole crop
+  decode 0.29 s, read-back 0.319 s/MP, fill 0.009 s/MP; all in 3.64 s per photo, 0.352 s/MP of crop
+  vs decoding today's stored 8-bit crop 2.47 s per photo (0.239 s/MP); u16 crop 1.47 s, f16 crop 1.62 s per photo
+  canonical photo 2.25 MB per photo, 15.2 MP
+
+rounding: largest |u16/65535 - x| 7.659e-06; largest |f16 - x| 2.441e-04
+fine-scale variation (green, bean pixels, 8-bit levels): min 0.17, median 0.75, max 3.79
+
+extrapolated, each session's stored 8-bit bytes x its sample's ratio: 1868 session crops, 1811 of them in the pool
+  u8   sessions  13.91 GB   pool  13.19 GB
+  u16  sessions  60.25 GB   pool  57.13 GB
+  f16  sessions  37.96 GB   pool  35.84 GB

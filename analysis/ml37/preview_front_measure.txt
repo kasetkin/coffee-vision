@@ -1,0 +1,54 @@
+00  15.0 MP  decode 0.20  read-back 0.67  thumb+jpeg 0.08  same 0.95  shrink 0.33  jpeg 229 KB  shrink-vs-same mean 0.93 p99 7 max 39
+01  15.0 MP  decode 0.17  read-back 0.61  thumb+jpeg 0.07  same 0.85  shrink 0.30  jpeg 138 KB  shrink-vs-same mean 0.29 p99 2 max 13
+02  17.0 MP  decode 0.19  read-back 0.71  thumb+jpeg 0.07  same 0.97  shrink 0.31  jpeg 109 KB  shrink-vs-same mean 0.45 p99 4 max 30
+03  12.0 MP  decode 0.15  read-back 0.49  thumb+jpeg 0.09  same 0.73  shrink 0.25  jpeg 131 KB  shrink-vs-same mean 0.61 p99 6 max 34
+04  12.0 MP  decode 0.14  read-back 0.49  thumb+jpeg 0.10  same 0.74  shrink 0.25  jpeg 134 KB  shrink-vs-same mean 1.55 p99 17 max 58
+05  12.5 MP  decode 0.15  read-back 0.52  thumb+jpeg 0.10  same 0.78  shrink 0.27  jpeg 198 KB  shrink-vs-same mean 0.98 p99 10 max 34
+06  12.5 MP  decode 0.18  read-back 0.57  thumb+jpeg 0.10  same 0.85  shrink 0.30  jpeg 277 KB  shrink-vs-same mean 1.69 p99 12 max 40
+07   0.8 MP  decode 0.01  read-back 0.02  thumb+jpeg 0.00  same 0.04  shrink 0.04  jpeg 211 KB  shrink-vs-same mean 0.00 p99 0 max 0
+08   0.6 MP  decode 0.01  read-back 0.02  thumb+jpeg 0.00  same 0.03  shrink 0.03  jpeg 49 KB  shrink-vs-same mean 0.00 p99 0 max 0
+09  12.5 MP  decode 0.17  read-back 0.49  thumb+jpeg 0.09  same 0.75  shrink 0.28  jpeg 190 KB  shrink-vs-same mean 1.37 p99 16 max 58
+10  12.2 MP  decode 0.15  read-back 0.50  thumb+jpeg 0.09  same 0.75  shrink 0.26  jpeg 123 KB  shrink-vs-same mean 0.44 p99 4 max 32
+11  15.0 MP  decode 0.16  read-back 0.60  thumb+jpeg 0.06  same 0.83  shrink 0.29  jpeg 122 KB  shrink-vs-same mean 0.52 p99 6 max 35
+12  15.0 MP  decode 0.18  read-back 0.64  thumb+jpeg 0.06  same 0.88  shrink 0.31  jpeg 222 KB  shrink-vs-same mean 0.72 p99 5 max 30
+13  15.0 MP  decode 0.17  read-back 0.62  thumb+jpeg 0.07  same 0.85  shrink 0.30  jpeg 129 KB  shrink-vs-same mean 0.49 p99 5 max 44
+14  15.0 MP  decode 0.23  read-back 0.68  thumb+jpeg 0.07  same 0.97  shrink 0.36  jpeg 191 KB  shrink-vs-same mean 1.09 p99 7 max 38
+15  15.0 MP  decode 0.17  read-back 0.60  thumb+jpeg 0.06  same 0.84  shrink 0.30  jpeg 111 KB  shrink-vs-same mean 0.35 p99 3 max 31
+16  15.0 MP  decode 0.17  read-back 0.61  thumb+jpeg 0.07  same 0.84  shrink 0.29  jpeg 137 KB  shrink-vs-same mean 0.67 p99 8 max 40
+17  12.5 MP  decode 0.15  read-back 0.52  thumb+jpeg 0.09  same 0.77  shrink 0.27  jpeg 92 KB  shrink-vs-same mean 0.49 p99 6 max 33
+18  12.5 MP  decode 0.15  read-back 0.51  thumb+jpeg 0.11  same 0.76  shrink 0.26  jpeg 156 KB  shrink-vs-same mean 1.03 p99 11 max 45
+19  12.5 MP  decode 0.15  read-back 0.48  thumb+jpeg 0.09  same 0.73  shrink 0.26  jpeg 103 KB  shrink-vs-same mean 0.61 p99 7 max 36
+20  12.0 MP  decode 0.15  read-back 0.48  thumb+jpeg 0.09  same 0.72  shrink 0.26  jpeg 274 KB  shrink-vs-same mean 1.19 p99 8 max 38
+21  12.0 MP  decode 0.16  read-back 0.56  thumb+jpeg 0.10  same 0.83  shrink 0.27  jpeg 233 KB  shrink-vs-same mean 1.18 p99 11 max 39
+22  12.0 MP  decode 0.15  read-back 0.49  thumb+jpeg 0.09  same 0.73  shrink 0.25  jpeg 218 KB  shrink-vs-same mean 0.77 p99 5 max 38
+23  15.0 MP  decode 0.21  read-back 0.64  thumb+jpeg 0.07  same 0.91  shrink 0.34  jpeg 136 KB  shrink-vs-same mean 0.80 p99 6 max 47
+24  15.0 MP  decode 0.19  read-back 0.63  thumb+jpeg 0.07  same 0.89  shrink 0.32  jpeg 124 KB  shrink-vs-same mean 0.62 p99 4 max 43
+25  15.0 MP  decode 0.18  read-back 0.62  thumb+jpeg 0.06  same 0.87  shrink 0.31  jpeg 173 KB  shrink-vs-same mean 0.76 p99 7 max 41
+26  15.0 MP  decode 0.17  read-back 0.60  thumb+jpeg 0.07  same 0.84  shrink 0.30  jpeg 156 KB  shrink-vs-same mean 0.70 p99 8 max 42
+27  12.2 MP  decode 0.14  read-back 0.48  thumb+jpeg 0.09  same 0.71  shrink 0.25  jpeg 141 KB  shrink-vs-same mean 0.42 p99 4 max 32
+28  12.2 MP  decode 0.15  read-back 0.53  thumb+jpeg 0.09  same 0.77  shrink 0.26  jpeg 156 KB  shrink-vs-same mean 0.37 p99 2 max 16
+29  12.2 MP  decode 0.15  read-back 0.50  thumb+jpeg 0.10  same 0.76  shrink 0.26  jpeg 120 KB  shrink-vs-same mean 0.56 p99 5 max 41
+30   3.1 MP  decode 0.05  read-back 0.09  thumb+jpeg 0.03  same 0.17  shrink 0.10  jpeg 177 KB  shrink-vs-same mean 0.53 p99 3 max 20
+31  15.0 MP  decode 0.18  read-back 0.63  thumb+jpeg 0.07  same 0.88  shrink 0.31  jpeg 156 KB  shrink-vs-same mean 0.42 p99 2 max 15
+32  12.2 MP  decode 0.13  read-back 0.41  thumb+jpeg 0.09  same 0.63  shrink 0.24  jpeg 136 KB  shrink-vs-same mean 0.23 p99 1 max 17
+33  12.0 MP  decode 0.13  read-back 0.40  thumb+jpeg 0.09  same 0.62  shrink 0.24  jpeg 78 KB  shrink-vs-same mean 0.15 p99 1 max 10
+34  15.0 MP  decode 0.19  read-back 0.62  thumb+jpeg 0.07  same 0.88  shrink 0.31  jpeg 109 KB  shrink-vs-same mean 0.36 p99 2 max 13
+35  15.0 MP  decode 0.23  read-back 0.61  thumb+jpeg 0.07  same 0.91  shrink 0.37  jpeg 76 KB  shrink-vs-same mean 0.64 p99 3 max 13
+36   0.9 MP  decode 0.01  read-back 0.03  thumb+jpeg 0.01  same 0.05  shrink 0.06  jpeg 202 KB  shrink-vs-same mean 0.00 p99 0 max 0
+37   1.2 MP  decode 0.01  read-back 0.03  thumb+jpeg 0.02  same 0.07  shrink 0.06  jpeg 27 KB  shrink-vs-same mean 0.27 p99 1 max 94
+38  15.0 MP  decode 0.18  read-back 0.66  thumb+jpeg 0.08  same 0.92  shrink 0.31  jpeg 95 KB  shrink-vs-same mean 0.28 p99 1 max 12
+39  15.0 MP  decode 0.26  read-back 0.64  thumb+jpeg 0.07  same 0.97  shrink 0.38  jpeg 140 KB  shrink-vs-same mean 0.98 p99 5 max 18
+
+40 photos, mean ± std (min, max); seconds, KB, 8-bit levels
+  mp         12.17 ± 4.39 (min 0.60, max 17.04)
+  decode     0.15 ± 0.06 (min 0.01, max 0.26)
+  readback   0.50 ± 0.19 (min 0.02, max 0.71)
+  thumb_jpeg 0.07 ± 0.03 (min 0.00, max 0.11)
+  same       0.73 ± 0.27 (min 0.03, max 0.97)
+  shrink     0.26 ± 0.09 (min 0.03, max 0.38)
+  kb         149.47 ± 56.07 (min 26.61, max 277.31)
+  d_mean     0.64 ± 0.40 (min 0.00, max 1.69)
+  d_p99      5.38 ± 4.06 (min 0.00, max 17.00)
+  d_max      31.48 ± 18.00 (min 0.00, max 94.00)
+
+largest photo 02, 17.0 MP: read-back peak memory whole 1074 MB, strips of 256 rows 101 MB (incl. the 51 MB uint8 output); identical: True

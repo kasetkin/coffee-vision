@@ -1,0 +1,25 @@
+ML-37 D11 resize speed, 2 threads (torch 2, cv2 2); median of 7 runs, ms
+photo 4480x3348 (15.0 MP) -> 1024x765:
+  pil_u8 (today, uint8 RGB)                          118.5
+  pil_f, 3 channels in turn                          279.5
+  pil_f, 3 channels on a 2-thread pool               194.5
+  cv2 INTER_LINEAR float32                             6.0
+  cv2 INTER_AREA float32                              20.1
+  torch antialias, from HWC (incl. transposes)       121.0
+  torch antialias, from CHW                           35.4
+batch of 64 patches 448 -> 224 (eval_resize):
+  pil_u8 (today)                                     105.9
+  pil_f, channels in turn                            204.8
+  pil_f, 2-thread pool over patches                  156.6
+  cv2 INTER_LINEAR float32                            38.8
+  cv2 INTER_AREA float32                              70.9
+  torch antialias, per patch from HWC                169.3
+  torch antialias, one N x 3 x H x W call            157.4
+batch of 64 patches 800 -> 448 (patch store):
+  pil_u8 (today)                                     468.0
+  pil_f, channels in turn                           1005.2
+  pil_f, 2-thread pool over patches                  602.7
+  cv2 INTER_LINEAR float32                            90.0
+  cv2 INTER_AREA float32                             196.9
+  torch antialias, per patch from HWC                495.1
+  torch antialias, one N x 3 x H x W call            384.7

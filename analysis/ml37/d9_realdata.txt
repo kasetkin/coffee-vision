@@ -1,0 +1,169 @@
+20 photos, every 141th of the store's sorted paths
+
+2026-08-07__box_pictures_all_classes/class_001__Ethiopia_Sidamo/PXL_20260807_082019464.jpg.jxl 3072x4080; linear values below 0: 22286
+  C-R: max 2.48782 16-bit codes, mean 0.374788, rounding flips 14090814 of 37601280 samples (37.4743%)
+  D-R: max 0.01337 16-bit codes, mean 0.002638, rounding flips 116953 of 37601280 samples (0.3110%)
+  C-D: max 2.48629 16-bit codes, mean 0.372854, rounding flips 14011824 of 37601280 samples (37.2642%)
+  B-D: max 0.09360 8-bit levels, mean 0.017941, rounding flips 675734 of 37601280 samples (1.7971%)
+  A-D: max 0.58822 8-bit levels, mean 0.250080, rounding flips 675724 of 37601280 samples (1.7971%)
+  A-B: max 0.50001 8-bit levels, mean 0.249576, rounding flips 218 of 37601280 samples (0.0006%)
+
+2026-08-07__box_pictures_all_classes/class_008__Ethiopia_Kochere/PXL_20260807_084346188.jpg.jxl 3072x4080; linear values below 0: 51816
+  C-R: max 2.62909 16-bit codes, mean 0.368666, rounding flips 13857687 of 37601280 samples (36.8543%)
+  D-R: max 0.01355 16-bit codes, mean 0.002620, rounding flips 116204 of 37601280 samples (0.3090%)
+  C-D: max 2.62838 16-bit codes, mean 0.366752, rounding flips 13778781 of 37601280 samples (36.6444%)
+  B-D: max 0.09419 8-bit levels, mean 0.017882, rounding flips 667418 of 37601280 samples (1.7750%)
+  A-D: max 0.59189 8-bit levels, mean 0.249551, rounding flips 667457 of 37601280 samples (1.7751%)
+  A-B: max 0.50001 8-bit levels, mean 0.249058, rounding flips 301 of 37601280 samples (0.0008%)
+
+2026-08-09__pixel_cam/class_006__Brazil_Cerrado/PXL_20260809_140037451.jpg.jxl 4080x3072; linear values below 0: 64773
+  C-R: max 3.61237 16-bit codes, mean 0.354151, rounding flips 13311269 of 37601280 samples (35.4011%)
+  D-R: max 0.01348 16-bit codes, mean 0.001820, rounding flips 78514 of 37601280 samples (0.2088%)
+  C-D: max 3.61347 16-bit codes, mean 0.352712, rounding flips 13256609 of 37601280 samples (35.2557%)
+  B-D: max 0.08445 8-bit levels, mean 0.013213, rounding flips 496281 of 37601280 samples (1.3199%)
+  A-D: max 0.57619 8-bit levels, mean 0.248166, rounding flips 496276 of 37601280 samples (1.3198%)
+  A-B: max 0.50001 8-bit levels, mean 0.247867, rounding flips 215 of 37601280 samples (0.0006%)
+
+2026-08-09__sony_cam/class_004__CostaRica_LaPastora/PIC_20260809_204722.JPG.jxl 5056x3792; linear values below 0: 16999
+  C-R: max 0.94370 16-bit codes, mean 0.415869, rounding flips 23919922 of 57517056 samples (41.5875%)
+  D-R: max 0.01105 16-bit codes, mean 0.001427, rounding flips 96058 of 57517056 samples (0.1670%)
+  C-D: max 0.94334 16-bit codes, mean 0.414715, rounding flips 23853564 of 57517056 samples (41.4722%)
+  B-D: max 0.08735 8-bit levels, mean 0.010842, rounding flips 621136 of 57517056 samples (1.0799%)
+  A-D: max 0.58151 8-bit levels, mean 0.249488, rounding flips 621157 of 57517056 samples (1.0800%)
+  A-B: max 0.50001 8-bit levels, mean 0.249284, rounding flips 217 of 57517056 samples (0.0004%)
+
+2026-08-25__iphone/class_003__Colombia_PinkBourbon/IMG_6262.HEIC.jxl 3024x4032; linear values below 0: 5211
+  C-R: max 1.42716 16-bit codes, mean 0.399097, rounding flips 14597593 of 36578304 samples (39.9078%)
+  D-R: max 0.01354 16-bit codes, mean 0.001784, rounding flips 67541 of 36578304 samples (0.1846%)
+  C-D: max 1.42576 16-bit codes, mean 0.398129, rounding flips 14556518 of 36578304 samples (39.7955%)
+  B-D: max 0.09259 8-bit levels, mean 0.011904, rounding flips 435229 of 36578304 samples (1.1899%)
+  A-D: max 0.58386 8-bit levels, mean 0.239609, rounding flips 435213 of 36578304 samples (1.1898%)
+  A-B: max 0.50001 8-bit levels, mean 0.239346, rounding flips 180 of 36578304 samples (0.0005%)
+
+2026-08-25__oneplus/class_008__Ethiopia_Kochere/PXL_20260825_194441452.jpg.jxl 3000x4000; linear values below 0: 20352
+  C-R: max 1.30668 16-bit codes, mean 0.380428, rounding flips 13697738 of 36000000 samples (38.0493%)
+  D-R: max 0.01400 16-bit codes, mean 0.001803, rounding flips 67832 of 36000000 samples (0.1884%)
+  C-D: max 1.30589 16-bit codes, mean 0.379387, rounding flips 13655627 of 36000000 samples (37.9323%)
+  B-D: max 0.09246 8-bit levels, mean 0.012065, rounding flips 432627 of 36000000 samples (1.2017%)
+  A-D: max 0.58830 8-bit levels, mean 0.240845, rounding flips 432637 of 36000000 samples (1.2018%)
+  A-B: max 0.50001 8-bit levels, mean 0.240572, rounding flips 156 of 36000000 samples (0.0004%)
+
+2026-08-30__oneplus/class_010__Indonesia_Java/PXL_20260830_175818481.jpg.jxl 3000x4000; linear values below 0: 48036
+  C-R: max 1.64665 16-bit codes, mean 0.386709, rounding flips 13910792 of 36000000 samples (38.6411%)
+  D-R: max 0.01394 16-bit codes, mean 0.001848, rounding flips 75849 of 36000000 samples (0.2107%)
+  C-D: max 1.64451 16-bit codes, mean 0.385227, rounding flips 13857512 of 36000000 samples (38.4931%)
+  B-D: max 0.10478 8-bit levels, mean 0.013347, rounding flips 480710 of 36000000 samples (1.3353%)
+  A-D: max 0.58976 8-bit levels, mean 0.248605, rounding flips 480704 of 36000000 samples (1.3353%)
+  A-B: max 0.50001 8-bit levels, mean 0.248287, rounding flips 160 of 36000000 samples (0.0004%)
+
+2026-09-11__sony/class_011__Peru_Minca/PIC_20260911_124952.JPG.jxl 3792x5056; linear values below 0: 180401
+  C-R: max 1.39076 16-bit codes, mean 0.397002, rounding flips 22842817 of 57517056 samples (39.7149%)
+  D-R: max 0.01315 16-bit codes, mean 0.001373, rounding flips 92151 of 57517056 samples (0.1602%)
+  C-D: max 1.39085 16-bit codes, mean 0.395917, rounding flips 22780141 of 57517056 samples (39.6059%)
+  B-D: max 0.09110 8-bit levels, mean 0.010342, rounding flips 594131 of 57517056 samples (1.0330%)
+  A-D: max 0.58099 8-bit levels, mean 0.248449, rounding flips 594122 of 57517056 samples (1.0329%)
+  A-B: max 0.50001 8-bit levels, mean 0.248255, rounding flips 211 of 57517056 samples (0.0004%)
+
+2026-09-24__pixel/class_012__Rwanda_Gisuma/PXL_20260924_074224216.jpg.jxl 4080x3072; linear values below 0: 6121
+  C-R: max 3.41914 16-bit codes, mean 0.334602, rounding flips 12577068 of 37601280 samples (33.4485%)
+  D-R: max 0.01335 16-bit codes, mean 0.002310, rounding flips 86157 of 37601280 samples (0.2291%)
+  C-D: max 3.41621 16-bit codes, mean 0.333919, rounding flips 12539462 of 37601280 samples (33.3485%)
+  B-D: max 0.08364 8-bit levels, mean 0.014135, rounding flips 531478 of 37601280 samples (1.4135%)
+  A-D: max 0.57343 8-bit levels, mean 0.230158, rounding flips 531465 of 37601280 samples (1.4134%)
+  A-B: max 0.50001 8-bit levels, mean 0.229814, rounding flips 203 of 37601280 samples (0.0005%)
+
+ood_negatives/2026-09-11__user_samerig/confusable_grain/PXL_20260911_063551796.jpg.jxl 4080x3072; linear values below 0: 39826
+  C-R: max 2.41937 16-bit codes, mean 0.357485, rounding flips 13398663 of 37601280 samples (35.6335%)
+  D-R: max 0.01267 16-bit codes, mean 0.002397, rounding flips 98034 of 37601280 samples (0.2607%)
+  C-D: max 2.41720 16-bit codes, mean 0.355720, rounding flips 13329373 of 37601280 samples (35.4493%)
+  B-D: max 0.09998 8-bit levels, mean 0.016101, rounding flips 599169 of 37601280 samples (1.5935%)
+  A-D: max 0.58255 8-bit levels, mean 0.243513, rounding flips 599172 of 37601280 samples (1.5935%)
+  A-B: max 0.50000 8-bit levels, mean 0.243117, rounding flips 235 of 37601280 samples (0.0006%)
+
+ood_negatives/user_realworld/20231026_171812_GM1910_ood_negative.jpg.jxl 3264x2448; linear values below 0: 36976
+  C-R: max 6.16071 16-bit codes, mean 0.468130, rounding flips 10952183 of 23970816 samples (45.6897%)
+  D-R: max 0.01209 16-bit codes, mean 0.001515, rounding flips 42394 of 23970816 samples (0.1769%)
+  C-D: max 6.15591 16-bit codes, mean 0.466925, rounding flips 10923971 of 23970816 samples (45.5720%)
+  B-D: max 0.25614 8-bit levels, mean 0.011988, rounding flips 288076 of 23970816 samples (1.2018%)
+  A-D: max 0.63163 8-bit levels, mean 0.248793, rounding flips 288062 of 23970816 samples (1.2017%)
+  A-B: max 0.50001 8-bit levels, mean 0.248542, rounding flips 104 of 23970816 samples (0.0004%)
+
+ood_negatives/user_realworld/20250420_153551_GM1910_ood_negative.jpg.jxl 3264x2448; linear values below 0: 7436
+  C-R: max 4.97608 16-bit codes, mean 0.455918, rounding flips 10839034 of 23970816 samples (45.2176%)
+  D-R: max 0.01337 16-bit codes, mean 0.001617, rounding flips 44791 of 23970816 samples (0.1869%)
+  C-D: max 4.97160 16-bit codes, mean 0.454630, rounding flips 10808283 of 23970816 samples (45.0893%)
+  B-D: max 0.11219 8-bit levels, mean 0.012455, rounding flips 297265 of 23970816 samples (1.2401%)
+  A-D: max 0.59712 8-bit levels, mean 0.249539, rounding flips 297268 of 23970816 samples (1.2401%)
+  A-B: max 0.50000 8-bit levels, mean 0.249269, rounding flips 117 of 23970816 samples (0.0005%)
+
+ood_negatives/user_realworld/20260215_125741_Pixel_9_Pro_ood_negative.jpg.jxl 3072x4080; linear values below 0: 6380
+  C-R: max 4.25501 16-bit codes, mean 0.464590, rounding flips 16682992 of 37601280 samples (44.3681%)
+  D-R: max 0.01325 16-bit codes, mean 0.001629, rounding flips 70333 of 37601280 samples (0.1870%)
+  C-D: max 4.25482 16-bit codes, mean 0.463463, rounding flips 16639460 of 37601280 samples (44.2524%)
+  B-D: max 0.09717 8-bit levels, mean 0.012219, rounding flips 457868 of 37601280 samples (1.2177%)
+  A-D: max 0.58866 8-bit levels, mean 0.247655, rounding flips 457869 of 37601280 samples (1.2177%)
+  A-B: max 0.50001 8-bit levels, mean 0.247390, rounding flips 173 of 37601280 samples (0.0005%)
+
+ood_negatives/user_realworld/20261005_094132_Pixel_9_Pro_ood_negative.jpg.jxl 4080x3072; linear values below 0: 178601
+  C-R: max 6.88259 16-bit codes, mean 0.530407, rounding flips 16049064 of 37601280 samples (42.6822%)
+  D-R: max 0.01331 16-bit codes, mean 0.002030, rounding flips 64305 of 37601280 samples (0.1710%)
+  C-D: max 6.88295 16-bit codes, mean 0.530502, rounding flips 16054415 of 37601280 samples (42.6965%)
+  B-D: max 0.13247 8-bit levels, mean 0.010964, rounding flips 412125 of 37601280 samples (1.0960%)
+  A-D: max 0.60815 8-bit levels, mean 0.211413, rounding flips 412117 of 37601280 samples (1.0960%)
+  A-B: max 0.50001 8-bit levels, mean 0.211179, rounding flips 160 of 37601280 samples (0.0004%)
+
+random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_173712_iPhone_15_Pro_Max_Ethiopia_Sidamo.HEIC.jxl 4032x3024; linear values below 0: 7174
+  C-R: max 30.87853 16-bit codes, mean 0.385378, rounding flips 13978129 of 36578304 samples (38.2143%)
+  D-R: max 0.03051 16-bit codes, mean 0.002009, rounding flips 80766 of 36578304 samples (0.2208%)
+  C-D: max 30.88112 16-bit codes, mean 0.384237, rounding flips 13931292 of 36578304 samples (38.0862%)
+  B-D: max 0.52707 8-bit levels, mean 0.013128, rounding flips 477163 of 36578304 samples (1.3045%)
+  A-D: max 0.80187 8-bit levels, mean 0.242534, rounding flips 477145 of 36578304 samples (1.3044%)
+  A-B: max 0.50001 8-bit levels, mean 0.242221, rounding flips 186 of 36578304 samples (0.0005%)
+
+random_date_raccoon/class_013__Brazil_SulDeMinas/20261024_151537_Telegram_photo_7.jpg.jxl 960x1280; linear values below 0: 5194
+  C-R: max 9.26598 16-bit codes, mean 0.418503, rounding flips 1529284 of 3686400 samples (41.4845%)
+  D-R: max 0.01099 16-bit codes, mean 0.001120, rounding flips 4853 of 3686400 samples (0.1316%)
+  C-D: max 9.26133 16-bit codes, mean 0.417683, rounding flips 1526291 of 3686400 samples (41.4033%)
+  B-D: max 0.21763 8-bit levels, mean 0.008849, rounding flips 32480 of 3686400 samples (0.8811%)
+  A-D: max 0.63855 8-bit levels, mean 0.249211, rounding flips 32478 of 3686400 samples (0.8810%)
+  A-B: max 0.50000 8-bit levels, mean 0.249041, rounding flips 10 of 3686400 samples (0.0003%)
+
+random_date_raccoon/class_014__Colombia_Excelso/20261017_112822_Pixel_9_Pro_Colombia.jpg.jxl 3072x4080; linear values below 0: 115256
+  C-R: max 7.86684 16-bit codes, mean 0.391308, rounding flips 14691535 of 37601280 samples (39.0719%)
+  D-R: max 0.01362 16-bit codes, mean 0.001473, rounding flips 57119 of 37601280 samples (0.1519%)
+  C-D: max 7.86548 16-bit codes, mean 0.390589, rounding flips 14659011 of 37601280 samples (38.9854%)
+  B-D: max 0.20282 8-bit levels, mean 0.009848, rounding flips 368882 of 37601280 samples (0.9810%)
+  A-D: max 0.63959 8-bit levels, mean 0.236394, rounding flips 368873 of 37601280 samples (0.9810%)
+  A-B: max 0.50000 8-bit levels, mean 0.236202, rounding flips 127 of 37601280 samples (0.0003%)
+
+random_date_raccoon/class_015__Indonesia/20261105_114229_Pixel_9_Pro_Indonesia.jpg.jxl 6144x8160; linear values below 0: 148550
+  C-R: max 1.19967 16-bit codes, mean 0.372841, rounding flips 56106608 of 150405120 samples (37.3037%)
+  D-R: max 0.01433 16-bit codes, mean 0.001863, rounding flips 303011 of 150405120 samples (0.2015%)
+  C-D: max 1.19920 16-bit codes, mean 0.371645, rounding flips 55915246 of 150405120 samples (37.1764%)
+  B-D: max 0.09814 8-bit levels, mean 0.012591, rounding flips 1887246 of 150405120 samples (1.2548%)
+  A-D: max 0.58938 8-bit levels, mean 0.245154, rounding flips 1887246 of 150405120 samples (1.2548%)
+  A-B: max 0.50001 8-bit levels, mean 0.244858, rounding flips 742 of 150405120 samples (0.0005%)
+
+segmenter_positives/20261102_132102_Pixel_9_Pro_Brazil.jpg.jxl 3072x4080; linear values below 0: 182272
+  C-R: max 38.97342 16-bit codes, mean 0.373761, rounding flips 13107389 of 37601280 samples (34.8589%)
+  D-R: max 0.04430 16-bit codes, mean 0.001183, rounding flips 49847 of 37601280 samples (0.1326%)
+  C-D: max 38.98598 16-bit codes, mean 0.372986, rounding flips 13077662 of 37601280 samples (34.7798%)
+  B-D: max 1.20088 8-bit levels, mean 0.009024, rounding flips 338063 of 37601280 samples (0.8991%)
+  A-D: max 1.63905 8-bit levels, mean 0.243547, rounding flips 338071 of 37601280 samples (0.8991%)
+  A-B: max 0.50001 8-bit levels, mean 0.243350, rounding flips 134 of 37601280 samples (0.0004%)
+
+segmenter_positives/PXL_20260911_111613659.jpg.jxl 3000x4000; linear values below 0: 52725
+  C-R: max 1.20141 16-bit codes, mean 0.411907, rounding flips 14814183 of 36000000 samples (41.1505%)
+  D-R: max 0.01380 16-bit codes, mean 0.002103, rounding flips 82119 of 36000000 samples (0.2281%)
+  C-D: max 1.19920 16-bit codes, mean 0.410643, rounding flips 14761734 of 36000000 samples (41.0048%)
+  B-D: max 0.09504 8-bit levels, mean 0.013169, rounding flips 464723 of 36000000 samples (1.2909%)
+  A-D: max 0.58941 8-bit levels, mean 0.234965, rounding flips 464696 of 36000000 samples (1.2908%)
+  A-B: max 0.50001 8-bit levels, mean 0.234569, rounding flips 149 of 36000000 samples (0.0004%)
+
+# all photos (flips: C-R, D-R, C-D at 16 bits, D10's crop store; the rest at 8 bits)
+C-R: max 38.97342 16-bit codes, mean 0.395800, rounding flips 324954764 of 836635392 samples (38.8407%);  in 8-bit levels max 0.15165 mean 0.001540
+D-R: max 0.04430 16-bit codes, mean 0.001849, rounding flips 1694831 of 836635392 samples (0.2026%);  in 8-bit levels max 0.00017 mean 0.000007
+C-D: max 38.98598 16-bit codes, mean 0.394639, rounding flips 323916776 of 836635392 samples (38.7166%);  in 8-bit levels max 0.15170 mean 0.001536
+B-D: max 1.20088 8-bit levels, mean 0.012667, rounding flips 10557804 of 836635392 samples (1.2619%);  in 8-bit levels max 1.20088 mean 0.012667
+A-D: max 1.63905 8-bit levels, mean 0.243031, rounding flips 10557752 of 836635392 samples (1.2619%);  in 8-bit levels max 1.63905 mean 0.243031
+A-B: max 0.50001 8-bit levels, mean 0.242735, rounding flips 3998 of 836635392 samples (0.0005%);  in 8-bit levels max 0.50001 mean 0.242735

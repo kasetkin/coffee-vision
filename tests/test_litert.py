@@ -449,7 +449,7 @@ print("RESULT " + json.dumps(out))
         self.assertEqual(res["warm_up"]["photo"], Path(FIXTURE_PHOTOS[0]).name)
         for k in ("boot_s", "warm_up_s", "peak_rss_mb", "mem_available_mb"):
             self.assertIn(k, res["warm_up"])
-        self.assertEqual(res["/analyze"], [200, ["preview", "classification", "previews"]])
+        self.assertEqual(res["/analyze"], [200, ["segmentation", "classification"]])
 
 
 if __name__ == "__main__":

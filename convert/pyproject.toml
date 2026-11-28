@@ -15,7 +15,9 @@ dependencies = [
   "torch==2.13.*",
   "torchvision",
   "timm==1.0.30",
-  "numpy",
+  # coffeecv.readback (imported through coffeecv.canonical since ML-37 P3) refuses any other numpy (ML-37 D9); the
+  # training, webapp and front locks pin the same. Missing here until ML-37 P8, when the lock had moved to 2.5.4.
+  "numpy==2.5.3",
   "pyyaml",
   "pillow",
   # coffeecv.infer, which builds the models as serving does, imports the photo decoders: webapp/pyproject.toml's

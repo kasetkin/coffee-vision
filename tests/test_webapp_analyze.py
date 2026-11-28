@@ -1,5 +1,5 @@
-"""/analyze answers a photo in one streamed request (ticket OPS-7, ADR 0023): a preview part with the photo's mask
-(OPS-6 D7, D10), then a classification part, then, during OPS-25's trial, the three wide-gamut previews (D5). Plain
+"""/analyze answers a photo in one streamed request (ticket OPS-7, ADR 0023): a segmentation line with the photo's
+mask and box (OPS-6 D7, D10; ML-37 D15, D24: the front sends the preview itself), then a classification line. Plain
 unittest.
 
     python -m unittest tests.test_webapp_analyze -v
@@ -24,11 +24,10 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import imagecodecs as ic
 import numpy as np
 from PIL import Image
 
-from coffeecv import canonical
+from coffeecv import canonical, preview
 from tests._tiers import real_data
 
 REPO = Path(__file__).resolve().parents[1]
@@ -37,7 +36,7 @@ PHOTO = REPO / next(line.split()[2] for line in (REPO / "webapp/deploy/fixtures.
                     if line.startswith("smoke "))
 # The model webapp.app will load: COFFEE_CV_CHECKPOINT, else the same default as its CHECKPOINT. The literal is
 # repeated because webapp.app cannot be imported to read it before this check: the import loads the model.
-MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v7r_country_aug8_ml29gm_s123.pt")
+MODEL = REPO / os.environ.get("COFFEE_CV_CHECKPOINT", "models/dino3b16_segxl0v7r_country_aug8_ml37lin_s123.pt")
 
 
 def _post(client, data: bytes, skip_crop: bool = False, buffered: bool = True):
@@ -53,13 +52,13 @@ def _parts(response) -> list[dict]:
 
 
 def _decode(b64: str) -> Image.Image:
-    """A base64 image of the preview part: its thumbnail (JPEG) or its mask (PNG)."""
+    """A base64 image: the segmentation line's mask (PNG)."""
     return Image.open(io.BytesIO(base64.b64decode(b64)))
 
 
 def _sampled_at_centres(full: np.ndarray, shape: tuple[int, int]) -> np.ndarray:
     """`full` read at each centre of a `shape` grid laid over it: a nearest-neighbour downscale that shares
-    no code with the preview's resize, so agreeing with it says the preview's mask is the full mask, in its frame."""
+    no code with the mask's resize, so agreeing with it says the line's mask is the full mask, in its frame."""
     fh, fw = full.shape
     h, w = shape
     ys = ((np.arange(h) + 0.5) * fh / h).astype(int)
@@ -110,7 +109,7 @@ class TestAnalyze(unittest.TestCase):
         cls.response = _post(cls.client, cls.photo)
         assert cls.response.status_code == 200, cls.response.data
         cls.parts = _parts(cls.response)
-        cls.preview = cls.parts[0]
+        cls.seg = cls.parts[0]
 
     def _log_lines(self, response, msg: str = "request") -> list[dict]:
         """The request log's `msg` lines for one answer, found by its X-Request-Id."""
@@ -118,42 +117,26 @@ class TestAnalyze(unittest.TestCase):
         lines = [json.loads(ln) for ln in (self.app.LOG_DIR / "app.jsonl").read_text().splitlines()]
         return [ln for ln in lines if ln.get("request_id") == rid and ln["msg"] == msg]
 
-    def test_answer_is_a_preview_then_a_classification_then_the_previews(self):
+    def test_answer_is_a_segmentation_then_a_classification(self):   # ML-37 D15, D24
         r = self.response
         self.assertEqual(r.mimetype, "application/x-ndjson")
         # Both nginx servers stream it only if the app asks them to (ticket OPS-7 D11).
         self.assertEqual(r.headers.get("X-Accel-Buffering"), "no")
-        self.assertEqual([p["part"] for p in self.parts], ["preview", "classification", "previews"])
+        self.assertEqual([p["part"] for p in self.parts], ["segmentation", "classification"])
 
-    def test_the_previews_are_the_three_formats_at_the_thumbnails_size(self):   # OPS-25 D1, R5
-        from coffeecv import preview_formats as pf
-        previews = self.parts[2]["previews"]
-        self.assertEqual(list(previews), list(pf.MIME))
-        thumb = _decode(self.preview["thumbnail"])
-        for name, v in previews.items():
-            with self.subTest(name):
-                self.assertEqual(set(v), {"mime", "data"})
-                self.assertEqual(v["mime"], pf.MIME[name])
-        data = {name: base64.b64decode(v["data"]) for name, v in previews.items()}
-        p3 = Image.open(io.BytesIO(data["p3_jpeg"]))
-        self.assertEqual((p3.format, p3.size, p3.info.get("icc_profile")), ("JPEG", thumb.size, pf.DISPLAY_P3))
-        self.assertEqual(ic.avif_decode(data["avif10"]).shape[1::-1], thumb.size)
-        self.assertEqual(pf.avif_cicp(data["avif10"])[:3], pf.AVIF_CICP)
-        self.assertEqual(canonical.read_header(data["jxl"]).colour.primaries, "BT2100")
-        self.assertEqual(ic.jpegxl_decode(data["jxl"]).shape[1::-1], thumb.size)
-        # The same picture as the sRGB preview: the P3 JPEG read back as sRGB is within JPEG's noise of it.
-        as_srgb = ic.cms_transform(np.asarray(p3), pf.DISPLAY_P3, canonical.SRGB, intent=canonical.RELATIVE)
-        self.assertLess(np.abs(as_srgb.astype(int) - np.asarray(thumb).astype(int)).mean(), 2.0)
+    def test_the_segmentation_line_carries_no_picture(self):   # ML-37 D24: the front sends the preview
+        self.assertEqual(set(self.seg), {"part", "mask", "box", "cropped", "seg_fallback", "needs_review"})
 
-    def test_preview_mask_is_the_photos_mask_scaled_down(self):
-        a = self.preview
+    def test_the_mask_is_the_photos_mask_scaled_down(self):
+        a = self.seg
         self.assertIs(a["seg_fallback"], False)
         self.assertIs(a["cropped"], True)
         img = _decode(a["mask"])
         h, w = self.rgb.shape[:2]
         self.assertNotEqual(h, w, "the test needs a non-square photo")
         mw, mh = img.size
-        self.assertEqual(max(mw, mh), min(self.app.PREVIEW_MAX_DIM, max(w, h)))
+        self.assertEqual(max(mw, mh), min(1024, max(w, h)))
+        self.assertEqual((mw, mh), preview.size(w, h))   # the preview's size to the pixel (review P5)
         self.assertLessEqual(abs(mw - w * mh / h), 1, (img.size, (w, h)))
         self.assertLessEqual(abs(mh - h * mw / w), 1, (img.size, (w, h)))
         # A 1-bit palette PNG: index 0 (not bean) transparent, index 1 (bean) opaque (D7, D14).
@@ -172,32 +155,10 @@ class TestAnalyze(unittest.TestCase):
         # The same check, transposed, must fail: it is what a swapped width and height would give.
         self.assertLess(_iou(mask.T, _sampled_at_centres(full, mask.T.shape)), 0.99)
 
-    def test_preview_box_is_a_fraction_of_the_photo(self):
-        x0, y0, x1, y1 = self.preview["box"]
-        self.assertTrue(0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1, self.preview["box"])
-        self.assertIs(self.preview["needs_review"], False)
-
-    def test_preview_thumbnail_is_the_photo_scaled_down(self):
-        img = _decode(self.preview["thumbnail"])
-        self.assertEqual(img.format, "JPEG")
-        h, w = self.rgb.shape[:2]
-        tw, th = img.size
-        self.assertEqual(max(tw, th), self.app.PREVIEW_MAX_DIM)
-        self.assertLessEqual(abs(tw - w * th / h), 1, ((tw, th), (w, h)))
-
-    def test_every_preview_names_its_format_in_its_corner(self):   # OPS-25 D9, D10
-        from coffeecv import preview_formats as pf
-        thumb = np.asarray(_decode(self.preview["thumbnail"])).astype(int)
-        p3 = np.asarray(_decode(self.parts[2]["previews"]["p3_jpeg"]["data"])).astype(int)
-        blank = np.zeros(thumb.shape, np.uint8)
-        for name, a in (("srgb_jpeg", thumb), ("p3_jpeg", p3)):
-            with self.subTest(name):
-                fill = np.all(pf.label(blank, name) == 255, axis=2)
-                self.assertGreater(np.count_nonzero(fill), 100)
-                self.assertGreater(a[fill].mean(), 200)
-        self.assertGreater(np.count_nonzero(np.all(pf.label(blank, "srgb_jpeg") == 255, axis=2)
-                                            != np.all(pf.label(blank, "p3_jpeg") == 255, axis=2)), 100,
-                           "two different words")
+    def test_the_box_is_a_fraction_of_the_photo(self):
+        x0, y0, x1, y1 = self.seg["box"]
+        self.assertTrue(0 <= x0 < x1 <= 1 and 0 <= y0 < y1 <= 1, self.seg["box"])
+        self.assertIs(self.seg["needs_review"], False)
 
     def test_classification_is_classify_ones_answer(self):
         from coffeecv.infer import classify_one
@@ -217,27 +178,26 @@ class TestAnalyze(unittest.TestCase):
         for field in ("verdict", "top1_class", "top1_score", "inference_ms", "decode_ms", "crop_detect_ms",
                       "decoded_w", "decoded_h", "upload_bytes"):
             self.assertIn(field, line)
-        self.assertLessEqual(line["preview_ms"], line["latency_ms"])
-        # OPS-3 D6 step 12: the preview's own build, inside preview_ms, after the decode and the segmentation.
-        self.assertLessEqual(line["decode_ms"] + line["crop_detect_ms"] + line["preview_build_ms"], line["preview_ms"])
+        self.assertLessEqual(line["segmentation_ms"], line["latency_ms"])
+        # ML-37 D27: the segmentation line's own build, inside segmentation_ms, after the decode and the segmentation.
+        self.assertLessEqual(line["decode_ms"] + line["crop_detect_ms"] + line["segmentation_build_ms"],
+                             line["segmentation_ms"])
         self.assertIs(line["skip_crop"], False)
-        # Ticket OPS-7 D19; the third part from OPS-25 (D5).
-        self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 3))
-        # OPS-25 R4: when the classification went out, and the third part's cost, after it.
-        self.assertLessEqual(line["preview_ms"], line["classification_ms"])
-        self.assertLessEqual(line["classification_ms"] + line["previews_build_ms"], line["latency_ms"])
-        self.assertIn("previews_shrink_ms", line)
-        self.assertEqual(line["previews_bytes"],
-                         sum(len(base64.b64decode(v["data"])) for v in self.parts[2]["previews"].values()))
+        self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 2))
+        self.assertLessEqual(line["segmentation_ms"], line["classification_ms"])
+        self.assertLessEqual(line["classification_ms"], line["latency_ms"])
+        # The host makes no picture since ML-37 (D15, D27): none of its fields, nor OPS-25's.
+        for gone in ("preview_ms", "preview_build_ms", "previews_shrink_ms", "previews_build_ms", "previews_bytes"):
+            self.assertNotIn(gone, line)
 
     def test_an_original_is_refused_saying_why(self):   # ML-19 D12
         r = _post(self.client, PHOTO.read_bytes())
         self.assertEqual(r.status_code, 400)
         self.assertTrue(r.get_json()["error"].startswith("not a canonical photo"), r.get_json())
 
-    def test_a_rotated_photo_arrives_upright_and_mask_and_thumbnail_follow(self):
-        # The front turns a photo by its EXIF orientation as it canonicalizes it (ML-19 D28); the host shows and
-        # segments the upright photo, the mask and the thumbnail in its frame alike.
+    def test_a_rotated_photo_arrives_upright_and_its_mask_follows(self):
+        # The front turns a photo by its EXIF orientation as it canonicalizes it (ML-19 D28); the host segments the
+        # upright photo, its mask in its frame.
         src = Image.open(PHOTO)
         w, h = src.size
         exif = src.getexif()
@@ -251,39 +211,31 @@ class TestAnalyze(unittest.TestCase):
         r = _post(self.client, canonical.canonicalize(tagged))
         self.assertEqual(r.status_code, 200)
         w, h = h, w                            # upright: the stored frame turned a quarter
-        preview = _parts(r)[0]
-        mask_size = _decode(preview["mask"]).size
-        self.assertLessEqual(max(mask_size), 1024, "the mask's long side (D7, D10)")
-        for name, (iw, ih) in (("mask", mask_size), ("thumbnail", _decode(preview["thumbnail"]).size)):
-            with self.subTest(name):
-                self.assertLessEqual(abs(iw - w * ih / h), 1, ((iw, ih), (w, h)))
-                self.assertLessEqual(abs(ih - h * iw / w), 1, ((iw, ih), (w, h)))
+        iw, ih = _decode(_parts(r)[0]["mask"]).size
+        self.assertLessEqual(max(iw, ih), 1024, "the mask's long side (D7, D10)")
+        self.assertLessEqual(abs(iw - w * ih / h), 1, ((iw, ih), (w, h)))
+        self.assertLessEqual(abs(ih - h * iw / w), 1, ((iw, ih), (w, h)))
 
     def test_empty_mask_falls_back_to_no_mask(self):
-        # ML-2 D18: an empty mask means the whole photo is classified, unfilled; the preview says so (OPS-6 D5).
+        # ML-2 D18: an empty mask means the whole photo is classified, unfilled; the segmentation says so (OPS-6 D5).
         def empty(_self, rgb):
             return np.zeros(rgb.shape[:2], bool)
 
         with mock.patch("coffeecv.segment_beans.BeanSegmenter.predict_mask", empty):
             r = _post(self.client, self.photo)
         self.assertEqual(r.status_code, 200)
-        preview, classification, _ = _parts(r)
-        self.assertTrue(preview.pop("thumbnail"), "the whole photo's thumbnail")
-        self.assertEqual(preview, {"part": "preview", "cropped": False, "box": None, "needs_review": False,
-                                   "mask": None, "seg_fallback": True})
+        seg, classification = _parts(r)
+        self.assertEqual(seg, {"part": "segmentation", "cropped": False, "box": None, "needs_review": False,
+                               "mask": None, "seg_fallback": True})
         self.assertEqual(classification["part"], "classification")
 
-    def test_skip_crop_previews_the_whole_photo_then_classifies_it(self):
-        # Ticket OPS-7 D9: the same parts, with no mask and no box.
+    def test_skip_crop_classifies_the_whole_photo(self):
+        # Ticket OPS-7 D9: the same lines, with no mask and no box.
         r = _post(self.client, self.photo, skip_crop=True)
         self.assertEqual(r.status_code, 200)
-        preview, classification, previews = _parts(r)
-        self.assertEqual(previews["part"], "previews")
-        self.assertEqual({k: preview[k] for k in ("part", "cropped", "box", "needs_review", "mask", "seg_fallback")},
-                         {"part": "preview", "cropped": False, "box": None, "needs_review": False, "mask": None,
-                          "seg_fallback": False})
-        self.assertEqual(_decode(preview["thumbnail"]).size,
-                         _decode(self.preview["thumbnail"]).size)
+        seg, classification = _parts(r)
+        self.assertEqual(seg, {"part": "segmentation", "cropped": False, "box": None, "needs_review": False,
+                               "mask": None, "seg_fallback": False})
         self.assertEqual(classification["part"], "classification")
         self.assertIs(self._log_lines(r)[0]["skip_crop"], True)
 
@@ -315,32 +267,23 @@ class TestAnalyze(unittest.TestCase):
         r = self.client.post("/analyze", data={}, content_type="multipart/form-data")
         self.assertEqual((r.status_code, r.get_json()), (400, {"error": "no photo uploaded"}))
 
-    def test_error_after_the_preview_is_an_error_part(self):
-        # Ticket OPS-7 R4: the 200 has gone out with the preview, so a later failure is a part, not a status.
+    def test_error_after_the_segmentation_is_an_error_line(self):
+        # Ticket OPS-7 R4: the 200 has gone out with the segmentation, so a later failure is a line, not a status.
         with mock.patch.object(self.app, "classify_segmented", side_effect=RuntimeError("boom")):
             r = _post(self.client, self.photo)
         self.assertEqual(r.status_code, 200)
         parts = _parts(r)
-        self.assertEqual([p["part"] for p in parts], ["preview", "error"])
+        self.assertEqual([p["part"] for p in parts], ["segmentation", "error"])
         self.assertEqual(parts[1]["message"], "Something went wrong -- try a different photo.")
         line, = self._log_lines(r)
         self.assertEqual((line["outcome"], line["parts_sent"]), ("error", 2))
         unhandled, = self._log_lines(r, "unhandled exception")
         self.assertEqual(unhandled["exc_type"], "RuntimeError")
 
-    def test_previews_that_fail_leave_the_answer_complete_without_them(self):   # OPS-25: display only
-        with mock.patch("coffeecv.preview_formats.encode_all", side_effect=RuntimeError("no encoder")):
-            r = _post(self.client, self.photo)
-        self.assertEqual([p["part"] for p in _parts(r)], ["preview", "classification"])
-        line, = self._log_lines(r)
-        self.assertEqual((line["outcome"], line["parts_sent"]), ("complete", 2))
-        unhandled, = self._log_lines(r, "unhandled exception")
-        self.assertEqual(unhandled["exc_type"], "RuntimeError")
-
-    def test_a_client_gone_after_the_preview_is_logged_once(self):
+    def test_a_client_gone_after_the_segmentation_is_logged_once(self):
         r = _post(self.client, self.photo, buffered=False)
         first = json.loads(next(iter(r.response)))
-        self.assertEqual(first["part"], "preview")
+        self.assertEqual(first["part"], "segmentation")
         r.close()
         line, = self._log_lines(r)
         self.assertEqual((line["outcome"], line["parts_sent"]), ("client_gone", 1))

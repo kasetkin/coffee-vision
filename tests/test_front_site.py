@@ -42,7 +42,8 @@ from render_template import render  # noqa: E402
 
 from tests._tiers import real_data  # noqa: E402
 from tests.test_timeline_schema import timeline  # noqa: E402
-from tests.test_front_check_service import (BOUNDARY, JPEG, RID, FakeInferenceHost, form, free_port,  # noqa: E402
+from tests.test_front_check_service import (BOUNDARY, JPEG, OFFLINE_LINE, RID, SEGMENTATION,  # noqa: E402
+                                            FakeInferenceHost, form, free_port, lines,
                                             log_line)
 from tests.test_front_check_service import log_lines as check_service_lines  # noqa: E402
 
@@ -82,7 +83,7 @@ class SiteAgreesWithTheCheckService(unittest.TestCase):
 
     def test_nginxs_own_413_says_what_the_check_services_does(self):
         body = re.search(r"location @too_large \{.*?return 413 '([^']*)';", self.SITE, re.S)[1]
-        self.assertEqual(json.loads(body), check_service.TOO_LARGE)
+        self.assertEqual(json.loads(body), {"error": check_service.TOO_LARGE})
 
     def test_systemd_makes_the_check_services_log_directory_and_logrotate_rotates_its_file(self):   # OPS-3 P2, R3
         unit = (DEPLOY / "coffee-cv-front.service.template").read_text()
@@ -233,7 +234,8 @@ http {{
 class FrontSite(FrontRig):
     def test_a_cross_origin_caller_reads_the_streamed_answer(self):   # OPS-19 D1, D4
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
-        self.assertEqual((resp.status, resp.read()), (200, b'{"part": "preview"}\n{"part": "classification"}\n'))
+        self.assertEqual((resp.status, [ln["part"] for ln in lines(resp)]),
+                         (200, ["preview", "segmentation", "classification"]))
         self.assertRegex(resp.getheader("X-Request-Id"), r"^[0-9a-f]{32}$")
         self.assert_cross_origin(resp)
 
@@ -275,13 +277,16 @@ class FrontSite(FrontRig):
     def test_a_photo_reaches_the_inference_host_and_streams_back(self):
         forged = {"X-Real-IP": "203.0.113.9", "X-Forwarded-For": "203.0.113.9", "Forwarded": "for=203.0.113.9"}
         resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), forged)
+        preview = json.loads(resp.readline())
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
         waited = time.monotonic() - t_first
         self.assertEqual(resp.status, 200)
-        self.assertEqual((first, second), (b'{"part": "preview"}\n', b'{"part": "classification"}\n'))
-        self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
+        self.assertEqual(preview["part"], "preview")   # the front's own (ML-37 D15)
+        self.assertEqual((first, second), (SEGMENTATION, b'{"part": "classification"}\n'))
+        self.assertGreater(waited, 0.5, "the segmentation was held back until the classification: the answer was "
+                                        "buffered")
         [seen] = FakeInferenceHost.seen
         self.assertEqual(resp.getheader("X-Request-Id"), seen["headers"]["X-Request-Id"])
         self.assertEqual(set(forged) & set(seen["headers"]), set(), "a visitor's own IP header went through (D20)")
@@ -295,7 +300,7 @@ class FrontSite(FrontRig):
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00")),   # the check service's 413
                          (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
         self.assertEqual(self.answer(form("beans.jpg", photo + b"\x00" * 2**20)),   # nginx's, before it
-                         (413, check_service.TOO_LARGE))
+                         (413, {"error": check_service.TOO_LARGE}))
         self.assertEqual(FakeInferenceHost.seen, [])
 
     def test_a_file_that_is_not_an_image_is_refused_at_the_front(self):
@@ -309,17 +314,20 @@ class FrontSite(FrontRig):
         first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
         status, payload = self.answer(form("beans.jpg", JPEG))
         first.read()
-        self.assertEqual((status, payload), (503, check_service.BUSY))
+        self.assertEqual((status, payload), (503, {"error": check_service.MESSAGES["busy"]}))
         self.assertEqual(len(FakeInferenceHost.seen), 1)
 
-    def test_the_inference_host_down_is_offline(self):
+    def test_the_inference_host_down_is_offline_after_the_preview(self):   # ML-37 D16, D26
         FakeInferenceHost.reply = 502
-        self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+        resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG))
+        got = lines(resp)
+        self.assertEqual((resp.status, [ln["part"] for ln in got]), (200, ["preview", "error"]))
+        self.assertEqual(got[1], {"part": "error", **OFFLINE_LINE})
 
     def test_the_check_service_stopped_is_offline_and_the_page_stays_up(self):
         self.stop_check_service()   # a deploy stops it (D14)
         try:
-            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["offline"]}))
             resp = self.visit("GET", "/")
             resp.read()
             self.assertEqual(resp.status, 200)
@@ -370,20 +378,23 @@ class FrontSite(FrontRig):
         photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 1 - len(JPEG))
         self.assertEqual(self.cross_origin(form("beans.jpg", photo)),
                          (413, {"error": "this photo is 40.1 MB; the limit is 40 MB"}))
-        FakeInferenceHost.reply = 502
-        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
-        FakeInferenceHost.reply = 503   # the inference host's own busy answer, relayed as it is
-        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": "inference host says 503"}))
+        for reply, outcome in ((502, "offline"), (503, "busy")):   # ML-37 D26: lines after the preview
+            with self.subTest(reply=reply):
+                FakeInferenceHost.reply = reply
+                resp = self.visit("POST", "/analyze", form("beans.jpg", JPEG), {"Origin": ELSEWHERE})
+                self.assert_cross_origin(resp)
+                got = lines(resp)
+                self.assertEqual((resp.status, got[-1]["part"], got[-1]["outcome"]), (200, "error", outcome))
 
     def test_a_cross_origin_caller_reads_the_fronts_own_refusals(self):   # OPS-19 D1
         photo = JPEG + b"\x00" * (check_service.MAX_UPLOAD_BYTES + 2**20)
-        self.assertEqual(self.cross_origin(form("beans.jpg", photo)), (413, check_service.TOO_LARGE))
+        self.assertEqual(self.cross_origin(form("beans.jpg", photo)), (413, {"error": check_service.TOO_LARGE}))
         first = self.visit("POST", "/analyze", form("beans.jpg", JPEG))   # held: its answer takes a second
-        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.BUSY))
+        self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["busy"]}))
         first.read()
         self.stop_check_service()
         try:
-            self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, check_service.OFFLINE))
+            self.assertEqual(self.cross_origin(form("beans.jpg", JPEG)), (503, {"error": check_service.MESSAGES["offline"]}))
         finally:
             self.start_check_service()
 

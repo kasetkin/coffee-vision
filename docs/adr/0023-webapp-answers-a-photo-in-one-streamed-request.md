@@ -2,6 +2,8 @@
 
 A photo is uploaded once, to one endpoint, and the answer streams back in parts: first the preview (the thumbnail with the photo's bean-region mask and box), then the classification. The server keeps no photo, token or session between requests, so any later step on the same photo, such as classifying the whole photo instead, is a new upload. We chose this over a first request that returns a token and a second that asks for the classification by it, because that would mean holding visitors' photos on the server between requests. We also chose it over WebSockets or server-sent events, which would add a protocol for what is a single answer.
 
+Amended 2026-11-26 by [ADR 0043](0043-the-front-draws-the-preview.md) ([ML-37](../ml-0037_ticket_linear_canonical_photo.html) D15, D16, D24): the first line is the front's preview, the photo's model picture as a JPEG, sent before the photo crosses to the inference host; the mask and the box follow in the host's segmentation line, then the classification. A host refusal after the preview is an error line with an `outcome`, not a status.
+
 ## Consequences
 
 - Every pick costs a full classification in one request (about 9–11 s on `yappy`'s GPU), even when the visitor would have stopped at the mask. The single worker is busy for that whole time.

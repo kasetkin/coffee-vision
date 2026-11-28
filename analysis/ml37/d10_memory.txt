@@ -1,0 +1,9 @@
+10 classes; patches per split {'train': 6000, 'val': 1600, 'test': 1600}; patch_store_size 448
+uint8     0.60 MB per patch; training split  3.61 GB; peak while held ~  4.5 GB (ML-8 P6's 4.5 with 3.61 GB of uint8); the head fits after it 5.5 GB
+uint16    1.20 MB per patch; training split  7.23 GB; peak while held ~  8.1 GB (ML-8 P6's 4.5 with 3.61 GB of uint8); the head fits after it 5.5 GB
+float16   1.20 MB per patch; training split  7.23 GB; peak while held ~  8.1 GB (ML-8 P6's 4.5 with 3.61 GB of uint8); the head fits after it 5.5 GB
+float32   2.41 MB per patch; training split 14.45 GB; peak while held ~ 15.3 GB (ML-8 P6's 4.5 with 3.61 GB of uint8); the head fits after it 5.5 GB
+one view in float32 for albumentations: 2.4 MB at 448, 0.60 MB at 224; a batch of 32 views 77 MB
+one crop held while its patches are cut, 11.4 MP: uint8 34 MB, uint16/float16 68 MB, float32 137 MB
+one crop held while its patches are cut, 18.2 MP: uint8 55 MB, uint16/float16 109 MB, float32 218 MB
+one crop held while its patches are cut, 50.1 MP: uint8 150 MB, uint16/float16 301 MB, float32 601 MB

@@ -1,0 +1,13 @@
+patches (x reference white): (0.18, 1.0, 2.0, 4.0, 8.0)
+
+intensity_target 203: declared 203, 706 bytes
+  as stored, linear                  0.180      1.001      2.000      3.997      7.998
+  as stored, desired IT 100          0.180      1.001      2.000      3.997      7.998
+  to PQ, cd/m2                      36.505    203.203    405.904    811.318   1623.663
+  to PQ, desired IT 1000, cd/m2     36.505    203.203    405.904    811.318   1623.663
+
+intensity_target 255: declared 255, 705 bytes
+  as stored, linear                  0.180      1.000      1.998      3.994      7.998
+  as stored, desired IT 100          0.180      1.000      1.998      3.994      7.998
+  to PQ, cd/m2                      45.909    255.124    509.444   1018.588   2039.559
+  to PQ, desired IT 1000, cd/m2     45.909    255.124    509.444   1018.588   2039.559

@@ -1,0 +1,18 @@
+# LittleCMS built-in sRGB `para` type 4, as stored (s15.16): g a b c d = 2.399993896484375 0.9478607177734375 0.0521392822265625 0.077392578125 0.0404510498046875
+  exact (cmsvirt.c Build_sRGBGamma): 2.4, 1/1.055 = 0.9478672985781991  0.055/1.055 = 0.05213270142180095  1/12.92 = 0.07739938080495357  0.04045
+  type -4 threshold in linear, (a d + b)^g, stored params: 0.003131460313156417  exact params: 0.0031308072830676845  IEC encode threshold: 0.0031308  0.04045/12.92 = 0.0031308049535603713
+  the stored linear-segment slope 1/c = 12.921135646687697  (IEC 12.92)
+# IEC closed form at its own threshold: 12.92 * 0.0031308 = 0.040449936 ; 1.055 * t^(1/2.4) - 0.055 = 0.04044990748269014  (gap -2.8517309860753848e-08 )
+# IEC decode at 0.04045: v/12.92 = 0.0031308049535603713 ; ((v+0.055)/1.055)^2.4 = 0.0031308072830676845
+
+LittleCMS float64 out: vs IEC float64 over [0, 1] (2,000,001 points): max |diff| 7.248e-06 at L = 0.0031350 (0.00185 8-bit levels, 0.475 16-bit codes); mean 2.694e-06; on the linear segment max 3.556e-06, above it 7.248e-06
+  rounds to another 8-bit level at 1388 of 2000001 points; another 16-bit code at 353185 (17.66%)
+
+LittleCMS float32 out: vs IEC float64 over [0, 1] (2,000,001 points): max |diff| 7.248e-06 at L = 0.0031350 (0.00185 8-bit levels, 0.475 16-bit codes); mean 2.694e-06; on the linear segment max 3.556e-06, above it 7.248e-06
+  rounds to another 8-bit level at 1375 of 2000001 points; another 16-bit code at 353163 (17.66%)
+
+numpy float32 closed form: vs IEC float64 over [0, 1] (2,000,001 points): max |diff| 1.619e-07 at L = 0.9717305 (0.00004 8-bit levels, 0.011 16-bit codes); mean 4.024e-08; on the linear segment max 3.425e-09, above it 1.619e-07
+  rounds to another 8-bit level at 17 of 2000001 points; another 16-bit code at 5775 (0.29%)
+
+LittleCMS sRGB curve at 1.0: 1.0  at 4.0: 1.8248047828674316  IEC formula at 4.0: 1.8247962952761159  at -0.01: -0.12921135127544403
+LittleCMS uint8 out vs rint(IEC * 255) on 1,000,001 linear greys: differ at 699 points; max 1 level

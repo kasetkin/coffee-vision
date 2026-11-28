@@ -19,8 +19,8 @@ views, code at 46ec14c) left dvc.yaml on 2026-10-21; they are in git history.
 
 Data (ML-6 D12, docs/adr/0018): nothing is cached, and nothing augmented is written. At the start of a run each
 training photo (train, neg_train) is checked against labels.csv's sha256, resized to the encoder's frame by
-serving's own resize (SamResize, the first step of model.transform: the long side to 512 for L0, 1024 for XL0,
-which the encoder's transform then leaves as it is), and held in memory with
+SamResize's geometry (the long side to 512 for L0, 1024 for XL0, which the encoder's transform then leaves as it
+is) in 8 bits, unlike serving's float resize (TrainSet; ML-37 D18 (a)), and held in memory with
 its label at the same size (INTER_AREA, >= 0.5). Each sample is augmented when it is drawn, by seg_ft.augment
 (albumentations transforms built by name, strictly by coffeecv.augment since ML-8 P2, seeded from the run's seed; a spatial transform moves the label with
 the photo, and a warp fills the label's exposed border with IGNORE), its label padded with IGNORE as SamPad pads
@@ -270,10 +270,25 @@ def load_pair(r: dict) -> tuple[np.ndarray, np.ndarray]:
     return rgb, mask
 
 
+def frame_resize_8_bit(rgb: np.ndarray, frame: int) -> np.ndarray:
+    """The photo with its long side at `frame` (SamResize's geometry), by PIL's bilinear on uint8: the resize serving
+    took before ML-37 D11 (b), kept for TrainSet (ML-37 D18 (a))."""
+    nh, nw = model_io.sam_preprocess_shape(*rgb.shape[:2], frame)
+    if (nh, nw) == rgb.shape[:2]:
+        return np.ascontiguousarray(rgb)
+    return np.asarray(Image.fromarray(rgb).resize((nw, nh), Image.BILINEAR))
+
+
 class TrainSet:
     """The training photos (train, neg_train) and their labels, loaded once and held in memory at the encoder's
-    frame; `pos` and `neg` index them. `sample` augments one as it is drawn. The resize is serving's
-    (model_io.sam_resize to `frame`), so the encoder's input port leaves the photo as it is."""
+    frame; `pos` and `neg` index them. `sample` augments one as it is drawn. The encoder's input port
+    (model_io.sam_input) leaves a photo at the frame as it is, only scaled to [0, 1].
+
+    A departure from serving, kept on purpose (ML-37 D18 (a)): the photos are resized to the frame by PIL's 8-bit
+    bilinear and held as uint8, where serving's model_io.sam_resize gives float32 with no rounding (ML-37 D11 (b)).
+    The two differ by at most one level, the 8-bit rounding. Held as float32, pass17's 1,091 training photos would
+    take about 10.4 GB in memory against 2.6 GB. No fine-tune runs in ML-37 (D14); ML-33 settles the difference with
+    its own memory and its own run."""
 
     def __init__(self, rows: list[dict], frame: int):
         self.frame = frame
@@ -283,7 +298,7 @@ class TrainSet:
             if r["role"] not in TRAIN_ROLES:
                 continue
             rgb, mask = load_pair(r)
-            small = np.ascontiguousarray(model_io.sam_resize(rgb, frame))
+            small = frame_resize_8_bit(rgb, frame)
             (self.pos if r["role"] == "train" else self.neg).append(len(self.items))
             self.items.append((small, label_at(mask, small.shape[:2]), whole_box(*rgb.shape[:2])))
 

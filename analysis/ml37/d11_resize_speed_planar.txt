@@ -1,0 +1,5 @@
+ML-37 D11: from a planar 3 x 3348 x 4480 float32 picture to 1024 x 765, 2 threads, ms (median of 7)
+  pil_f, planes in turn                   327.4
+  pil_f, planes on a 2-thread pool        181.7
+  pil_f, one plane                        108.9
+  torch antialias bilinear                 65.0

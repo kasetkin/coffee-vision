@@ -1,0 +1,22 @@
+ML-37 P2: the float resizes (D11 (b)) against today's 8-bit ones, on D11's 13 photos. analysis/ml37/p2_inputs_and_masks.py
+Levels: |float x 255 - today's uint8|. Masks: xl0_v7r_s123, box prompt, multi3, torch at 2 threads; IoU of the mask as built against today's.
+
+folder                                       size  seg max seg mean dino max dino mean    area      IoU
+2026-10-21__new_green                   3072x4080    0.949   0.1728    1.000    0.1932  0.2840  0.99985
+2026-09-11__oneplus                     4000x3000    0.923   0.2631    1.000    0.2945  1.0000  1.00000
+2026-09-11__pixel                       4080x3072    0.899   0.2629    1.000    0.2891  1.0000  1.00000
+massimo                                 3072x4080    0.920   0.2594    1.000    0.2860  0.3164  0.99994
+2026-08-30__oneplus                     4000x3000    0.899   0.2604    1.000    0.2921  1.0000  1.00000
+2026-08-07__box_pictures_all_classes    3072x4080    0.988   0.2564    1.000    0.2839  0.1555  0.99978
+2026-08-09__pixel_cam                   4080x3072    0.913   0.2631    1.000    0.2957  1.0000  1.00000
+ood_positives_internet                    959x635    0.999   0.2269    1.000    0.2711  0.0000  1.00000
+2026-09-24__pixel                       4080x3072    0.918   0.2581    1.000    0.2833  1.0000  1.00000
+2026-08-09__sony_cam                    5056x3792    0.867   0.2614    1.000    0.3013  0.9994  1.00000
+2026-08-25__oneplus                     3000x4000    0.931   0.2553    1.000    0.2996  0.3940  0.99962
+2026-09-24__sony                        3792x5056    0.909   0.2612    1.000    0.3095  1.0000  1.00000
+2026-08-30__sony                        5056x3792    0.906   0.2612    1.000    0.3029  0.9999  1.00000
+
+segmenter input: max 0.999 levels, mean 0.2510
+DINOv3 input:    max 1.000 levels, mean 0.2848
+within 2.02 levels (D11's research bound): True
+mask IoU against today's: median 1.00000, min 0.99962

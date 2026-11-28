@@ -39,7 +39,27 @@ class Views(unittest.TestCase):
     def test_params_yaml_asks_for_eight_views_at_the_models_input_size(self):
         self.assertEqual(self.aug.views, 8)
         v = self.aug.view(patch(), seed=42, index=0, k=0)
-        self.assertEqual((v.shape, v.dtype), ((224, 224, 3), np.uint8))
+        self.assertEqual((v.shape, v.dtype), ((224, 224, 3), np.float32))
+
+    def test_each_input_transform_alone_keeps_the_float_picture_in_range(self):
+        # ML-37 D17 (a): the input pipeline runs on the float 224 px picture (D11 (b)); a transform that rounds to
+        # 8 bits inside (JPEG, Downscale) still hands back float32 in [0, 1], and none turns it to another dtype.
+        for name, alone in ffh.single_transforms(self.aug):
+            if not name.startswith("input."):
+                continue
+            for seed in range(6):
+                with self.subTest(transform=name, seed=seed):
+                    v = alone.view(patch(seed), seed=seed, index=0, k=0)
+                    self.assertEqual((v.shape, v.dtype), ((224, 224, 3), np.float32))
+                    self.assertGreaterEqual(float(v.min()), 0.0)
+                    self.assertLessEqual(float(v.max()), 1.0)
+
+    def test_a_view_is_not_rounded_to_8_bits_between_the_pipelines(self):
+        # Today's rounding after the resize is gone (ML-37 D11 (b), D17 (a)): with no input pipeline, most of a
+        # view's values lie off the 8-bit grid.
+        aug = ffh.HeadAugment(views=1, patch=[], input=[], resize=224)
+        v = aug.view(patch(), 0, 0, 0) * 255
+        self.assertGreater(float(np.mean(np.abs(v - np.rint(v)) > 1e-3)), 0.5)
 
     def test_one_seed_repeats_its_views_and_another_seed_or_patch_or_view_differs(self):
         p = patch()
@@ -76,14 +96,27 @@ class Views(unittest.TestCase):
                               resize=224)
         plain = ffh.HeadAugment(views=1, patch=[], input=[], resize=224)
         p = patch()
-        self.assertGreater(np.abs(aug.view(p, 0, 0, 0).astype(int) - plain.view(p, 0, 0, 0).astype(int)).mean(), 5)
+        self.assertGreater(255 * np.abs(aug.view(p, 0, 0, 0) - plain.view(p, 0, 0, 0)).mean(), 5)
 
     def test_no_pipeline_is_the_eval_resize_alone(self):
-        from PIL import Image
+        from coffeecv import model_io
         plain = ffh.HeadAugment(views=1, patch=[], input=[], resize=224)
         p = patch()
-        np.testing.assert_array_equal(plain.view(p, 0, 0, 0),
-                                      np.asarray(Image.fromarray(p).resize((224, 224), Image.BILINEAR)))
+        np.testing.assert_array_equal(plain.view(p, 0, 0, 0), model_io.eval_resize(p, 224))
+
+    def test_an_unaugmented_view_reaches_the_backbone_as_servings_input(self):
+        # Train/inference parity: embed_views normalises a view as serving's eval_patch normalises a patch.
+        from coffeecv import model_io
+        plain = ffh.HeadAugment(views=1, patch=[], input=[], resize=224)
+        p = patch()
+        seen = []
+
+        class Capture:
+            def features(self, x):
+                seen.append(x.numpy())
+                return {"cls_mean": x.mean(dim=(2, 3))}
+        ffh.embed_views([p], [0], Capture(), "cls_mean", plain, seed=0)
+        np.testing.assert_array_equal(seen[0][0], model_io.eval_patch(p, 224))
 
     def test_the_resize_is_servings(self):
         # Train/inference parity (CODING_STANDARDS.md): one resize, model_io's, which eval_patch also calls.

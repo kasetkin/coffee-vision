@@ -5,13 +5,16 @@
 webapp/front/check_service.py takes POST /analyze from the front's nginx, refuses what must not cross the tunnel
 (over 40 MB, ML-19 D23; not an image, D2), canonicalizes the photo (ticket ML-19 P9: a canonical one goes on as
 it is, one over the pixel ceiling is a 413, one that cannot be read a 400; since OPS-22, with the front's own settings
-and every upload, a canonical one included), forwards the form with the canonical photo
-in place of the visitor's to the inference host, and streams its answer back (ADR 0023); an inference host it cannot
-reach is "the classifier is offline", apart from busy (D12). The service runs in this process on a loopback port, as
-under systemd; the inference host is a stdlib server here.
+and every upload, a canonical one included), opens its own answer's stream, sends the preview made
+from that canonical photo while it forwards the form with the canonical photo in place of the visitor's to the
+inference host, and relays the host's lines after it (ADR 0023, ADR 0043; ML-37 D15, D16, D23, D24, D26); an inference
+host it cannot reach, or one that refuses, is an error line after the preview: offline, busy or failed (D12, ML-37
+D26). The service runs in this process on a loopback port, as under systemd; the inference host is a stdlib server
+here.
 """
 from __future__ import annotations
 
+import contextlib
 import http.client
 import io
 import json
@@ -26,6 +29,8 @@ import uuid
 from unittest import mock
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+
+import base64
 
 import imagecodecs
 import numpy as np
@@ -57,6 +62,7 @@ def front(data: bytes, name: str = "") -> bytes:
 RAW_DNG = "dataset/segmenter_positives/20261027_135613_Pixel_9_Pro_Guatemala.dng"   # 3628 x 2732, 9.9 MP
 BOUNDARY = "----coffeeboundary7"
 RID = "0123456789abcdef0123456789abcdef"   # a request ID as the front's nginx makes it ($request_id, OPS-3 D8)
+OFFLINE_LINE = {"outcome": "offline", "message": "the classifier is offline"}   # ML-37 D26's error line, less its part
 
 
 def forwarded_photo(body: bytes) -> tuple[str, bytes]:
@@ -86,7 +92,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
     """yappy's side: records each request, then answers as `reply` says."""
 
     seen: list[dict] = []
-    # stream: two parts a second apart; cut: the first part of a chunked answer, then the connection dropped;
+    # stream: two lines a second apart; cut: the first line of a chunked answer, then the connection dropped;
     # garbage: not HTTP; or an int, a plain status with a JSON body
     reply = "stream"
     release = threading.Event()   # set: answer at once; cleared: hold the answer until it is set
@@ -103,7 +109,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
             return
         if FakeInferenceHost.reply == "cut":
             self.wfile.write(b"HTTP/1.1 200 OK\r\nContent-Type: application/x-ndjson\r\nTransfer-Encoding: chunked\r\n\r\n"
-                             b'14\r\n{"part": "preview"}\n\r\n')
+                             b'19\r\n{"part": "segmentation"}\n\r\n')
             self.wfile.flush()
             self.close_connection = True
             return
@@ -123,7 +129,7 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
         self.send_id()
         self.send_extra_headers()
         self.end_headers()
-        self.wfile.write(b'{"part": "preview"}\n')
+        self.wfile.write(SEGMENTATION)
         self.wfile.flush()
         time.sleep(1.0)
         self.wfile.write(b'{"part": "classification"}\n')
@@ -141,6 +147,23 @@ class FakeInferenceHost(BaseHTTPRequestHandler):
 
 
 FakeInferenceHost.release.set()   # answering at once unless a test holds it (tests/test_front_site.py uses it too)
+SEGMENTATION = b'{"part": "segmentation"}\n'   # the fake host's first line (ML-37 D24)
+
+
+def lines(resp) -> list[dict]:
+    """An answer's lines (ADR 0023), each one JSON object, read to its end."""
+    return [json.loads(ln) for ln in resp.read().splitlines()]
+
+
+def preview_of(photo: bytes) -> bytes:
+    """The preview of a canonical photo as the host would read it (ML-37 D4, D15): its model picture
+    (canonical.load_canonical, the host's one read), its long side at most 1024 px by Pillow's thumbnail, JPEG q85,
+    untagged. Written out here, not imported: the front's own code must give these bytes."""
+    thumb = Image.fromarray(canonical.load_canonical(photo))
+    thumb.thumbnail((1024, 1024))
+    buf = io.BytesIO()
+    thumb.save(buf, format="JPEG", quality=85)
+    return buf.getvalue()
 
 
 def log_lines(log_dir: Path) -> list[dict]:
@@ -200,17 +223,21 @@ class CheckService(unittest.TestCase):
         self.addCleanup(conn.close)
         return conn, conn.getresponse()
 
-    @real_data   # about 1.5 s: the fake answer's parts are a second apart
+    @real_data   # about 1.5 s: the fake answer's lines are a second apart
     def test_a_photo_crosses_canonicalized_and_its_answer_streams_back(self):
         body = form("beans.jpg", JPEG, skip_crop=True)
         _, resp = self.post(body, headers={"Accept-Language": "pt-BR", "User-Agent": "Mozilla/5.0 (Android)"})
+        preview = json.loads(resp.readline())
         first = resp.readline()
         t_first = time.monotonic()
         second = resp.readline()
         waited = time.monotonic() - t_first
         self.assertEqual(resp.status, 200)
-        self.assertEqual((first, second), (b'{"part": "preview"}\n', b'{"part": "classification"}\n'))
-        self.assertGreater(waited, 0.5, "the preview was held back until the classification: the answer was buffered")
+        self.assertEqual(set(preview), {"part", "jpeg"})   # ML-37 D24
+        self.assertEqual(preview["part"], "preview")
+        self.assertEqual((first, second), (SEGMENTATION, b'{"part": "classification"}\n'))
+        self.assertGreater(waited, 0.5, "the segmentation was held back until the classification: the answer was "
+                                        "buffered")
         self.assertEqual(resp.getheader("Content-Type"), "application/x-ndjson")
         self.assertEqual(resp.getheader("X-Accel-Buffering"), "no", "the front's nginx would buffer the answer")
         [seen] = FakeInferenceHost.seen
@@ -225,6 +252,94 @@ class CheckService(unittest.TestCase):
         self.assertEqual(seen["headers"]["Accept-Language"], "pt-BR")
         self.assertEqual(seen["headers"]["User-Agent"], "Mozilla/5.0 (Android)")
 
+    def test_the_preview_is_the_model_picture_of_the_photo_that_crossed(self):   # ML-37 D4, D15
+        big = np.random.default_rng(2).integers(0, 255, (1100, 1500, 3), dtype=np.uint8)   # shrunk to 1024 x 751
+        for name, data in (("beans.jpg", JPEG), ("big.png", imagecodecs.png_encode(big))):
+            with self.subTest(name):
+                FakeInferenceHost.seen.clear()
+                _, resp = self.post(form(name, data))
+                preview = lines(resp)[0]
+                photo = forwarded_photo(FakeInferenceHost.seen[0]["body"])[1]
+                jpeg = base64.b64decode(preview["jpeg"])
+                self.assertEqual(jpeg, preview_of(photo), "not the host's model picture, byte for byte")
+                self.assertLessEqual(max(Image.open(io.BytesIO(jpeg)).size), 1024)
+
+    def test_the_preview_goes_out_before_the_photo_has_been_answered(self):   # ML-37 D15
+        FakeInferenceHost.release.clear()
+        self.addCleanup(FakeInferenceHost.release.set)
+        _, resp = self.post(form("beans.jpg", JPEG))
+        self.assertEqual(resp.status, 200)
+        self.assertEqual(resp.getheader("Content-Type"), "application/x-ndjson")
+        self.assertEqual(resp.getheader("X-Accel-Buffering"), "no", "the front's nginx would buffer the answer")
+        self.assertEqual(json.loads(resp.readline())["part"], "preview")
+        self.assertEqual(len(FakeInferenceHost.seen), 1, "the host has the photo and has not answered")
+        FakeInferenceHost.release.set()
+        self.assertEqual([ln["part"] for ln in lines(resp)], ["segmentation", "classification"])
+
+    def test_a_preview_the_front_cannot_make_is_left_out(self):   # ML-37 D23
+        with mock.patch.object(check_service.preview, "from_canonical", side_effect=MemoryError("no room")):
+            _, resp = self.post(form("beans.jpg", JPEG))
+            self.assertEqual(resp.status, 200)
+            self.assertEqual([ln["part"] for ln in lines(resp)], ["segmentation", "classification"])
+        line = self.line(resp)
+        self.assertEqual((line["status"], line["outcome"], line["preview_error"]),
+                         (200, "relayed", "MemoryError: no room"))
+        self.assertNotIn("to_preview_ms", line)
+        self.assertNotIn("preview_build_ms", line)
+        self.assertIsInstance(line["to_segmentation_ms"], int)
+
+    def test_one_requests_three_lines_through_the_reading_script(self):   # ML-37 D27
+        """This service's line, as it writes it, beside the host's and the page's for the same photo (in their own
+        forms: the app's fields, a version-2 timeline the schema takes), read by coffeecv.timelines: an answer, an
+        answer with no preview (D23) and a refusal after the preview (D26)."""
+        from coffeecv import timelines
+
+        def page(rid: str, outcome: str, **times) -> str:
+            t = timeline_schema.check({"v": 2, "request_id": rid, "control": "choose_photo", "outcome": outcome,
+                                       "total_ms": 30000, "attempts": [{"request_id": rid, "status": 200,
+                                                                        "upload_ms": 900}], **times}, set())
+            return json.dumps({"ts": "2026-11-26T12:00:30.000+00:00", "kind": "timeline", "request_id": uuid.uuid4().hex,
+                               "timeline": t})
+
+        def host(rid: str) -> str:
+            return json.dumps({"ts": "2026-11-26T12:00:20.000+00:00", "level": "INFO", "msg": "request",
+                               "request_id": rid, "endpoint": "/analyze", "status": 200, "latency_ms": 5400,
+                               "segmentation_ms": 2400, "segmentation_build_ms": 40, "outcome": "complete",
+                               "parts_sent": 2, "decode_ms": 300, "crop_detect_ms": 1900, "inference_ms": 2900})
+
+        def through(reply, patch=None):
+            FakeInferenceHost.reply = reply
+            with patch or contextlib.nullcontext():
+                _, resp = self.post(form("beans.jpg", JPEG))
+                resp.read()
+            return self.line(resp)
+
+        answered = through("stream")
+        no_preview = through("stream", mock.patch.object(check_service.preview, "from_canonical", side_effect=OSError("disk")))
+        refused = through(503)
+        lines_by_id = {
+            answered["request_id"]: (host(answered["request_id"]),
+                                     page(answered["request_id"], "answered", to_preview_ms=300, preview_drawn_ms=20,
+                                          to_segmentation_ms=1400, segmentation_drawn_ms=10, to_answer_ms=2500)),
+            no_preview["request_id"]: (host(no_preview["request_id"]),
+                                       page(no_preview["request_id"], "answered", to_segmentation_ms=1400,
+                                            segmentation_drawn_ms=10, to_answer_ms=2500)),
+            refused["request_id"]: (None, page(refused["request_id"], "busy", to_preview_ms=300, preview_drawn_ms=20)),
+        }
+        report = timelines.build({"front_access": [], "inference_access": [],
+                                  "service": [json.dumps(s) for s in (answered, no_preview, refused)]
+                                  + [p for _, p in lines_by_id.values()],
+                                  "app": [h for h, _ in lines_by_id.values() if h]}, "coffee.test")
+        steps = {p.request_id: {key: measure(p) for key, _, measure in timelines.STEPS} for p in report.photos}
+        outcomes = {p.request_id: p.outcome for p in report.photos}
+        self.assertEqual(outcomes, {answered["request_id"]: "answered", no_preview["request_id"]: "answered",
+                                    refused["request_id"]: "busy"})
+        a, n, r = (steps[x["request_id"]] for x in (answered, no_preview, refused))
+        self.assertEqual((a["8p"], a["14"], a["12s"], a["14s"]), (answered["preview_build_ms"], 20, 40, 10))
+        self.assertEqual(a["16f"], answered["to_end_ms"] - answered["to_segmentation_ms"])
+        self.assertEqual((n["8p"], n["14"], n["14s"]), (None, None, 10))
+        self.assertEqual((r["8p"], r["14"], r["14s"], r["16f"]), (refused["preview_build_ms"], 20, None, None))
+        self.assertEqual(report.failures, {"page": {"busy": 1}, "front": {"preview_not_made": 1, "busy": 1}})
 
     def test_the_forwarded_name_cannot_break_the_part_header(self):
         body = form("beans.jpg", JPEG).replace(b'filename="beans.jpg"', b"filename*=utf-8''a%22b%0D%0AX-Evil%3A%201.jpg")
@@ -249,7 +364,7 @@ class CheckService(unittest.TestCase):
         line = self.line(resp)
         self.assertEqual({k: line.get(k) for k in ("format", "canonical", "canonical_settings", "bits")},
                          {"format": "jxl", "canonical": "canonicalized",
-                          "canonical_settings": "front: integer e3 q90 18/15 MP", "bits": 16})
+                          "canonical_settings": "front: float e3 q90 18/15 MP", "bits": 16})
         self.assertIsInstance(line["canonicalize_ms"], int)
 
     @real_data   # about 3 s: an 18 MP photo and one just over, canonicalized
@@ -349,26 +464,43 @@ class CheckService(unittest.TestCase):
         resp.read()
         self.assertEqual(resp.status, 200, "a photo just under the cap is refused")
 
-    def test_an_unreachable_inference_host_is_offline(self):
+    def after_the_preview(self, body: bytes, **kw) -> tuple[int, list[str], dict]:
+        """An answer whose preview went out first: its status, its lines' names and its last line."""
+        _, resp = self.post(body, **kw)
+        got = lines(resp)
+        return resp.status, [ln["part"] for ln in got], got[-1]
+
+    def test_an_unreachable_inference_host_is_offline(self):   # ML-37 D16, D26: after the preview, a line
         service = self.serve(f"http://127.0.0.1:{free_port()}")   # nothing listens there
-        status, payload = self.answer(form("beans.jpg", JPEG), server=service)
-        self.assertEqual((status, payload), (503, {"error": "the classifier is offline"}))
+        self.assertEqual(self.after_the_preview(form("beans.jpg", JPEG), server=service),
+                         (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
 
     def test_the_inference_hosts_app_down_is_offline(self):
         for down in (502, 504):
             with self.subTest(status=down):
                 FakeInferenceHost.reply = down
-                self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+                self.assertEqual(self.after_the_preview(form("beans.jpg", JPEG)),
+                                 (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
 
-    def test_the_inference_hosts_own_answers_are_relayed_as_they_are(self):
-        for status in (400, 503, 500):   # its app's refusal, its busy backstop (D11), a failure
+    def test_the_error_lines_outcomes_are_the_timelines_words(self):   # ML-37 D26; review S5
+        self.assertEqual(set(check_service.MESSAGES),
+                         {timeline_schema.OFFLINE, timeline_schema.BUSY, timeline_schema.FAILED})
+        self.assertLessEqual(set(check_service.MESSAGES), set(timeline_schema.OUTCOMES))
+        self.assertTrue(all(isinstance(m, str) and m for m in check_service.MESSAGES.values()))
+
+    def test_the_inference_hosts_refusals_are_error_lines_after_the_preview(self):   # ML-37 D16, D26
+        for status, outcome, message in ((400, "failed", "inference host says 400"),   # the front's photo refused
+                                         (503, "busy", check_service.MESSAGES["busy"]),   # its busy backstop (D11)
+                                         (500, "failed", "inference host says 500")):   # a failure
             with self.subTest(status=status):
                 FakeInferenceHost.reply = status
                 _, resp = self.post(form("beans.jpg", JPEG))
-                self.assertEqual((resp.status, json.loads(resp.read())),
-                                 (status, {"error": f"inference host says {status}"}))
+                got = lines(resp)
+                self.assertEqual((resp.status, [ln["part"] for ln in got]), (200, ["preview", "error"]))
+                self.assertEqual(got[1], {"part": "error", "outcome": outcome, "message": message})
                 self.assertEqual(resp.getheader("X-Request-Id"), FakeInferenceHost.seen[-1]["headers"]["X-Request-Id"])
-                self.assertEqual(len(resp.msg.get_all("Server")), 1, "the inference host's Server header relayed too")
+                line = self.line(resp)
+                self.assertEqual((line["status"], line["upstream_status"], line["outcome"]), (200, status, outcome))
 
     def test_only_post_analyze_is_served(self):
         self.assertEqual(self.answer(form("beans.jpg", JPEG), path="/classify")[0], 404)
@@ -387,30 +519,36 @@ class CheckService(unittest.TestCase):
         FakeInferenceHost.reply = "cut"
         _, resp = self.post(form("beans.jpg", JPEG))
         self.assertEqual(resp.status, 200)
-        self.assertEqual(resp.read(), b'{"part": "preview"}\n')
+        got = resp.read().splitlines(keepends=True)
+        self.assertEqual(json.loads(got[0])["part"], "preview")
+        self.assertEqual(got[1:], [SEGMENTATION])
         line = self.line(resp)
-        self.assertEqual((line["status"], line["outcome"], line["relayed_bytes"]), (200, "cut", 20))
+        self.assertEqual((line["status"], line["outcome"], line["relayed_bytes"]), (200, "cut", len(SEGMENTATION)))
         self.assertEqual(line["error"], "IncompleteRead")
 
-    @real_data   # about 1 s: the fake answer's parts are a second apart
-    def test_the_log_line_of_a_canonicalized_photo(self):   # OPS-3 P2, D6, D10; ML-19 D38 for the ceiling's review
+    @real_data   # about 1 s: the fake answer's lines are a second apart
+    def test_the_log_line_of_a_canonicalized_photo(self):   # OPS-3 P2, D6, D10; ML-19 D38; ML-37 D27
         _, resp = self.post(form("IMG 0001.jpg", JPEG))
         answer = resp.read()
         line = self.line(resp)
         rid = resp.getheader("X-Request-Id")
         timings = {k: line.pop(k) for k in ("read_ms", "check_ms", "canonicalize_ms", "crossing_ms", "to_headers_ms",
-                                            "to_preview_ms", "to_end_ms", "total_ms", "peak_mb", "swap_mb")}
+                                            "preview_build_ms", "to_preview_ms", "to_segmentation_ms", "to_end_ms",
+                                            "total_ms", "peak_mb", "swap_mb")}
         self.assertRegex(line.pop("ts"), r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}\+00:00$")
         self.assertEqual(line, {
             "kind": "request", "request_id": rid, "method": "POST", "endpoint": "/analyze", "status": 200,
             "outcome": "relayed", "filename": "IMG 0001.jpg", "ext": ".jpg", "format": "jpeg", "bytes": len(JPEG),
-            "canonical": "canonicalized", "canonical_settings": "front: integer e3 q90 18/15 MP", "width": 64,
-            "height": 48, "bits": 8, "canonical_bytes": len(front(JPEG, "beans.jpg")), "relayed_bytes": len(answer)})
+            "canonical": "canonicalized", "canonical_settings": "front: float e3 q90 18/15 MP", "width": 64,
+            "height": 48, "bits": 8, "canonical_bytes": len(front(JPEG, "beans.jpg")),
+            "relayed_bytes": len(answer) - len(answer.split(b"\n")[0]) - 1})   # the host's lines, not the preview
         for k, v in timings.items():
             self.assertIsInstance(v, int, k)
             self.assertGreaterEqual(v, 0, k)
-        self.assertGreaterEqual(timings["to_end_ms"] - timings["to_preview_ms"], 900, "the parts are a second apart")
-        self.assertLessEqual(timings["to_headers_ms"], timings["to_preview_ms"])
+        # to_preview_ms on the front's own clock, from the stream's opening; the host's from the photo's last byte.
+        self.assertLessEqual(timings["preview_build_ms"], timings["to_preview_ms"])
+        self.assertGreaterEqual(timings["to_end_ms"] - timings["to_segmentation_ms"], 900, "the lines are a second apart")
+        self.assertLessEqual(timings["to_headers_ms"], timings["to_segmentation_ms"])
         self.assertGreaterEqual(timings["total_ms"], timings["to_end_ms"] + timings["crossing_ms"])
 
     def test_the_log_line_of_a_photo_sent_canonical(self):   # OPS-22 D3: re-encoded, so no as_sent any more
@@ -433,11 +571,14 @@ class CheckService(unittest.TestCase):
                 yield "too_many_pixels", form("beans.jpg", JPEG), 413
             with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
                 yield "failed", form("beans.jpg", JPEG), 500
-            FakeInferenceHost.reply = 502
-            yield "offline", form("beans.jpg", JPEG), 503
+            FakeInferenceHost.reply = 502   # ML-37 D26: past the preview, a 200 whose outcome is the host's
+            yield "offline", form("beans.jpg", JPEG), 200
             FakeInferenceHost.reply = 400
-            yield "relayed", form("beans.jpg", JPEG), 400
+            yield "failed", form("beans.jpg", JPEG), 200
+            FakeInferenceHost.reply = 503
+            yield "busy", form("beans.jpg", JPEG), 200
             FakeInferenceHost.reply = "stream"
+            yield "relayed", form("beans.jpg", JPEG), 200
             gate = self.service.RequestHandlerClass.crossing
             gate.acquire()
             try:
@@ -450,6 +591,8 @@ class CheckService(unittest.TestCase):
                 resp.read()
                 line = self.line(resp)
                 self.assertEqual((line["status"], line["outcome"]), (status, outcome))
+                if outcome == "busy":
+                    self.assertEqual(line.get("upstream_status"), 503 if status == 200 else None)
         self.assertEqual(self.line(resp).get("format"), "jpeg")
         line = log_line(self.log_dir, next(ln["request_id"] for ln in reversed(log_lines(self.log_dir))
                                            if ln["outcome"] == "not_an_image"))
@@ -506,7 +649,8 @@ class CheckService(unittest.TestCase):
 
     def test_an_answer_that_is_not_http_is_offline(self):
         FakeInferenceHost.reply = "garbage"
-        self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+        self.assertEqual(self.after_the_preview(form("beans.jpg", JPEG)),
+                         (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
 
     def test_an_answer_that_never_starts_is_offline_after_the_answers_timeout(self):
         """The photo has crossed; the answer's reads get ANSWER_TIMEOUT_S, not the upload's longer one (OPS-16 D8)."""
@@ -514,7 +658,8 @@ class CheckService(unittest.TestCase):
         self.addCleanup(FakeInferenceHost.release.set)
         with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=30, ANSWER_TIMEOUT_S=0.3):
             t0 = time.monotonic()
-            self.assertEqual(self.answer(form("beans.jpg", JPEG)), (503, {"error": "the classifier is offline"}))
+            self.assertEqual(self.after_the_preview(form("beans.jpg", JPEG)),
+                             (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
         self.assertLess(time.monotonic() - t0, 5)
         self.assertEqual(len(FakeInferenceHost.seen), 1, "the photo never crossed")
 
@@ -533,8 +678,8 @@ class CheckService(unittest.TestCase):
         photo = canonical.canonicalize(imagecodecs.png_encode(noise))
         with mock.patch.multiple(check_service, UPLOAD_TIMEOUT_S=0.3, ANSWER_TIMEOUT_S=30):
             t0 = time.monotonic()
-            self.assertEqual(self.answer(form("beans.jpg", photo), server=service),
-                             (503, {"error": "the classifier is offline"}))
+            self.assertEqual(self.after_the_preview(form("beans.jpg", photo), server=service),
+                             (200, ["preview", "error"], {"part": "error", **OFFLINE_LINE}))
         self.assertLess(time.monotonic() - t0, 5)
 
     def test_a_query_string_still_reaches_the_app(self):
@@ -606,9 +751,9 @@ class CheckService(unittest.TestCase):
             with mock.patch.object(check_service.canonical, "encode", side_effect=MemoryError("no room")):
                 yield "failed", form("beans.jpg", JPEG), 500
             FakeInferenceHost.reply = 502
-            yield "offline", form("beans.jpg", JPEG), 503
+            yield "offline, past the preview", form("beans.jpg", JPEG), 200
             FakeInferenceHost.reply, FakeInferenceHost.echo_id = 503, False
-            yield "the inference host's busy, with no id", form("beans.jpg", JPEG), 503
+            yield "the inference host's busy, with no id", form("beans.jpg", JPEG), 200
             FakeInferenceHost.reply, FakeInferenceHost.echo_id = "stream", True
             gate = self.service.RequestHandlerClass.crossing
             gate.acquire()

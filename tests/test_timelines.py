@@ -6,7 +6,9 @@ coffeecv/timelines.py reads the front's access log, the check service's log, yap
 joins them by request ID and counts. Here on lines written in the hosts' own formats, forged, duplicate and malicious
 ones included, and on tests/fixtures/ops3_rig/, the front's two logs as P4's browser check left them (an example, an
 own photo and its re-run, a photo over the cap, a busy retry, a photo abandoned by leaving the page, and another
-page's photo with no timeline).
+page's photo with no timeline). Those are version 1's lines, from before ML-37: the host made the preview. Since ML-37
+(D15, D24, D25, D27) the front makes it and the host sends the segmentation; TheLinesSinceML37 reads both, and the
+rig's lines of 2026-11-26 (TheRigSinceML37) are version 2's, the host's logs included.
 """
 from __future__ import annotations
 
@@ -84,6 +86,28 @@ def yappy(request_id: str) -> str:
 
 def logs(**sources: list[str]) -> dict[str, list[str]]:
     return {name: sources.get(name, []) for name in tl.SOURCES}
+
+
+def service_v2(request_id: str, **fields) -> str:
+    """A check service line since ML-37 (D27): the preview built and sent on the front's clock from the stream's
+    opening, the host's first line (the segmentation) from the photo's last byte."""
+    return service(request_id, **{"preview_build_ms": 700, "to_preview_ms": 800, "to_segmentation_ms": 2600,
+                                  "peak_mb": 380, "swap_mb": 0, **fields})
+
+
+def app_v2(request_id: str, **fields) -> str:
+    """The app's line since ML-37 (D27): the segmentation line's build and when it went out, no preview of its own."""
+    line = {"ts": f"{DAY}T12:00:20.000+00:00", "level": "INFO", "msg": "request", "request_id": request_id,
+            "endpoint": "/analyze", "status": 200, "latency_ms": 5400, "segmentation_ms": 2400,
+            "segmentation_build_ms": 40, "decode_ms": 300, "crop_detect_ms": 1900, "inference_ms": 2900,
+            "verdict": "predicted", **fields}
+    return json.dumps({k: v for k, v in line.items() if v is not None})
+
+
+def timeline_v2(request_id: str | None, **fields) -> dict:
+    """The page's timeline at version 2 (ML-37 D25): the front's preview first, the host's segmentation after."""
+    return timeline(request_id, **{"v": 2, "to_preview_ms": 2100, "preview_drawn_ms": 30, "to_segmentation_ms": 15000,
+                                   "segmentation_drawn_ms": 20, **fields})
 
 
 class OnePhotoJoined(unittest.TestCase):
@@ -279,6 +303,102 @@ class TheWaterfall(unittest.TestCase):
         self.assertEqual(view["waterfall"], sorted(view["waterfall"], key=lambda bar: bar["start"]))
 
 
+class TheLinesSinceML37(unittest.TestCase):
+    """ML-37 D25, D27: the front's preview, the host's segmentation, the page's timeline at version 2; one request's
+    three lines for an answer, an answer with no preview (D23) and a refusal after the preview (D26)."""
+
+    def report(self, service_line: str, app_line: str | None, page: dict) -> tl.Report:
+        self.id = json.loads(service_line)["request_id"]
+        return tl.build(logs(front_access=[access(self.id, "POST /analyze HTTP/1.1")],
+                             service=[service_line, timeline_line(page)],
+                             app=[app_line] if app_line else [], inference_access=[yappy(self.id)]), DOMAIN)
+
+    @staticmethod
+    def steps(report: tl.Report) -> dict:
+        [photo] = report.photos
+        return {key: measure(photo) for key, _, measure in tl.STEPS}
+
+    def test_an_answer(self):
+        r = rid()
+        report = self.report(service_v2(r), app_v2(r), timeline_v2(r))
+        s = self.steps(report)
+        front_start = 120 + (21000 - 19000)   # the connection, then the upload at the front (D28)
+        self.assertEqual({k: s[k] for k in ("8p", "12s", "14", "14s")},
+                         {"8p": 700, "12s": 40, "14": 30, "14s": 20})
+        # The preview, from the front to the page: the page's arrival from the attempt's start, less the front's, from
+        # the same start: its read, checks and canonicalization, then the preview on its own clock.
+        self.assertEqual(s["13p"], (3000 + 2100) - (front_start + 20 + 1 + 2000 + 800))
+        # The segmentation: yappy to the front, a round trip, then the front to the page.
+        self.assertEqual(s["13s"], (9000 + 2600) - ((9100 - 5400) + 2400))
+        self.assertEqual(s["13t"], (3000 + 15000) - (front_start + 20 + 1 + 2000 + 9000 + 2600))
+        self.assertEqual((s["16"], s["16f"]), (21000 - 15000, 8000 - 2600))   # from the host's first line
+        # Version 1's preview steps are the host's: none here.
+        self.assertEqual((s["12"], s["13a"], s["13b"]), (None, None, None))
+        self.assertEqual(report.failures["front"], {})
+
+    def test_its_waterfall_joins_each_leg_to_the_next(self):
+        r = rid()
+        [photo] = self.report(service_v2(r), app_v2(r), timeline_v2(r)).photos
+        bars = {b["step"]: b for b in tl.waterfall(photo)}
+        end = lambda k: bars[k]["start"] + bars[k]["ms"]   # noqa: E731
+        crossing = bars["9"]["start"]
+        self.assertEqual((bars["8p"]["start"], bars["8p"]["lane"]), (crossing, "front"))   # beside the crossing
+        self.assertEqual(bars["13p"]["start"], crossing + 800)
+        self.assertEqual(end("13p"), bars["14"]["start"])     # the preview reaches the page as it starts drawing
+        self.assertEqual(end("13s"), bars["13t"]["start"])
+        self.assertEqual(end("13t"), bars["14s"]["start"])    # and the segmentation
+        self.assertEqual(end("12s"), bars["13s"]["start"])
+        self.assertEqual({bars[k]["lane"] for k in ("13p", "13s", "13t")}, {"network-approx"})
+        self.assertNotIn("12", bars)
+        self.assertNotIn("13a", bars)
+
+    def test_an_answer_with_no_preview(self):   # D23: a gap in the steps, and counted among the front's failures
+        r = rid()
+        report = self.report(service_v2(r, preview_build_ms=None, to_preview_ms=None,
+                                        preview_error="MemoryError: no room"),
+                             app_v2(r), timeline_v2(r, to_preview_ms=None, preview_drawn_ms=None))
+        s = self.steps(report)
+        self.assertEqual((s["8p"], s["13p"], s["14"]), (None, None, None))
+        self.assertEqual(s["13t"], (3000 + 15000) - (120 + 2000 + 20 + 1 + 2000 + 9000 + 2600))
+        self.assertEqual(report.photos[0].outcome, "answered")
+        self.assertEqual(report.failures["front"], {"preview_not_made": 1})
+        self.assertEqual(report.front_failures_by_day, {DAY: {"preview_not_made": 1}})
+        self.assertEqual(tl.as_json(report)["photos"][0]["preview_error"], "MemoryError: no room")
+        self.assertIn("preview_not_made 1", tl.summary(report))
+
+    def test_a_refusal_after_the_preview(self):   # D26: the stream's 200, the host's status, the outcome's word
+        r = rid()
+        report = self.report(service_v2(r, upstream_status=503, outcome="busy", to_segmentation_ms=None,
+                                        to_end_ms=None, relayed_bytes=None),
+                             None, timeline_v2(r, outcome="busy", to_segmentation_ms=None, segmentation_drawn_ms=None,
+                                               to_answer_ms=None, answer_shown_ms=None))
+        s = self.steps(report)
+        self.assertEqual((s["8p"], s["14"]), (700, 30))
+        self.assertEqual((s["13s"], s["13t"], s["14s"], s["16"], s["16f"]), (None,) * 5)
+        self.assertEqual(report.failures, {"page": {"busy": 1}, "front": {"busy": 1}})
+
+    def test_the_page_places_every_step(self):   # each step in a group of the step table, and coloured by its lane
+        import re
+        groups = re.search(r"const GROUPS = (\[.*?\]\]\]);", tl.PAGE, re.S)[1]
+        lanes = "".join(re.findall(r"for \(const k of (\[[^\]]*\])\) LANE\[k\]", tl.PAGE))
+        for key, _, _ in tl.STEPS:
+            with self.subTest(step=key):
+                self.assertIn(f"'{key}'", groups)
+                self.assertIn(f"'{key}'", lanes)
+
+    def test_a_version_1_line_beside_them(self):   # the front's logs keep the lines from before the release (D25)
+        old, new = rid(), rid()
+        report = tl.build(logs(front_access=[access(old, "POST /analyze HTTP/1.1"), access(new, "POST /analyze HTTP/1.1")],
+                               service=[service(old), timeline_line(timeline(old)),
+                                        service_v2(new), timeline_line(timeline_v2(new))],
+                               app=[app(old), app_v2(new)]), DOMAIN)
+        self.assertEqual(sorted(p.timeline["v"] for p in report.photos), [1, 2])
+        by = {p.request_id: {key: measure(p) for key, _, measure in tl.STEPS} for p in report.photos}
+        self.assertEqual((by[old]["12"], by[old]["8p"], by[old]["12s"]), (60, None, None))
+        self.assertEqual((by[new]["12"], by[new]["8p"], by[new]["12s"]), (None, 700, 40))
+        self.assertEqual((by[old]["16f"], by[new]["16f"]), (8000 - 2600, 8000 - 2600))
+
+
 class ThePageFiltersInTheBrowser(unittest.TestCase):
     """P11 (D25): the page gets everything since the release, each count with its day, and recounts in the browser."""
 
@@ -301,7 +421,7 @@ class ThePageFiltersInTheBrowser(unittest.TestCase):
         with mock.patch.object(tl, "serve") as served, redirect_stdout(StringIO()):
             tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN])
         report = served.call_args[0][0]
-        self.assertEqual(len(report.photos), 6)
+        self.assertEqual(len(report.photos), 6 + 3)   # the rig's two days: 2026-11-09's and 2026-11-26's
         with self.assertRaises(SystemExit), redirect_stdout(StringIO()), mock.patch("sys.stderr", StringIO()):
             tl.main(["serve", "--from-dir", str(RIG), "--domain", DOMAIN, "--since", "2026-11-10"])
 
@@ -551,10 +671,10 @@ class Reading(unittest.TestCase):
 
 
 class TheRecordedRig(unittest.TestCase):
-    """tests/fixtures/ops3_rig/: P4's browser check, as the front logged it."""
+    """tests/fixtures/ops3_rig/: P4's browser check, as the front logged it (2026-11-09, version 1)."""
 
     def setUp(self):
-        self.report = tl.build(tl.read_dir(RIG), DOMAIN)
+        self.report = tl.build(tl.read_dir(RIG), DOMAIN, until="2026-11-09")
 
     def test_its_photos_and_timelines(self):
         by = {p.request_id: p for p in self.report.photos}
@@ -580,6 +700,37 @@ class TheRecordedRig(unittest.TestCase):
         # Headless Chromium's page loads are a crawler's.
         self.assertIn("2026-11-09  loads 0 (+3 crawlers)  photos 6  timelines 4", out.getvalue())
         self.assertIn("unverifiable", out.getvalue())
+
+
+class TheRigSinceML37(unittest.TestCase):
+    """tests/fixtures/ops3_rig/'s lines of 2026-11-26 (ML-37 D27): the front's, the host's and the page's for three
+    photos at version 2, written by hand to the lines' formats since ML-37 (D25, D27), not recorded: an answer, an
+    answer with no preview (D23) and the host busy after the preview (D26)."""
+
+    A, B, C = "4f0c2a7e9b1d43a8a6e2c5d7f8b90a11", "7d3e1b5a2c9f4e60b8a1d2c3e4f50b22", "a2b4c6d8e0f1435799aabbccddee0c33"
+
+    def setUp(self):
+        self.report = tl.build(tl.read_dir(RIG), DOMAIN, since="2026-11-26")
+        self.by = {p.request_id: p for p in self.report.photos}
+
+    def test_its_photos_read_at_version_2(self):
+        self.assertEqual(set(self.by), {self.A, self.B, self.C})
+        self.assertEqual({k: (p.timeline["v"], p.outcome) for k, p in self.by.items()},
+                         {self.A: (2, "answered"), self.B: (2, "answered"), self.C: (2, "busy")})
+        self.assertEqual(self.report.failures["front"], {"preview_not_made": 1, "busy": 1})
+        self.assertEqual(self.report.failures["page"], {"busy": 1})
+
+    def test_the_answers_steps(self):
+        s = {key: measure(self.by[self.A]) for key, _, measure in tl.STEPS}
+        self.assertEqual((s["8p"], s["12s"], s["14"], s["14s"]), (690, 35, 12, 8))
+        self.assertEqual((s["12"], s["13a"], s["13b"]), (None, None, None))   # version 1's host preview: none
+        self.assertEqual(s["16"], 15850 - 12900)   # the classification, from the host's first line on the page
+
+    def test_the_photo_with_no_preview_has_no_preview_steps(self):
+        s = {key: measure(self.by[self.B]) for key, _, measure in tl.STEPS}
+        self.assertEqual((s["8p"], s["13p"], s["14"]), (None, None, None))
+        self.assertEqual(tl.as_json(self.report)["photos"][[p.request_id for p in self.report.photos].index(self.B)]
+                         ["preview_error"], "MemoryError: ")
 
 
 if __name__ == "__main__":

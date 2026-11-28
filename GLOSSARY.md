@@ -43,12 +43,16 @@ A photo the page offers a visitor to try the service with, in place of their own
 _Avoid_: Sample, demo photo, fixture (a fixture is a photo the deploy checks a release with)
 
 **Canonicalization**:
-Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization". Made with one of two sets of settings, the same format either way: the **store's** (float colour, effort 7, quality 95, over 60 MP to 50 MP), which the canonical store and training use, and the **front's** (integer colour, effort 3, quality 90, over 18 MP to 15 MP), with which the front canonicalizes every visitor's photo (ADR 0036).
+Turning a photo into its **canonical photo**: the one form both models read, in training and in serving alike, whatever format, colour space or orientation the photo arrived in. The canonical photo holds linear light in Rec.2020, with white at 1.0 and nothing above it; no one reads it as it is: every reader takes the **model picture** read back from it. Not the scaling of model inputs by a mean and standard deviation, which keeps the name "normalization". Made with one of two sets of settings, the same format and the same colour conversion either way: the **store's** (effort 7, quality 95, over 60 MP to 50 MP), which the canonical store and training use, and the **front's** (effort 3, quality 90, over 18 MP to 15 MP), with which the front canonicalizes every visitor's photo (ADR 0036).
 _Avoid_: Normalization (of a photo), preprocessing, re-encoding (for the whole step)
 
+**Model picture**:
+The one 8-bit sRGB picture read back from a canonical photo, at the photo's full size. Both models start from it, in training and in serving alike, and the preview is made from it.
+_Avoid_: Model input (the resized picture a model takes), read-back (the step that makes it), thumbnail
+
 **Preview**:
-The page's picture of the canonical photo, shown before the answer, with the photo's bean region drawn over it. Display only: never what a model reads, and never trusted back from the client.
-_Avoid_: Thumbnail (the preview's file, not the concept), the model's input
+The picture of their own photo that the visitor sees on the page while the answer arrives, before the country. It is the model picture shrunk to at most 1,024 px on its long side (never enlarged) and sent as an sRGB JPEG. The page draws the photo's bean region and crop box over it once the segmenter has found them. An API caller gets the same JPEG as the answer's first part. It shows what the models read, but no model ever reads it, and nothing in it is trusted back from the client.
+_Avoid_: Thumbnail (the preview's JPEG file, not the concept), model input, model picture (the full-size picture the preview is made from)
 
 **Main image**:
 The one picture in a photo file that the canonical photo is made from, with the photo's gain map where one applies.

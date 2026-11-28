@@ -1,0 +1,19 @@
+imagecodecs 2026.10.10, libjxl 0.12.0, numpy 2.5.3
+
+uint16 all 65536 values, sRGB tag  effort 1:    16954 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=sRGB
+uint16 all 65536 values, sRGB tag  effort 5:      306 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=sRGB
+uint16 all 65536 values, sRGB tag  effort 7:      305 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=sRGB
+uint16 all 65536 values, no tag    effort 1:    16956 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=Linear
+uint16 all 65536 values, no tag    effort 5:      308 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=Linear
+uint16 all 65536 values, no tag    effort 7:      307 B, decoded uint16, bit-exact True (0 samples differ); header 16-bit float=False xyb=False primaries=sRGB transfer=Linear
+
+float16: 63488 finite bit patterns, 15361 of them in [+0, 1] (subnormals included: 1023)
+float16 [+0, 1], sRGB tag          effort 1:     7921 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 [+0, 1], sRGB tag          effort 5:      267 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 [+0, 1], sRGB tag          effort 7:      206 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 every finite pattern, sRGB tag effort 1:    16508 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 every finite pattern, sRGB tag effort 5:      347 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 every finite pattern, sRGB tag effort 7:      347 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 inf, -inf, nan, -0         effort 1:      891 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 inf, -inf, nan, -0         effort 5:      146 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB
+float16 inf, -inf, nan, -0         effort 7:      161 B, decoded float16, bit-exact True (0 samples differ); header 16-bit float=True xyb=False primaries=sRGB transfer=sRGB

@@ -883,7 +883,8 @@ verify() {   # returns non-zero on a failed check
     local photo want times hdr
     photo="$REPO/$(fixtures smoke)"
     hdr=$(mktemp)
-    # /analyze streams its preview, then its classification (ticket OPS-7 D2): the answer goes to $body, and the
+    # /analyze streams the front's preview, then the host's segmentation and classification (ticket OPS-7 D2,
+    # ML-37 D15, D24): the answer goes to $body, and the
     # seconds at which each of its lines arrived to $times (the upload included; through a proxy that buffers,
     # the two are equal). Reported, not checked (D11). curl's own timers cannot say it: its start of transfer is
     # the upload's.
@@ -904,17 +905,22 @@ verify() {   # returns non-zero on a failed check
       check "public POST /analyze" "$code" 200
       check "    its Access-Control-Allow-Origin" "$allow_origin" "*"
       check "    its Access-Control-Expose-Headers" "$expose" X-Request-Id
-      # The parts the staged app gave the same photo: since OPS-25 (D5) a previews part after the classification.
-      want=$(jq -r '.analyze.parts | map(.part) | join(", ")' <<<"$public_expected" 2>/dev/null)
-      check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "${want:-preview, classification}"
-      want=$(jq -r '.analyze.parts[1].ranked[0].id // "-"' <<<"$public_expected" 2>/dev/null)
-      check "public /analyze top-1" "$(jq -rs '.[1].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
-      # OPS-25 D5: each wide-gamut preview its format, at the thumbnail's size, with its colour tags.
-      local previews previews_rc=0
-      previews=$("$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" check-previews <(printf 'PROBE %s\n' "$public_expected") "$body") \
-        || previews_rc=$?
-      while IFS= read -r line; do [[ -n "$line" ]] && note "      public /analyze $line"; done <<<"$previews"
-      (( previews_rc == 0 )) || fails=$((fails + 1))
+      # The lines the staged app gave the same photo, after the front's own preview line (ML-37 D15, D24): a release
+      # from before ML-37 has a host whose first line is the preview itself, and a front that adds none.
+      local host_lines fronts_preview=0
+      host_lines=$(jq -r '.analyze.parts | map(.part) | join(", ")' <<<"$public_expected" 2>/dev/null)
+      [[ "$host_lines" == segmentation* ]] && fronts_preview=1
+      if (( fronts_preview )); then want="preview, $host_lines"; else want=$host_lines; fi
+      check "public /analyze parts" "$(jq -rs 'map(.part) | join(", ")' < "$body" 2>/dev/null)" "${want:-preview, segmentation, classification}"
+      want=$(jq -r '.analyze.parts | map(select(.part == "classification"))[0].ranked[0].id // "-"' <<<"$public_expected" 2>/dev/null)
+      check "public /analyze top-1" "$(jq -rs 'map(select(.part == "classification"))[0].ranked[0].id // "-"' < "$body" 2>/dev/null)" "${want:-?}"
+      if (( fronts_preview )); then
+        # ML-37 D15: the front's preview, first, a JPEG at the mask's size.
+        local preview preview_rc=0
+        preview=$("$LOCAL_PY" "$DEPLOY_DIR/release_probe.py" check-preview "$body") || preview_rc=$?
+        while IFS= read -r line; do [[ -n "$line" ]] && note "      public /analyze $line"; done <<<"$preview"
+        (( preview_rc == 0 )) || fails=$((fails + 1))
+      fi
       note "      public /analyze: its lines arrived at ${times:-?} s from the upload's start, the preview's first (reported, not checked: D11)"
       # Its timeline (ticket OPS-3 D14): sent through the domain as the page sends one, then found in the check
       # service's log on the front, read as the deploy user. A release from before OPS-3 takes none.

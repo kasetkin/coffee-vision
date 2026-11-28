@@ -1,0 +1,23 @@
+20261020_122800_iPhone_15_Pro_Colombia.HEIC Apple iPhone 15 Pro map=True max Y 3.02
+20261028_112710_Galaxy_Z_Fold6_Brazil.jpg samsung Galaxy Z Fold6 map=True max Y 2.99
+20261028_111958_Galaxy_Z_Fold8_Ultra_Kenia.jpg samsung Galaxy Z Fold8 Ultra map=True max Y 2.99
+PXL_20261025_074245705.jpg Google Pixel 7 map=True max Y 2.54
+20261022_110450_iPhone_15_Pro_Max_Brazil.HEIC Apple iPhone 15 Pro Max map=True max Y 2.77
+IMG_6350.HEIC Apple iPhone 15 map=True max Y 1.98
+PXL_20260809_121727912.jpg   map=False max Y 0.88
+20261030_185852_iPhone_13_Ethiopia.HEIC Apple iPhone 13 map=False max Y 0.98
+
+median relative error of block luminance (4x4 block means), by source luminance; 1.0 = reference white
+   Y from      to    blocks | store 203 store 255  ratio | front 203 front 255  ratio
+   0.0010   0.002      6992 |   0.04473   0.03763  1.189 |   0.06117   0.05181  1.181
+   0.0020   0.004      8788 |   0.02545   0.02265  1.124 |   0.03699   0.03242  1.141
+   0.0039   0.008     25039 |   0.01408   0.01254  1.123 |   0.02262   0.01984  1.140
+   0.0078   0.016     61292 |   0.00851   0.00773  1.101 |   0.01498   0.01348  1.111
+   0.0156   0.031     79596 |   0.00611   0.00561  1.090 |   0.01106   0.01002  1.104
+   0.0312   0.062    120341 |   0.00455   0.00421  1.082 |   0.00840   0.00772  1.088
+   0.0625   0.125    189025 |   0.00351   0.00332  1.058 |   0.00650   0.00605  1.074
+   0.1250   0.250    276481 |   0.00285   0.00269  1.058 |   0.00510   0.00473  1.079
+   0.2500   0.500    387148 |   0.00224   0.00214  1.045 |   0.00400   0.00372  1.075
+   0.5000   1.000    248554 |   0.00177   0.00169  1.046 |   0.00309   0.00289  1.068
+   1.0000   2.000    109285 |   0.00128   0.00121  1.058 |   0.00237   0.00222  1.068
+   2.0000   4.000     11554 |   0.00101   0.00096  1.056 |   0.00184   0.00174  1.058

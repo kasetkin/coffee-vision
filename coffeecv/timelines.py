@@ -13,7 +13,7 @@ into memory, joins the lines by request ID and prints the counts and each step's
     the front's access log       /var/log/nginx/coffee-cv-front.access    page loads, browsers, referrers, Origins
     the check service's log      /var/log/coffee-cv-front/requests.jsonl  each request's line, and the timelines
     the inference host's access  /var/log/nginx/coffee-cv.access          its nginx's time for each photo
-    the app's request log        /var/log/coffee-cv/app.jsonl             decode, segmentation, preview, classification
+    the app's request log        /var/log/coffee-cv/app.jsonl             decode, segmentation, classification
 
 and never the session log, the one file with the visitor's IP (OPS-15 D20): no source names it, and a source that did
 is refused. --from-dir DIR reads the same files from a local directory instead (a copy, or a local rig's logs).
@@ -25,6 +25,14 @@ suspicious, one whose ID no host knows as unverified, and one with no ID (a phot
 before its answer began) as unverifiable. The deploy's own requests (X-Coffee-CV-Probe: verify, D14) are left out
 everywhere. Every string a visitor sent is printed without control characters, and the page shows it as text,
 never as HTML (D17's layer 5).
+
+Two forms of a photo's lines are read (ticket ML-37 D25, D27). Before ML-37 the host made the preview: the page's
+timeline is at version 1, the app's preview_ms and preview_build_ms are its preview's, and the check service's
+to_preview_ms counts from the photo's last byte. Since ML-37 the front makes the preview and the host sends the
+segmentation: the timeline is at version 2, the app logs segmentation_ms and segmentation_build_ms, and the check
+service preview_build_ms and to_preview_ms on its own clock from the stream's opening (or preview_error, a preview it
+could not make, D23, counted among the front's failures as preview_not_made), and to_segmentation_ms from the photo's
+last byte. Each step reads the form it was measured in; the other form's steps are gaps.
 """
 from __future__ import annotations
 
@@ -190,12 +198,42 @@ class Photo:
         return self.timeline["outcome"] if self.timeline else f"({self.service.get('outcome', '?')})"
 
 
+def front_made_preview(s: dict) -> bool:
+    """Whether a check service line is of the form since ML-37 (D27): the front made the preview, or tried to, or
+    relayed the host's segmentation. A line of a photo refused before its canonical photo was made is of neither
+    form, and has none of either form's steps."""
+    return any(k in s for k in ("preview_build_ms", "preview_error", "to_segmentation_ms"))
+
+
 def _service_preview_at(s: dict) -> int | None:
-    """When the preview left the check service, from its start: its read, checks, canonicalization and crossing, then
-    its wait for the preview."""
-    parts = [s.get("read_ms"), s.get("check_ms"), s.get("canonicalize_ms", 0), s.get("crossing_ms"),
-             s.get("to_preview_ms")]
+    """When the preview left the check service, from its start: its read, checks and canonicalization, then (since
+    ML-37) the preview made beside the crossing, or (before it) the crossing and its wait for the host's preview."""
+    head = [s.get("read_ms"), s.get("check_ms"), s.get("canonicalize_ms", 0)]
+    parts = head + ([s.get("to_preview_ms")] if front_made_preview(s) else [s.get("crossing_ms"), s.get("to_preview_ms")])
     return None if None in parts else sum(parts)
+
+
+def _service_segmentation_at(s: dict) -> int | None:
+    """When the host's segmentation left the check service (ML-37), from its start: its read, checks,
+    canonicalization, crossing, then its wait for the segmentation."""
+    parts = [s.get("read_ms"), s.get("check_ms"), s.get("canonicalize_ms", 0), s.get("crossing_ms"),
+             s.get("to_segmentation_ms")]
+    return None if None in parts else sum(parts)
+
+
+def _first_line_at_front(s: dict) -> int | None:
+    """The host's first line through the front, from the photo's last byte: its preview before ML-37, its
+    segmentation since."""
+    return s.get("to_segmentation_ms") if front_made_preview(s) else s.get("to_preview_ms")
+
+
+def _page_first_host_line(p: "Photo") -> int | None:
+    """The host's first line on the page, from the browser's "upload sent": the preview's at version 1, the
+    segmentation's at version 2."""
+    t = p.timeline
+    if not t:
+        return None
+    return t.get("to_segmentation_ms") if t.get("v") == 2 else t.get("to_preview_ms")
 
 
 def _diff(a, b):
@@ -208,13 +246,24 @@ def _yappy_received(p: "Photo") -> int | None:
     return _diff(p.inference_ms, p.app.get("latency_ms"))
 
 
-def _preview_trip(p: "Photo") -> int | None:
-    """The preview's way back to the front, and the upload's first byte's way out: the front's time from its connect to
-    the preview going on, less yappy's from that first byte to the preview leaving the app. One round trip, roughly."""
+def _host_trip(p: "Photo", front_key: str, app_key: str) -> int | None:
+    """The host's first line's way back to the front, and the upload's first byte's way out: the front's time from its
+    connect to that line going on, less yappy's from that first byte to the line leaving the app. One round trip,
+    roughly."""
     s = p.service
-    front = None if None in (s.get("crossing_ms"), s.get("to_preview_ms")) else s["crossing_ms"] + s["to_preview_ms"]
+    front = None if None in (s.get("crossing_ms"), s.get(front_key)) else s["crossing_ms"] + s[front_key]
     yappy = _yappy_received(p)
-    return _diff(front, None if yappy is None or p.app.get("preview_ms") is None else yappy + p.app["preview_ms"])
+    return _diff(front, None if yappy is None or p.app.get(app_key) is None else yappy + p.app[app_key])
+
+
+def _preview_trip(p: "Photo") -> int | None:
+    """Step 13a, before ML-37: the host's preview, yappy to the front."""
+    return None if front_made_preview(p.service) else _host_trip(p, "to_preview_ms", "preview_ms")
+
+
+def _segmentation_trip(p: "Photo") -> int | None:
+    """Step 13s, since ML-37: the host's segmentation, yappy to the front."""
+    return _host_trip(p, "to_segmentation_ms", "segmentation_ms") if front_made_preview(p.service) else None
 
 
 def _selected_to_answer(p: "Photo") -> int | None:
@@ -249,16 +298,26 @@ def _front_start(p: "Photo") -> int | None:
     return None if upload is None else (_last_attempt(p.timeline).get("connect_ms") or 0) + upload
 
 
-def _preview_to_browser(p: "Photo") -> int | None:
-    """Step 13b: the preview's way from the front to the page. The page's preview arrival, from the last attempt's
-    start (its upload_ms and to_preview_ms both count from the browser's event, so its lateness cancels), less the
-    front's, from the same start (D28)."""
+def _to_browser(p: "Photo", page_key: str, front_at) -> int | None:
+    """A line's way from the front to the page. The page's arrival, from the last attempt's start (its upload_ms and
+    its to_*_ms both count from the browser's event, so its lateness cancels), less the front's, from the same start
+    (D28)."""
     t, start = p.timeline, _front_start(p)
     att = _last_attempt(t)
-    if start is None or not isinstance(t.get("to_preview_ms"), int) or not isinstance(att.get("upload_ms"), int):
+    if start is None or not isinstance(t.get(page_key), int) or not isinstance(att.get("upload_ms"), int):
         return None
-    front_preview = _service_preview_at(p.service)
-    return None if front_preview is None else att["upload_ms"] + t["to_preview_ms"] - (start + front_preview)
+    at_front = front_at(p.service)
+    return None if at_front is None else att["upload_ms"] + t[page_key] - (start + at_front)
+
+
+def _preview_to_browser(p: "Photo") -> int | None:
+    """Step 13b before ML-37, 13p since: the preview's way from the front to the page."""
+    return _to_browser(p, "to_preview_ms", _service_preview_at)
+
+
+def _segmentation_to_browser(p: "Photo") -> int | None:
+    """Step 13t (ML-37): the segmentation's way from the front to the page."""
+    return _to_browser(p, "to_segmentation_ms", _service_segmentation_at) if front_made_preview(p.service) else None
 
 
 # The ticket's §2 steps, each from the line that measured it (D6). A network leg (~) is what one side saw minus what
@@ -266,7 +325,9 @@ def _preview_to_browser(p: "Photo") -> int | None:
 # bias its median up. The crossing has two: what the front's socket took (9, until its buffers hold the last byte), and
 # what yappy received (9y); the rest of the first is still on the wire (OPS-3's phone check, 2026-11-09: 5.6 s sent,
 # 9.3 s received). The upload (5) is the front's, not the browser's "upload sent" event, which fires early or late
-# (_upload_at_front); the page's times that count from that event are only ever used as differences.
+# (_upload_at_front); the page's times that count from that event are only ever used as differences. Since ML-37 (D15,
+# D27) the preview is the front's (8p, 13p, 14) and the host's first line its segmentation (12s, 13s, 13t, 14s); 12,
+# 13a and 13b are the host's preview, in the lines from before it.
 STEPS: tuple[tuple[str, str, object], ...] = (
     ("1", "pick: tap to file (page)", lambda p: p.timeline and p.timeline.get("pick_ms")),
     ("2", "example downloaded (page)", lambda p: p.timeline and p.timeline.get("download_ms")),
@@ -277,19 +338,27 @@ STEPS: tuple[tuple[str, str, object], ...] = (
         if p.timeline else None),
     ("7", "front's checks (check service)", lambda p: p.service.get("check_ms")),
     ("8", "canonicalization (check service)", lambda p: p.service.get("canonicalize_ms")),
+    ("8p", "preview built (check service)", lambda p: p.service.get("preview_build_ms")),
+    ("13p", "preview, proxy to browser (~)", lambda p: _preview_to_browser(p) if front_made_preview(p.service)
+        else None),
     ("9", "crossing, sent (check service)", lambda p: p.service.get("crossing_ms")),
     ("9y", "crossing, received at yappy (~)", _yappy_received),
     ("10", "decode (app)", lambda p: p.app.get("decode_ms")),
     ("11", "segmentation (app)", lambda p: p.app.get("crop_detect_ms")),
-    ("12", "preview built (app)", lambda p: p.app.get("preview_build_ms")),
-    ("13a", "preview, yappy to proxy, a round trip (~)", _preview_trip),
-    ("13b", "preview, proxy to browser (~)", _preview_to_browser),
+    ("12", "preview built (app, before ML-37)", lambda p: p.app.get("preview_build_ms")),
+    ("13a", "preview, yappy to proxy, a round trip (~, before ML-37)", _preview_trip),
+    ("13b", "preview, proxy to browser (~, before ML-37)", lambda p: None if front_made_preview(p.service)
+        else _preview_to_browser(p)),
+    ("12s", "segmentation built (app)", lambda p: p.app.get("segmentation_build_ms")),
+    ("13s", "segmentation, yappy to proxy, a round trip (~)", _segmentation_trip),
+    ("13t", "segmentation, proxy to browser (~)", _segmentation_to_browser),
     ("14", "preview drawn (page)", lambda p: p.timeline and p.timeline.get("preview_drawn_ms")),
+    ("14s", "segmentation drawn (page)", lambda p: p.timeline and p.timeline.get("segmentation_drawn_ms")),
     ("15", "classification (app)", lambda p: p.app.get("inference_ms")),
-    ("16", "preview to answer (page)", lambda p: _diff(p.timeline and p.timeline.get("to_answer_ms"),
-                                                       p.timeline and p.timeline.get("to_preview_ms"))),
-    ("16f", "preview to answer's end (check service)", lambda p: _diff(p.service.get("to_end_ms"),
-                                                                       p.service.get("to_preview_ms"))),
+    ("16", "host's first line to answer (page)", lambda p: _diff(p.timeline and p.timeline.get("to_answer_ms"),
+                                                                 _page_first_host_line(p))),
+    ("16f", "host's first line to answer's end (check service)",
+        lambda p: _diff(p.service.get("to_end_ms"), _first_line_at_front(p.service))),
     ("16s", "answer shown (page)", lambda p: p.timeline and p.timeline.get("answer_shown_ms")),
     ("17s", "total: photo selected to answer on screen (page)", lambda p: _selected_to_answer(p)),
     ("17", "total: pick to answer on screen (page)", lambda p: p.timeline and p.timeline.get("total_ms")),
@@ -350,7 +419,9 @@ def waterfall(p: Photo) -> list[dict]:
         bar("4", "network", start, last.get("connect_ms"), (LABELS["4"] + suffix) if suffix else None)
         page_preview = total(sent, t.get("to_preview_ms"))
         bar("14", "page", page_preview, t.get("preview_drawn_ms"))
-        bar("16", "page", page_preview, _diff(t.get("to_answer_ms"), t.get("to_preview_ms")))
+        page_segmentation = total(sent, t.get("to_segmentation_ms"))
+        bar("14s", "page", page_segmentation, t.get("segmentation_drawn_ms"))
+        bar("16", "page", total(sent, _page_first_host_line(p)), _diff(t.get("to_answer_ms"), _page_first_host_line(p)))
         bar("16s", "page", total(sent, t.get("to_answer_ms")), t.get("answer_shown_ms"))
         bar("17", "page", 0, t.get("total_ms"))
         bar("17s", "page", t.get("pick_ms") or 0, _selected_to_answer(p))
@@ -371,9 +442,15 @@ def waterfall(p: Photo) -> list[dict]:
     bar("8", "front", canonical, s.get("canonicalize_ms"))
     crossing = total(canonical, s.get("canonicalize_ms", 0))
     bar("9", "network", crossing, s.get("crossing_ms"))
-    front_preview = total(crossing, s.get("crossing_ms"), s.get("to_preview_ms"))
-    bar("16f", "front", front_preview, _diff(s.get("to_end_ms"), s.get("to_preview_ms")))
+    since_ml37 = front_made_preview(s)
+    # The host's first line through the front: its preview before ML-37, its segmentation since (D24).
+    front_first = total(crossing, s.get("crossing_ms"), _first_line_at_front(s))
+    bar("16f", "front", front_first, _diff(s.get("to_end_ms"), _first_line_at_front(s)))
     bar("17f", "front", sent, s.get("total_ms"))
+    if since_ml37:   # ML-37 D15: the front's preview, built beside the crossing from the stream's opening
+        bar("8p", "front", crossing, s.get("preview_build_ms"))
+        bar("13p", "network-approx", total(crossing, s.get("to_preview_ms")),
+            _preview_to_browser(p) if p.timeline else None)
 
     # Yappy, from the crossing's start: its nginx, then the app once that nginx holds the whole upload.
     bar("17n", "yappy", crossing, p.inference_ms)
@@ -381,19 +458,26 @@ def waterfall(p: Photo) -> list[dict]:
     bar("9y", "network-approx", crossing, received)
     app_start = total(crossing, received)
     bar("17a", "yappy", app_start, a.get("latency_ms"))
-    app_preview = total(app_start, a.get("preview_ms"))
-    if app_preview is not None:   # decode, segmentation and the preview's build end as the preview goes out
-        build_at = total(app_preview, -(a.get("preview_build_ms") or 0))
+    # The app's first line: its preview before ML-37, its segmentation since.
+    first_key, build_key, build_step = (("segmentation_ms", "segmentation_build_ms", "12s") if "segmentation_ms" in a
+                                        else ("preview_ms", "preview_build_ms", "12"))
+    app_first = total(app_start, a.get(first_key))
+    if app_first is not None:   # decode, segmentation and the first line's build end as that line goes out
+        build_at = total(app_first, -(a.get(build_key) or 0))
         segment_at = total(build_at, -(a.get("crop_detect_ms") or 0))
         bar("10", "yappy", total(segment_at, -(a.get("decode_ms") or 0)), a.get("decode_ms"))
         bar("11", "yappy", segment_at, a.get("crop_detect_ms"))
-        bar("12", "yappy", build_at, a.get("preview_build_ms"))
-        bar("15", "yappy", app_preview, a.get("inference_ms"))
-    else:   # no preview went out: what was measured, in turn from the app's start
+        bar(build_step, "yappy", build_at, a.get(build_key))
+        bar("15", "yappy", app_first, a.get("inference_ms"))
+    else:   # no line went out: what was measured, in turn from the app's start
         bar("10", "yappy", app_start, a.get("decode_ms"))
         bar("11", "yappy", total(app_start, a.get("decode_ms") or 0), a.get("crop_detect_ms"))
-    bar("13a", "network-approx", app_preview, _diff(front_preview, app_preview))
-    bar("13b", "network-approx", front_preview, _preview_to_browser(p) if p.timeline else None)
+    if since_ml37:
+        bar("13s", "network-approx", app_first, _diff(front_first, app_first))
+        bar("13t", "network-approx", front_first, _segmentation_to_browser(p) if p.timeline else None)
+    else:
+        bar("13a", "network-approx", app_first, _diff(front_first, app_first))
+        bar("13b", "network-approx", front_first, _preview_to_browser(p) if p.timeline else None)
     return sorted(bars, key=lambda b: b["start"])
 
 
@@ -452,7 +536,7 @@ def build(logs: dict[str, list[str]], domain: str, since: str | None = None, unt
         if s.get("kind") != "timeline":
             continue
         try:   # any example name: the check service held it to the release's list when it wrote the line
-            t = timeline_schema.check(s.get("timeline"), None)
+            t = timeline_schema.check(s.get("timeline"), None, timeline_schema.READ_VERSIONS)
         except timeline_schema.Invalid:
             flagged["malformed"] += 1
             continue
@@ -534,13 +618,18 @@ def build(logs: dict[str, list[str]], domain: str, since: str | None = None, unt
             row[name] = _stat(values)
         report.steps.append(row)
 
-    # Failures by kind: the page's outcomes, and the check service's.
+    # Failures by kind: the page's outcomes, and the check service's, with each preview it could not make (ML-37 D23)
+    # beside its outcome.
+    def front_failures(s: dict) -> list[str]:
+        if s.get("kind") != "request" or s.get("endpoint") != "/analyze" or s.get("probe"):
+            return []
+        return ([] if s.get("outcome") == "relayed" else [s.get("outcome", "?")]) + \
+            (["preview_not_made"] if s.get("preview_error") else [])
+
     report.failures = {
         "page": dict(Counter(p.outcome for p in report.photos if p.timeline and p.outcome != "answered")
                      + Counter(e["outcome"] for e in flagged["unverifiable"])),
-        "front": dict(Counter(s.get("outcome", "?") for s in service if s.get("kind") == "request"
-                              and s.get("endpoint") == "/analyze" and s.get("outcome") != "relayed"
-                              and not s.get("probe"))),
+        "front": dict(Counter(k for s in service for k in front_failures(s))),
     }
     report.origins = dict(Counter(clean(a["origin"], 80) for a in access if a["path"].split("?")[0] == "/analyze"
                                   and a["origin"] not in ("-", own) and not a["probe"]).most_common())
@@ -553,9 +642,8 @@ def build(logs: dict[str, list[str]], domain: str, since: str | None = None, unt
     report.origins_by_day = {day: dict(c.most_common()) for day, c in sorted(origins_by_day.items())}
     front_by_day: dict[str, Counter] = defaultdict(Counter)
     for s in service:
-        if s.get("kind") == "request" and s.get("endpoint") == "/analyze" and s.get("outcome") != "relayed" \
-                and not s.get("probe"):
-            front_by_day[_day(s["ts"])][s.get("outcome", "?")] += 1
+        for k in front_failures(s):
+            front_by_day[_day(s["ts"])][k] += 1
     report.front_failures_by_day = {day: dict(c) for day, c in sorted(front_by_day.items())}
     return report
 
@@ -571,6 +659,7 @@ def photo_view(p: Photo) -> dict:
             "ext": clean(s.get("ext") or "", 16), "bytes": s.get("bytes"), "canonical": s.get("canonical"),
             "upload_event_ms": _last_attempt(t).get("upload_ms"),
             "status": s.get("status"), "front_outcome": clean(s.get("outcome", ""), 40),
+            "preview_error": clean(s.get("preview_error") or "", 300),
             "timeline": p.timeline is not None, "attempts": len(t.get("attempts", [])) or None, "verdict": clean(p.app.get("verdict") or "", 40),
             "steps": [{"step": key, "label": label, "ms": v if isinstance(v := measure(p), int) else None}
                       for key, label, measure in STEPS],
@@ -757,16 +846,16 @@ const shortLabel = label => label.replace(/ [(](page|app|check service)[)]$/, ''
 const LANE = {};
 // Coloured by what the time is spent on, not by who measured it: the wire is grey, solid where one side measured it,
 // striped where it is one host's time less another's (~).
-for (const k of ['1', '3', '6', '14', '16', '16s', '17s', '17']) LANE[k] = 'page';
-for (const k of ['7', '8', '16f', '17f']) LANE[k] = 'front';
-for (const k of ['10', '11', '12', '15', '17n', '17a']) LANE[k] = 'yappy';
+for (const k of ['1', '3', '6', '14', '14s', '16', '16s', '17s', '17']) LANE[k] = 'page';
+for (const k of ['7', '8', '8p', '16f', '17f']) LANE[k] = 'front';
+for (const k of ['10', '11', '12', '12s', '15', '17n', '17a']) LANE[k] = 'yappy';
 for (const k of ['2', '4', '5', '9']) LANE[k] = 'network';
-for (const k of ['9y', '13a', '13b']) LANE[k] = 'network-approx';
+for (const k of ['9y', '13a', '13b', '13p', '13s', '13t']) LANE[k] = 'network-approx';
 const GROUPS = [['Totals', ['17s', '17', '17f', '17n', '17a']],
                 ['On the phone, before the upload', ['1', '2', '3', '4', '5', '6']],
-                ['At the front', ['7', '8', '9']],
-                ['To yappy, and in the app', ['9y', '10', '11', '12', '15']],
-                ['Back to the phone', ['13a', '13b', '14', '16f', '16', '16s']]];
+                ['At the front', ['7', '8', '8p', '9']],
+                ['To yappy, and in the app', ['9y', '10', '11', '12', '12s', '15']],
+                ['Back to the phone', ['13p', '14', '13a', '13b', '13s', '13t', '14s', '16f', '16', '16s']]];
 
 let rep, sizeBuckets, open = null, days = [];
 // Clock times in the browser's zone or in UTC; days, the period and the per-day counts stay UTC (the logs' days).

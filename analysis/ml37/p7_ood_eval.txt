@@ -1,0 +1,30 @@
+config: experiments/exp293__dino3b16_frozen_clsmean_segcrop_country_aug8_s123/config.json
+
+fitting on 230 bean photos (test split; 43 dropped: in the segmenter test split's groups) + 468 training and validation negatives (0 dropped: ambiguous patch labels)
+  27920 patches (9200 bean / 18720 not-bean), 0 photos declined as unmeasurable
+  fitted negatives above 0.5 (in-sample): 468/468
+Wrote tmp/ml37/p7/probe_exp293.json  (117 KB)
+config: experiments/exp293__dino3b16_frozen_clsmean_segcrop_country_aug8_s123/config.json
+scoring 472 test photos of /workspace/labels/ml5/seg_dataset.yaml with no TTA, 40 patches; the classifier's train split holds 1262 photos
+
+test split, probe threshold 0.5 (fixed, ADR 0016)
+negatives caught at 0.5: 164/164 (100%, 95% CI 98%-100%)
+    2026-09-11__user_samerig: 15/15 (100%, 95% CI 80%-100%)
+    2026-09__internet_proxy: 25/25 (100%, 95% CI 87%-100%)
+    user_realworld: 124/124 (100%, 95% CI 97%-100%)
+segmenter on the test negatives (beside the probe, not a guard; D9, D22):
+  all: empty mask: 153/164, empty or tiny (area < 0.028521): 156/164
+    2026-09-11__user_samerig: empty mask: 15/15, empty or tiny (area < 0.028521): 15/15
+    2026-09__internet_proxy: empty mask: 20/25, empty or tiny (area < 0.028521): 21/25
+    user_realworld: empty mask: 118/124, empty or tiny (area < 0.028521): 120/124
+positives refused at 0.5:
+  segmenter_positive, trained on: 0/12 (0%, 95% CI 0%-24%)
+  segmenter_positive, not trained on: 1/65 (2%, 95% CI 0%-8%)
+  pool, trained on: 0/139 (0%, 95% CI 0%-3%)
+  pool, not trained on: 1/89 (1%, 95% CI 0%-6%)
+  internet_positive, trained on: none
+  internet_positive, not trained on: 0/3 (0%, 95% CI 0%-56%)
+  all, trained on: 0/151 (0%, 95% CI 0%-2%)
+  all, not trained on: 2/157 (1%, 95% CI 0%-5%)
+
+Wrote analysis/ml37/p7_ood_eval.json

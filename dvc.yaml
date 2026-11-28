@@ -51,7 +51,7 @@ stages:
         - coffeecv/canonicalize_folder.py
         - coffeecv/jxl_encode.py
         - coffeecv/jxl_header.py
-        - coffeecv/data/rec2020_bt709.icc
+        - coffeecv/data/rec2020_bt709.icc   # since ML-37 colour_declaration's alone: a JPEG XL in the old form's source
         - coffeecv/data/accepted_formats.csv
       outs:
         # Ticket ML-26: kept between runs; the stage canonicalizes only new and changed photos (coffeecv.incremental).
@@ -105,6 +105,8 @@ stages:
         - coffeecv/linear_dng.py
         - coffeecv/gain_map.py   # ML-29 P11: Settings.gain_maps on (adopted 2026-11-18)
         - coffeecv/crop_io.py
+        - coffeecv/readback.py   # ML-37 P3: canonical.load_canonical reads every canonical photo back through it
+        - coffeecv/model_io.py   # ML-37 P2: segment_beans' sam_input, a float resize since
         - coffeecv/segcrop_session.py
         - coffeecv/segment_beans.py
         - coffeecv/sam_loader.py
@@ -603,6 +605,7 @@ stages:
       dino3b16_segxl0v7r_country_aug8_s42: {seg: xl0_v7r_s123}
       dino3b16_segxl0v7r_country_aug8_ml27_s42: {seg: xl0_v7r_s123}
       dino3b16_segxl0v7r_country_aug8_ml29gm_s123: {seg: xl0_v7r_s123}
+      dino3b16_segxl0v7r_country_aug8_ml37lin_s123: {seg: xl0_v7r_s123}
     do:
       cmd: >-
         convert/.venv/bin/python -m coffeecv.export_litert convert --checkpoint models/${key}.pt --profile gpu_split

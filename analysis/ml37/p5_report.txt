@@ -1,0 +1,138 @@
+ML-37 P5: the store re-canonicalized (D1) against the store before it. analysis/ml37/p5_compare.py
+2822 canonical photos, every one in data/canonical; the store before it kept by hard link from the DVC cache (tmp/ml37/p5/before_store).
+
+Headers of the new store (primaries, transfer, sample, coding, intensity target): BT2100 Linear 16-bit integer lossy 203 (2822)
+
+R1 (ML-37 D20). Each form's model picture against the uncoded reference: the original through the store's colour path and tone map as built, not encoded, read back by the read-back's maths before rounding. ML-29 D27's measure, 32 x 32 block means, |difference| in 8-bit levels: per photo 'mean' over blocks and channels, 'max' the largest block. A photo breaks D27 with a mean over 1.0 or a block over 6. 'today' is the store before (BT.709 curve, intensity target 255, read through rec2020_bt709.icc as before P3), 'new' is D1's (linear, 203, read by coffeecv.readback). By camera, gain-map photos apart (the gain map applied and tone-mapped, ML-29 D33).
+The reference's own 16-bit rounding (to_rec2020's) moves a block mean by at most 0.0507 level on any photo.
+
+camera                               gain     n today mean  (max) today blk  brk  new mean  (max)  new blk  brk new-today    blk
+Sony G8441                             no   456      0.054  0.115      8.03    3     0.059  0.121     8.07    4     0.062   2.67
+OnePlus GM1910                         no   216      0.058  0.232      6.21    2     0.063  0.248     6.18    3     0.063   4.71
+Google Pixel 9 Pro                     no   168      0.050  0.161      5.38    0     0.055  0.188     5.61    0     0.060   2.67
+unknown                                no   153      0.111  1.579      8.29    2     0.117  1.665     7.41    2     0.069   3.16
+OnePlus KB2005                         no    44      0.046  0.078      4.68    0     0.050  0.084     4.15    0     0.062   3.79
+Canon Canon EOS 90D                    no    19      0.108  0.148      1.57    0     0.115  0.159     1.64    0     0.070   1.22
+OnePlus GM1911                         no    13      0.066  0.136      6.19    1     0.071  0.144     6.86    1     0.066   3.65
+samsung Galaxy Z Fold8 Ultra           no    10      0.045  0.060      1.46    0     0.048  0.066     1.61    0     0.060   1.49
+Xiaomi Redmi Note 14 Pro               no     9      0.050  0.075      1.92    0     0.055  0.080     2.00    0     0.055   1.17
+Apple iPhone 13                        no     6      0.044  0.052      1.12    0     0.049  0.058     1.25    0     0.058   1.29
+Apple iPhone 15 Pro Max                no     4      0.040  0.042      1.07    0     0.043  0.046     0.67    0     0.054   0.76
+samsung SM-G973F                       no     3      0.045  0.047      2.61    0     0.051  0.053     3.54    0     0.061   1.27
+Apple iPhone 16 Pro                    no     1      0.039  0.039      0.42    0     0.042  0.042     0.42    0     0.054   0.54
+NIKON CORPORATION NIKON D5100          no     1      0.138  0.138      1.40    0     0.149  0.149     1.45    0     0.084   0.70
+SONY DSC-S650                          no     1      0.069  0.069      1.53    0     0.074  0.074     1.38    0     0.065   0.50
+Google Pixel 9 Pro                    yes   972      0.047  0.125      4.15    0     0.051  0.135     4.12    0     0.061   2.47
+GM1911 (OnePlus7Pro) OnePlus          yes   529      0.043  0.139      4.44    0     0.046  0.149     4.60    0     0.056   3.35
+Apple iPhone 15                       yes    98      0.042  0.052      3.64    0     0.045  0.056     3.23    0     0.054   1.45
+samsung Galaxy Z Fold8 Ultra          yes    47      0.048  0.084      2.43    0     0.052  0.091     2.57    0     0.062   2.28
+Apple iPhone 15 Pro Max               yes    37      0.049  0.076      2.52    0     0.053  0.082     2.50    0     0.063   2.17
+samsung Galaxy Z Fold6                yes    13      0.046  0.051      1.65    0     0.050  0.055     1.80    0     0.062   1.82
+Google Pixel 7                        yes     9      0.043  0.047      2.91    0     0.047  0.050     3.90    0     0.056   1.99
+Apple iPhone 16 Pro Max               yes     8      0.055  0.082      1.92    0     0.060  0.087     1.89    0     0.066   1.42
+Apple iPhone 15 Pro                   yes     4      0.043  0.046      1.38    0     0.047  0.050     1.30    0     0.058   0.86
+Apple iPhone 16 Pro                   yes     1      0.044  0.044      0.60    0     0.049  0.049     0.70    0     0.060   0.64
+every photo                                2822      0.052  1.579      8.29    8     0.056  1.665     8.07   10     0.061   4.71
+
+Columns: 'mean' the mean of the photos' means, '(max)' the largest photo mean, 'blk' the largest block, 'brk' photos breaking D27; 'new-today' the new form against today's, no bar (D20).
+
+D20's stop (the new form breaks D27 on a camera group where today's does not): none
+
+Photos breaking D27 in either form (today mean/max, new mean/max):
+  2026-09-24__sony/class_012__Rwanda_Gisuma/PIC_20260924_145832.JPG.jxl  (Sony G8441): 0.108/8.03, 0.113/8.07
+  ood_negatives/2026-09__internet_proxy/non_food_objects/non_food_objects_029.jpg.jxl  (unknown): 0.188/8.29, 0.198/7.41
+  ood_negatives/2026-09__internet_proxy/wrong_bean_type/wrong_bean_type_010.jpg.jxl  (unknown): 1.579/6.85, 1.665/6.59
+  ood_negatives/user_realworld/20240518_113351_GM1910_ood_negative.jpg.jxl  (OnePlus GM1910): 0.171/6.21, 0.178/6.11
+  ood_negatives/user_realworld/20240518_113354_GM1910_ood_negative.jpg.jxl  (OnePlus GM1910): 0.142/5.28, 0.149/6.03
+  ood_negatives/user_realworld/20240607_101843_GM1910_ood_negative.jpg.jxl  (OnePlus GM1910): 0.232/6.07, 0.248/6.18
+  ood_negatives/user_realworld/20250809_182653_GM1911_ood_negative.jpg.jxl  (OnePlus GM1911): 0.126/6.19, 0.132/6.86
+  segmenter_positives/20261103_144116_G8441_Colombia.JPG.jxl  (Sony G8441): 0.058/5.80, 0.064/6.30
+  segmenter_positives/PIC_20260924_145832.JPG.jxl  (Sony G8441): 0.108/8.03, 0.113/8.07
+  segmenter_positives/PIC_20261026_124103.JPG.jxl  (Sony G8441): 0.068/7.12, 0.073/7.42
+
+File sizes, the store's setting (quality 95, effort 7), new against today's:
+camera                               gain     n  today MB    new MB   change
+Sony G8441                             no   456    1267.2    1208.3    -4.7%
+OnePlus GM1910                         no   216     584.7     565.7    -3.2%
+Google Pixel 9 Pro                     no   168     560.5     529.9    -5.5%
+unknown                                no   153     234.9     230.2    -2.0%
+OnePlus KB2005                         no    44      99.9      96.1    -3.8%
+Canon Canon EOS 90D                    no    19     297.2     289.2    -2.7%
+OnePlus GM1911                         no    13      39.8      38.0    -4.7%
+samsung Galaxy Z Fold8 Ultra           no    10      17.9      16.9    -5.7%
+Xiaomi Redmi Note 14 Pro               no     9      29.2      28.5    -2.4%
+Apple iPhone 13                        no     6      15.3      14.7    -3.8%
+Apple iPhone 15 Pro Max                no     4       7.1       6.6    -6.3%
+samsung SM-G973F                       no     3       8.0       7.7    -4.2%
+Apple iPhone 16 Pro                    no     1       1.1       1.0    -5.5%
+NIKON CORPORATION NIKON D5100          no     1       0.1       0.1    -5.6%
+SONY DSC-S650                          no     1       0.1       0.1    -2.6%
+Google Pixel 9 Pro                    yes   972    2130.8    2053.7    -3.6%
+GM1911 (OnePlus7Pro) OnePlus          yes   529     936.6     902.5    -3.6%
+Apple iPhone 15                       yes    98     303.3     293.0    -3.4%
+samsung Galaxy Z Fold8 Ultra          yes    47     146.0     138.7    -5.0%
+Apple iPhone 15 Pro Max               yes    37      82.6      78.8    -4.6%
+samsung Galaxy Z Fold6                yes    13      57.2      55.5    -2.9%
+Google Pixel 7                        yes     9      18.8      18.2    -3.2%
+Apple iPhone 16 Pro Max               yes     8      15.3      14.7    -3.7%
+Apple iPhone 15 Pro                   yes     4       8.0       7.7    -4.4%
+Apple iPhone 16 Pro                   yes     1       2.2       2.1    -4.4%
+every photo                                2822    6863.7    6597.8    -3.9%
+The front's setting (quality 90, effort 3) was measured in P3 (analysis/ml37/p3_front_cost.jsonl): files 6% smaller.
+
+D13's mask check: the live segmenter (xl0_v7r_s123, box prompt, multi3, torch at 2 threads) on the new input (the new store read back, float sam_input as built) against today's (today's store read as before P3, 8-bit sam_input before P2). IoU per photo; the bar is a median of at least 0.99 per camera.
+camera                                   n   median    least  <0.99  <0.9
+Google Pixel 9 Pro                    1140  0.99998  0.40957     10     3
+GM1911 (OnePlus7Pro) OnePlus           529  0.99993  0.88659      6     1
+Sony G8441                             456  1.00000  0.78836      4     1
+OnePlus GM1910                         216  1.00000  0.98914      1     0
+unknown                                153  1.00000  0.57567     14     9
+Apple iPhone 15                         98  0.99981  0.99607      0     0
+samsung Galaxy Z Fold8 Ultra            57  0.99989  0.99873      0     0
+OnePlus KB2005                          44  0.99987  0.99050      0     0
+Apple iPhone 15 Pro Max                 41  0.99991  0.44738      1     1
+Canon Canon EOS 90D                     19  0.99975  0.80067      5     1
+OnePlus GM1911                          13  1.00000  0.99259      0     0
+samsung Galaxy Z Fold6                  13  0.99985  0.99940      0     0
+Google Pixel 7                           9  0.99982  0.99953      0     0
+Xiaomi Redmi Note 14 Pro                 9  1.00000  1.00000      0     0
+Apple iPhone 16 Pro Max                  8  0.99987  0.99921      0     0
+Apple iPhone 13                          6  0.99967  0.99893      0     0
+Apple iPhone 15 Pro                      4  0.99977  0.99950      0     0
+samsung SM-G973F                         3  0.99980  0.99978      0     0
+Apple iPhone 16 Pro                      2  0.99998  0.99997      0     0
+NIKON CORPORATION NIKON D5100            1  1.00000  1.00000      0     0
+SONY DSC-S650                            1  1.00000  1.00000      0     0
+every photo                           2822  0.99998  0.40957     41    16
+D13's stop (a camera's median under 0.99): none
+The ten lowest IoUs:
+  0.4096  ood_negatives/user_realworld/20261017_144918_Pixel_9_Pro_ood_negative.jpg.jxl (Google Pixel 9 Pro)
+  0.4474  random_date_raccoon/class_001__Ethiopia_Sidamo/20261111_173722_iPhone_15_Pro_Max_Ethiopia_Sidamo.DNG.jxl (Apple iPhone 15 Pro Max)
+  0.5757  random_date_raccoon/class_014__Colombia_Excelso/20261109_170942-jxl_Canon_EOS_90D_Colombia.jxl.jxl (unknown)
+  0.6476  ood_positives_internet/internet_beans/internet_beans_001.jpg.jxl (unknown)
+  0.6660  ood_negatives/2026-09__internet_proxy/other_nuts_seeds/other_nuts_seeds_016.jpg.jxl (unknown)
+  0.7065  ood_positives_internet/internet_beans/internet_beans_008.jpg.jxl (unknown)
+  0.7884  ood_negatives/2026-09-11__user_samerig/confusable_grain/PIC_20260911_133948.JPG.jxl (Sony G8441)
+  0.7884  ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_015.jpg.jxl (unknown)
+  0.8007  random_date_raccoon/class_013__Brazil_SulDeMinas/20261113_172727_Canon_EOS_90D_Brazil.CR3.jxl (Canon Canon EOS 90D)
+  0.8153  ood_negatives/2026-09__internet_proxy/confusable_grain/confusable_grain_029.jpg.jxl (unknown)
+
+P2's check repeated across the re-run (D11's 13 photos, P2's patch draws): the models' inputs from the new store with the float resizes against today's (today's store, 8-bit resizes), |float x 255 - today's uint8| in levels.
+folder                                       size  seg max seg mean dino max dino mean
+2026-10-21__new_green                   3072x4080    6.696   0.2672   10.047    0.3597
+2026-09-11__oneplus                     4000x3000    4.815   0.4034    7.422    0.4900
+2026-09-11__pixel                       4080x3072   10.928   0.4430   25.172    0.5239
+massimo                                 3072x4080   10.671   0.4148   12.750    0.4758
+2026-08-30__oneplus                     4000x3000    8.998   0.4224   11.875    0.5369
+2026-08-07__box_pictures_all_classes    3072x4080   10.238   0.3625   18.250    0.4784
+2026-08-09__pixel_cam                   4080x3072   11.028   0.4255   20.234    0.5194
+ood_positives_internet                    959x635   10.537   0.5660    8.719    0.5380
+2026-09-24__pixel                       4080x3072    7.845   0.4218   11.344    0.5117
+2026-08-09__sony_cam                    5056x3792    8.841   0.4391   23.969    0.6099
+2026-08-25__oneplus                     3000x4000    3.785   0.3531    6.719    0.4650
+2026-09-24__sony                        3792x5056    5.319   0.3474    8.469    0.4632
+2026-08-30__sony                        5056x3792    6.749   0.3637    8.359    0.4392
+
+segmenter input: max 11.028 levels, mean 0.4023
+DINOv3 input:    max 25.172 levels, mean 0.4932
+within 2.02 levels (D11's research bound, P2's check): False

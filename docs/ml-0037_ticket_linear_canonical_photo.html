@@ -1,0 +1,776 @@
+<title>A linear Rec.2020 canonical photo in 16-bit integers, read back once to the 8-bit sRGB both models and the preview use</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket ML-37 · coffee-vision · what both models read</div>
+  <h1>The canonical photo stores linear Rec.2020 light in 16-bit integers, and one read-back to 8-bit sRGB feeds both models and the preview</h1>
+  <p class="lede">The owner's review of the wide-gamut and HDR work after
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a>,
+    <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a> and
+    <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a>. The canonical photo drops the BT.709 storage curve,
+    which viewers draw wrongly, for linear light: lossy JPEG XL, Rec.2020 primaries, 16-bit integers, intensity target
+    203. Light above white is still tone-mapped when the photo is canonicalized. One read-back rounds it to 8-bit sRGB
+    once; both models read that, and the preview is made from it. The ticket was written on 2026-11-23 for a half-float
+    photo and a float path with no 8-bit step. Research then found that neither model gains anything above 8 bits
+    (&sect;2), and on 2026-11-25 the owner revised D1&ndash;D3 to this form. Supersedes ML-34 and continues ML-29. Planned
+    (<a href="ml-0037_plan_linear_canonical_photo.html">P1&ndash;P8</a>); not implemented.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; D28 decided 2026-11-26 after the code review, D29 2026-11-27 before P7&rsquo;s runs; P1&ndash;P4 implemented on <code>ml37-linear-canonical</code> (<code>dfda7c4</code>), P5&ndash;P6 done, P7&rsquo;s refit met D13&rsquo;s bar and was adopted by the owner 2026-11-28; P8&rsquo;s model shipped, waiting for the go-ahead to release</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
+    <div class="field"><span class="k">Component</span><span class="v">coffeecv/canonical.py (the encode, the header check, the read-back), coffeecv/jxl_encode.py (linear transfer, intensity target), coffeecv/jxl_header.py (the intensity target), coffeecv/data/rec2020_bt709.icc (retired), coffeecv/model_io.py (D11), coffeecv/preview_formats.py (removed), webapp/app.py (the preview, the third part), webapp/static/index.html (the tabs; the picture shown before the mask, D15), the front's check service (the preview's picture, D15), the canonical store and its DVC stages, the crop stages, scripts/make_example_photos.py, GLOSSARY.md, the release</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-23</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">If adopted: one release of store, front, inference host and models, as ML-29 D15 shipped gain maps. The front sends the linear canonical photo; the host accepts only it. The models' input changes only by the lossy coding (and by D11 if chosen); the classifier's head and the OOD probe are refitted on it. OPS-25's format tabs and third part go; the preview stays the models' input picture. The front makes that picture and sends it to the browser before the photo crosses the link, and the host's <code>segmentation</code> line carries the mask and box (D15, D24). The public API's lines change, and so do the logs and the timeline (D25&ndash;D27).</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span> <span class="tag">ML-33's fine-tune is sequenced against this one (D14)</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-23.</strong> "Create new ticket that will superseed ML-34 and will continue ML-29
+      [&hellip;]. In this new ticket I want to revisit all our work with wide gamut and HDR processing. As far as I
+      understand today we have 3 conversions: 1. original &rarr; canonical; 2. canonical &rarr; models (segmenter,
+      classifier) input; 3. canonical &rarr; web-preview; And both tickets ML-29 and ML34 shows that for currently used
+      models (dinov3_vitb16_pretrain_lvd1689m, efficientvit_sam_xl1) sRGB compatitable input is the best. So I want
+      to review and rewrite our data pipeline once again. For canonical photos we will keep JXL format, it should be
+      in Rec2020 color space and use Linear HDR, use lossy compression with float 16-bit. In other words linear
+      Rec.2020 primaries, with the convention that 1.0 = reference (diffuse) white stored as 16-bit half-float. Models
+      (both dinov3 AND efficientvit_sam) inputs should be constructed like this: linear Rec.2020 (fp16) &rarr; 3&times;3
+      matrix &rarr; tone-map or clip to [0,1] &rarr; sRGB encode. There should be NO 8-bit step, we should convert from
+      16 bits to the float32 model input (or float-16 if model accept it). For preview we will use the same image as
+      for the model input, JPEG P3 experiment shwoed that only small number of devices can produce correct image inside
+      browser, so it is not usefull at this moment. Also we will regain the fact that user sees the same image as the
+      model for the input. Also check current pipeline for canonicalization, today jxlinfo utility reports that we are
+      using 709 transfer function." The owner quoted jxlinfo's report on a canonical photo: <em>lossy, 16-bit RGB;
+      White point: D65; Primaries: Rec.2100; Transfer function: 709; Rendering intent: Relative</em>.</p>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner decisions, 2026-11-25</strong>, after the bit-depth research (&sect;2). "If our research shows that
+      both models does not improve from more than 8-bit picture, let's keep 8-bits input for the model." On keeping
+      today's curve: "If we keep BT.709 curve, than we break canonical photos viewing. I think that at least this part
+      'JPEG XL with linear Rec.2020' should be implemented. Not so sure about half-float precision." After the
+      integer-against-half-float research: "yes, integer linear 203".</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Today the canonical photo stores standard-range Rec.2020 in 16-bit integers with the BT.709 curve. Light above
+    white, from a gain map or an HDR main image, is tone-mapped away when the photo is canonicalized. Every reader
+    rounds the photo to 8-bit sRGB first, and the resizes after that round again. After this ticket:</p>
+  <ul>
+    <li><strong>Conversion 1, original &rarr; canonical.</strong> Everything up to the encode stays: the colour
+      declaration honoured, the gain map applied, LittleCMS into Rec.2020, BT.2408's EETF when the picture's peak is
+      above white, clipped to [0, 1]. The photo is then stored as <strong>linear</strong> Rec.2020 in 16-bit integers,
+      intensity target 203, in a lossy JPEG XL at today's settings. The store and the front do the same (D1).</li>
+    <li><strong>Conversion 2, canonical &rarr; models.</strong> One read-back serves the segmenter and the classifier,
+      in training and in serving: the uint16 samples &rarr; 3&times;3 matrix to linear sRGB &rarr; clip to [0, 1]
+      &rarr; sRGB curve &rarr; <strong>rounded to 8 bits once</strong> (D2, D3). Crops stay lossless 8-bit JPEG XL and
+      patches uint8 (D10). Whether the resizes after the read-back round again is D11.</li>
+    <li><strong>Conversion 3, canonical &rarr; preview.</strong> The preview is a JPEG of that same 8-bit picture: the
+      visitor sees what the models read. OPS-25's wide-gamut trial ends without a format adopted (D4). The front makes
+      the picture from its own canonical photo with the same read-back and sends it to the browser at once, about 5 s
+      before the host could; the host's <code>segmentation</code> line carries the mask and the box (D15, D24).</li>
+  </ul>
+  <p>Every canonical photo in the store changes, so the store is re-canonicalized, the pool re-cropped and the
+    classifier refitted, and the result is compared under a bar fixed before the runs (D13). Research expects the
+    models' input to move only by the lossy coding (&sect;2, R1).</p>
+
+  <h2>2. Background</h2>
+  <p>Read from the code on 617c944 and from the tickets named; the research items are dated.</p>
+  <ul>
+    <li><strong>The jxlinfo report, checked.</strong> Both lines are the design, not a fault. "Transfer function:
+      709" is <a href="ml-0019_ticket_canonicalization.html">ML-19</a> D7: "Rec.2020 primaries, D65, Rec.2020's own
+      transfer curve (BT.709's)". Both settings write it (<code>jxl_encode.encode_rec2020</code>,
+      <code>JXL_TRANSFER_FUNCTION_709</code>). <code>canonical.header_problems</code> refuses any other, so the
+      inference host accepts nothing else. "Primaries: Rec.2100" is libjxl's name for the enumeration
+      (<code>BT2100</code>), whose primaries are Rec.2020's. The curve is a storage curve: the read-back undoes it
+      exactly through the committed profile <code>coffeecv/data/rec2020_bt709.icc</code> (ML-19 D46), so the models'
+      input is right. But a viewer shown the file reads BT.709 with a display gamma: Chromium drew such files about 11
+      levels darker (OPS-25 D8). A linear transfer has one reading. This ticket replaces the curve with linear light
+      (D1).</li>
+    <li><strong>Conversion 1 today</strong> (<code>canonical.decode</code>, <code>to_rec2020</code>,
+      <code>encode</code>). The photo is decoded and its colour declaration honoured
+      (<a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>). A gain map is applied
+      (<a href="adr/0041-a-photos-gain-map-is-applied-at-canonicalization.md">ADR 0041</a>). LittleCMS converts the
+      colour, float in the store and integer on the front for most uploads
+      (<a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>). When the picture's peak is above
+      white, the light is rolled off in linear Rec.2020 by BT.2408's EETF at that peak (ML-29 D33), then clipped to
+      [0, 1] and rounded to uint16 with the BT.709 curve. The encode is lossy JPEG XL, 16-bit integer: quality 95,
+      effort 7 in the store, quality 90, effort 3 on the front.</li>
+    <li><strong>Conversion 2 today.</strong> <code>load_canonical</code> = <code>decode_canonical</code> (uint16)
+      then <code>rec2020_to_srgb</code> (LittleCMS, no optimization, to <strong>uint8</strong> sRGB). Every model
+      reads that, in training (<code>segcrop_session</code>, <code>canonical_store</code>) and in serving
+      (<code>webapp/app.py</code>). After it, the path stays 8-bit:
+      <ul>
+        <li>The segmenter's resize, <code>model_io.sam_resize</code>, uses PIL bilinear on uint8.</li>
+        <li>The stored crops are lossless 8-bit sRGB JPEG XL (ML-19 D32, <code>crop_io</code>).</li>
+        <li>The classifier's patches are kept as uint8 at <code>patch_store_size</code> 448 (<code>dataset.py</code>),
+          augmented by albumentations on uint8, and resized by PIL (<code>eval_resize</code>) before
+          <code>/ 255</code>.</li>
+        <li>Serving cuts its patches the same way (<code>infer.py</code>).</li>
+      </ul>
+      Both models take float32 at their input; the serving graphs read float32 (<code>coffeecv/litert.py</code>),
+      DINOv3 computing in fp16 inside on yappy's GPU
+      (<a href="adr/0019-serving-runs-litert-accelerator-per-host.md">ADR 0019</a>).</li>
+    <li><strong>Conversion 3 today.</strong> <code>_preview_part</code> makes an untagged sRGB JPEG at quality 85,
+      at most 1024 px, from the same uint8 array the models read. OPS-25's trial is still live
+      (20261119T1649Z-bf6e9df). It adds three wide-gamut previews (P3 JPEG, 10-bit AVIF, JPEG XL) as a third part of
+      the answer, with format tabs on the page, and OPS-25 closed with no format chosen. Its trial was to be ended "in
+      another ticket": this one.</li>
+    <li><strong>Why sRGB stays the models' input.</strong>
+      <ul>
+        <li>ML-19 D2 chose sRGB "for now".</li>
+        <li>ML-29 P10: gain-map crops against today's, paired over three seeds, test &minus;0.0009 (&minus;0.0032 to
+          +0.0031). D16's bar was not met, and the owner adopted gain maps on other grounds.</li>
+        <li>ML-34's experiment B, on unaugmented heads: PU21 in place of sRGB scored &minus;0.004 to &minus;0.008 on
+          test. The HDR light alone gave +0.002, inside the seed range.</li>
+        <li>The literature: linear light into an sRGB-pretrained network scored 5 to 19 AP lower
+          (<a href="../analysis/ml34/research_hdr_pu21.md">research_hdr_pu21.md</a>).</li>
+      </ul></li>
+    <li><strong>Why the preview is not wide gamut.</strong> In OPS-25, Chrome 157, Firefox 160 and DuckDuckGo on the
+      Pixel 9 Pro all draw pages in sRGB, so every tab looked the same (Chromium issue 492734022, Mozilla bug 1879568,
+      both open). Only Safari on the iPhone showed the wide-gamut tabs.</li>
+    <li><strong>ML-34, superseded.</strong> Its aim, a canonical JPEG XL that a browser shows with HDR brightness, is
+      dropped (D4, D5). Its open decisions are answered here:
+      <ul>
+        <li>Its D1, how the light above white is kept: it is not. It is tone-mapped at canonicalization, as today
+          (D1, 2026-11-25). The 2026-11-23 answer, linear half-float keeping it, was revised.</li>
+        <li>Its D3, the store or the front only: both (D1).</li>
+        <li>Its D4, whether the models read the light above white: no, an sRGB read-back (D2), as its research
+          recommended.</li>
+        <li>Its D2, whether the models' input stays exactly ML-29's: no. Every photo is re-canonicalized and the
+          classifier refitted (D13); the input moves by the lossy coding only.</li>
+      </ul>
+      Its measurements carry over. Experiment A: in the median gain-map photo, 1.5% of bean pixels lie above the
+      EETF's knee and 0.3% above white, the iPhones most.</li>
+    <li><strong>The pinned encoder can write a linear canonical photo.</strong> On 2026-11-23, on a synthetic ramp:
+      imagecodecs 2026.10.10's <code>jpegxl_encode</code>, given float16 samples and <code>primaries=BT2100</code>,
+      writes a lossy 16-bit float codestream with the linear transfer. On 2026-11-25
+      (<a href="../analysis/ml37/research_canonical_int_vs_half.md">research_canonical_int_vs_half.md</a> &sect;2):
+      imagecodecs and the repo's strip encoder <code>jxl_encode.encode_rec2020</code> (ML-19 D52), set to the linear
+      transfer, write byte-identical uint16 files; the header reads 16-bit integer, BT2100, linear, D65. Only the strip
+      encoder can set the intensity target (one field); imagecodecs's files declare libjxl's default, 255.</li>
+    <li><strong>How many bits the classifier's input needs</strong>, researched 2026-11-23 at the owner's request
+      (<a href="../analysis/ml37/research_bits_classifier.md">research_bits_classifier.md</a>): 8-, 10-, 12-bit and
+      float16 sRGB against float32, each rounded once at the crop with the resizes after it in float. Going above 8
+      bits gives no measurable gain.
+      <ul>
+        <li>DINOv3's feature moves by a median 1&nbsp;&minus;&nbsp;cosine of 3.5e-7 at 8 bits, 2.2e-8 at 10, 1.5e-9 at
+          12 and 3.8e-9 at float16, on 1,600 test patches of 266 photos. For scale: the fp16 cast serving applies,
+          3.8e-8; the store's own lossy coding, 1.1e-5; a 1-pixel shift of the patch, 6.6e-4. From 10 bits up the
+          input is as close to float as serving's own cast.</li>
+        <li>The live head (exp290) gives the same answer in every arm on all 1,600 patches and 266 photos: test
+          macro-F1 0.9554 and the same F1 in all 10 classes.</li>
+        <li>Head refitted on seeds 42/123/7, 8-bit against float16: macro-F1 &minus;0.0007, +0.0000, &minus;0.0006,
+          mean &minus;0.0004, photo-bootstrap 95% CI [&minus;0.0015, +0.0006], inside D13's proposed bar; the lowest
+          class, Colombia, &minus;0.0024. Unaugmented heads (the 8 views would have taken about 14 hours); 10 and 12
+          bits not refitted.</li>
+        <li>Where the rounding sits matters more than how many bits: today's path rounds three times (crop, 448 px
+          patch, 224 px input), moves the feature 130&times; more than one 8-bit rounding at the crop, and is the
+          only bit-depth arm that changes answers (4 patches, 2 photos; macro-F1 0.9559). The 8-bit effect is
+          largest on boxes under 300 px, which are upsampled, but stays below a 1-pixel shift.</li>
+        <li>At the pixel, 8-bit rounding (0.29 levels RMS) is below the store's coding error (1.03) but not below the
+          noise in the flattest bean regions (0.15); the downscale to the model's input averages it away (0.033
+          against the coding's 0.20).</li>
+      </ul>
+      All arms use today's canonical photo. A fine-tune on float input was not measured: 2,621 of the dataset's
+      2,920 originals are JPEGs, the coding error exceeds 8-bit rounding, and the augmentation is far coarser than an
+      8-bit step, so no gain is expected.</li>
+    <li><strong>How many bits the segmenter's input needs</strong>, researched 2026-11-23/24 the same way
+      (<a href="../analysis/ml37/research_bits_segmenter.md">research_bits_segmenter.md</a>, numbers in
+      <a href="../analysis/ml37/bits_seg_report.txt">bits_seg_report.txt</a>): the whole photo rounded once where
+      <code>load_canonical</code> rounds today, the resize to the encoder's 1,024 px in float. The live segmenter is
+      the XL0 encoder with the <code>xl0_v7r_s123</code> decoder: the owner's request names XL1, which is downloaded
+      but not used (<code>params.yaml</code>, the decoder's card). Going above 8 bits gives no measurable gain.
+      <ul>
+        <li>The encoder's embedding moves by a median 1&nbsp;&minus;&nbsp;cosine of 7.9e-7 at 8 bits, 3.5e-8 at 10,
+          2.0e-9 at 12 and 3.7e-9 at float16, on 625 photos. For scale: an fp16 cast of the input, 3.2e-8; a second
+          q95 JPEG XL generation, 8.6e-6; a 1-pixel shift, 3.8e-4. From 10 bits up the input is as close to float as
+          an fp16 cast.</li>
+        <li>Masks against the float32 arm's, 360 test photos: median IoU 0.99999 at 8 bits (lowest 0.998 on a served
+          mask) and 1.00000 from 10 bits up; no mask became empty and no photo changed between mask and fallback in
+          any arm. Crop boxes moved on 9 of 237 positives at 8 bits (at most 4 px), on none from 10 bits up except
+          one at float16 (1 px).</li>
+        <li>Against the pass17 labels (validation, 177 positives and 88 negatives, <code>seg_finetune</code>'s own
+          measures): mean IoU 0.96990 in float32, float16, 12 bits and today's path, 0.96989 at 10 bits and 0.96992 at
+          8 bits; paired change 8-bit against float32 +1.6e-5, photo-bootstrap 95% CI [&minus;6.9e-6, +5.1e-5].
+          Every negative stays empty in every arm. The test split has no labels (the owner reviews it blind).</li>
+        <li>As for the classifier, where the rounding sits matters more than how many bits: today's path rounds
+          twice (the photo, then the 1,024 px input) and moves the embedding 30&times; more than one 8-bit rounding,
+          and its masks most (test: lowest IoU 0.990 on a served mask, boxes moved on 30 of 237 positives; validation:
+          one box by 114 px). It still scores the same against the labels.</li>
+      </ul>
+      Reduced: 360 of 472 test photos within the time budget; no fine-tune. All arms use today's canonical
+      photo.</li>
+    <li><strong>Linear 16-bit integer against half-float</strong>, researched 2026-11-25 at the owner's request
+      (<a href="../analysis/ml37/research_canonical_int_vs_half.md">research_canonical_int_vs_half.md</a>), on D8's 20
+      photos at half scale, both settings, the read-back rounded once to 8 bits:
+      <ul>
+        <li>Linear uint16 compresses exactly as well as half-float on the same tone-mapped picture: file 1.000&times;
+          per photo (0.999&ndash;1.001), pixel error 1.854 levels RMS in the store and 2.770 on the front for both,
+          the same block-mean error and the same share of changed 8-bit values. libjxl turns integer and float input
+          into the same float picture before XYB.</li>
+        <li>No worse in the shadows: dark pixels 1.836 against 1.836 levels RMS (store), 2.490 against 2.488 (front).
+          uint16's own steps near black are coarser before coding (0.156 against 0.107), but 12&ndash;16&times; below
+          the coding error there.</li>
+        <li>Neither can be told from today's BT.709 file at the same intensity target. The target is the one change
+          that shows: 203 against 255 makes files 4.5% (store) and 6.1% (front) smaller and the block-mean error 6%
+          and 9% higher, far inside D27. Keeping light above white in half-float would cost 4.4&ndash;5.5% on
+          gain-map photos.</li>
+        <li>Encode, decode and memory alike within 4&ndash;8% (4 full-size photos). DINOv3's feature, uint16 against
+          half-float: median 1&nbsp;&minus;&nbsp;cosine 8.1e-6, below the store's own coding change.</li>
+      </ul></li>
+    <li><strong>What the front should send to <code>yappy</code></strong>, researched 2026-11-25 at the owner's request
+      (<a href="../analysis/ml37/research_front_forms.md">research_front_forms.md</a>): 40 originals across formats and
+      cameras, the front's settings (q90, e3, the 15 MP cap), 2 cores pinned, median of 3 runs, on a workstation, not
+      the front. Mean &plusmn; standard deviation:
+      <div class="table-wrap"><table>
+        <thead><tr><th>Form</th><th>Generate</th><th>Size</th><th>Transfer at 2.1 Mbit/s</th><th>Total</th><th>Error (8-bit levels): block mean / largest block</th></tr></thead>
+        <tbody>
+          <tr><td>A, D1's linear 16-bit integer, lossy</td><td>6.56 &plusmn; 3.62 s</td><td>1.33 &plusmn; 0.81 MB</td><td>5.06 &plusmn; 3.08 s</td><td>11.62 &plusmn; 5.62 s</td><td>0.148 / 8.4</td></tr>
+          <tr><td>B, the 8-bit sRGB model input, lossy</td><td>5.29 &plusmn; 3.29 s</td><td>1.42 &plusmn; 0.87 MB</td><td>5.43 &plusmn; 3.30 s</td><td>10.71 &plusmn; 5.45 s</td><td>0.145 / 13.4</td></tr>
+          <tr><td>C, the same, lossless, effort 1</td><td>5.02 &plusmn; 3.24 s</td><td>11.75 &plusmn; 6.12 MB</td><td>44.75 &plusmn; 23.30 s</td><td>49.77 &plusmn; 24.88 s</td><td>exact</td></tr>
+          <tr><td>C, lossless, effort 3</td><td>6.27 &plusmn; 3.54 s</td><td>10.12 &plusmn; 5.71 MB</td><td>38.54 &plusmn; 21.74 s</td><td>44.81 &plusmn; 23.44 s</td><td>exact</td></tr>
+        </tbody>
+      </table></div>
+      <ul>
+        <li>C is ruled out by the link: about 9&times; B's bytes, up to 113 s on one photo.</li>
+        <li>B's 0.9 s gain is not the form's. A's encode takes 1.9&ndash;2.4 s against B's 0.3&ndash;0.4 s because
+          libjxl converts slowly from Rec.2020 primaries; the same picture in linear sRGB primaries encodes as fast
+          as B, and today's canonical photo pays the same cost. A's file is 7% smaller only through intensity target
+          203; at 255 the two are the same size (7 photos).</li>
+        <li>B is worse at the sRGB gamut's edge: it codes colour already clipped to sRGB, so errors in saturated
+          yellows and cyans stay. 1.27% of B's blocks are off by more than 2 levels against 0.18% of A's, up to 30% on
+          one Pixel photo.</li>
+        <li>B sends no canonical photo, against ADR 0033. Recommended: keep A.</li>
+      </ul>
+      A used the store's float colour path, not the front's integer one (D12, R3). Transfer is size only, with no link
+      overhead.</li>
+    <li><strong>The preview's picture made at the front</strong>, measured 2026-11-26 for D15
+      (<a href="../analysis/ml37/preview_front_measure.py">preview_front_measure.py</a>,
+      <a href="../analysis/ml37/preview_front_measure.txt">its output</a>), on the 40 form-A files above, 2 cores
+      pinned, one run, on the same workstation, not the front. The picture is part of the preview only; the mask and
+      the box come from the segmenter, on the host. Mean &plusmn; standard deviation:
+      <ul>
+        <li><strong>The models' picture</strong>, as the host makes it: decode 0.15 &plusmn; 0.06 s, D2's read-back at
+          full size 0.50 &plusmn; 0.19 s, the 1024 px thumbnail and JPEG q85 0.07 s; 0.73 &plusmn; 0.27 s in all, 0.97 s
+          at most. The JPEG is 149 &plusmn; 56 KB.</li>
+        <li><strong>Shrunk first</strong>, the linear light area-averaged to 1024 px and then read back: 0.26 s, but
+          not the models' picture: 0.64 levels apart on average, 5 at the 99th percentile, up to 94 at edges.</li>
+        <li><strong>Memory.</strong> The read-back done on the whole photo at once peaks at 1,074 MB more on a 17 MP
+          photo, beyond the front's 600 MB (R3). Done in strips of 256 rows it peaks at 101 MB, the 51 MB output
+          included, and gives the identical uint8 picture.</li>
+        <li><strong>Time saved.</strong> Today the picture reaches the browser after the link (5.1 &plusmn; 3.1 s for
+          form A), the host's decode and read-back and the segmenter. Made at the front, it is there about 0.7 s after
+          the canonical photo, and its making can overlap the crossing, when the front's CPU waits on the link. The
+          JPEG no longer crosses back from the host: about 0.15 s at the link's 8.5 Mbit/s out of <code>yappy</code>
+          (ML-15).</li>
+      </ul>
+      Not checked: whether libjxl decodes bit-identically on the front's CPU and the host's. A difference would be
+      about a level, invisible in a q85 thumbnail.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The canonical photo is Rec.2020 with the BT.709 curve, 16-bit integer, standard range, intensity target
+          255. Viewers draw the curve differently.</li>
+        <li>Every reader rounds it to 8-bit sRGB, and the resizes after that round again: three roundings to the
+          classifier, two to the segmenter.</li>
+        <li>The preview is a JPEG of that 8-bit sRGB. OPS-25's trial adds three wide-gamut previews and format tabs.</li>
+        <li>LittleCMS does every colour step, both ways.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>The canonical photo is linear Rec.2020, 16-bit integer, standard range, intensity target 203, lossy JPEG
+          XL. One reading in any viewer.</li>
+        <li>One read-back (matrix, clip, sRGB curve) rounds to 8-bit sRGB once and feeds both models. Crops and patches
+          stay 8-bit. The resizes after it are D11's.</li>
+        <li>The preview is a JPEG of that picture: the visitor sees what the models read. No tabs. The front makes
+          the picture and sends it first; the host sends the mask and box (D15).</li>
+        <li>LittleCMS still converts originals into Rec.2020, on float in the store and on the front alike (D12). The
+          read-back is numpy (D9).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The models read standard-range 8-bit sRGB.</strong> ML-19 D2; the research in &sect;2 found nothing
+      above 8 bits for either model. Neither model's architecture or weights change; the classifier's head and the OOD
+      probe are refitted on the new input.</li>
+    <li><strong>One canonical photo per photo, JPEG XL, Rec.2020 primaries, 16-bit integers, made at the front</strong>
+      (<a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>). Its transfer and intensity target
+      change; its role does not.</li>
+    <li><strong>What is read from an original, and the tone map.</strong> Colour declarations are honoured or refused
+      (ADR 0040), gain maps are applied (ADR 0041) and light above white is rolled off by ML-29 D33's EETF before the
+      encode, as today.</li>
+    <li><strong>The crops and patches.</strong> Lossless 8-bit sRGB JPEG XL crops (ML-19 D32), uint8 patches,
+      augmentation on uint8 (D10).</li>
+    <li><strong>The two settings.</strong> The store's and the front's quality, effort and caps stay (ADR 0036). The
+      front's colour path is D12's.</li>
+    <li><strong>The format list, the one streamed request (its preview part split in two, D15, D24), the masks'
+      geometry</strong>
+      (<a href="adr/0034-only-accepted-formats-reach-a-decoder.md">ADR 0034</a>,
+      <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a>).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The models' input moves more than the change of form explains.</strong></td>
+        <td>Before any retrain, each form's model picture, today's and the new, is compared with the uncoded float
+          reference on every dataset photo: mean and largest level difference on 32&times;32 block means (ML-29 D27's
+          measure), per camera, with the gain-map photos apart, and the work stops for the owner where the new form
+          breaks D27 and today's does not (D20). Expected: the lossy coding only, since the tone map is unchanged. On 20 photos the linear
+          uint16 file reads back like today's at the same intensity target (&sect;2); the move to 203 adds 6&ndash;9%
+          to the block-mean error.</td></tr>
+      <tr><td class="id">R2</td><td><strong>Lossy JPEG XL keeps less detail from linear integers than from today's
+        BT.709 integers.</strong></td>
+        <td>Measured 2026-11-25 (&sect;2): no. Same size and error at the same intensity target, shadows included. The
+          intensity target (D8) acts as a quality offset alike for every form. Re-checked at full scale in R1's
+          comparison and on the file sizes at both settings.</td></tr>
+      <tr><td class="id">R3</td><td><strong>The front loses precision, time or memory.</strong></td>
+        <td>The front's integer path uses LittleCMS's optimized 8-bit matrix-shaper, which into a <em>linear</em>
+          uint16 output quantizes light to 1/16384, about 0.2 sRGB levels a step near black, up to 0.8 levels before
+          the encode (D12's research). Gain maps already take the front to 392&ndash;487 MB and 12&ndash;15 s on the
+          largest photos, against its 600M (ML-29 R6). D12 (a) takes the float path, which the research found faster
+          on gain-map photos and about 2.4 s slower on plain ones, worst 10.6 s and 433 MB; measured on ML-29 R6's
+          photos before the release.</td></tr>
+      <tr><td class="id">R4</td><td><strong>The inference host's read-back is slower or larger.</strong></td>
+        <td>Small after 2026-11-25: uint16 in, uint8 out, as today, with no float copy of the photo kept and no peak
+          pass. D9's numpy read-back took 0.89 s at 15 MP against today's 1.85 s (research, on this machine). Measured
+          against ML-21's decode time.</td></tr>
+      <tr><td class="id">R5</td><td><strong>Float resizes and augmentations do not match today's 8-bit
+        ones.</strong></td>
+        <td>Narrowed 2026-11-25: the augmentation stays on uint8 patches (D3, D10), so albucore's internal 8-bit rounding
+          and <code>CoarseDropout</code>'s fill units (D11's research) no longer apply. What remains is D11 (b): a float
+          <code>sam_resize</code> and <code>eval_resize</code> change the segmenter's masks and DINOv3's input slightly
+          (within 2.02 levels of today's on 13 photos), judged in R1 and D13.</td></tr>
+      <tr><td class="id">R6</td><td><strong>An old canonical photo meets a new host, or the reverse.</strong></td>
+        <td>The header check is the gate: it accepts only the linear transfer and intensity target 203. The front and
+          the host ship in one release, and the example photos are re-made in it. A canonical photo sent by a tool
+          from before the release is refused, naming its encoding.</td></tr>
+      <tr><td class="id">R7</td><td><strong>A reader of the canonical photo still assumes the BT.709 curve.</strong></td>
+        <td>The committed profile <code>rec2020_bt709.icc</code> and every caller of <code>decode_canonical</code> and
+          <code>load_canonical</code> (the review pages, <code>review_masks</code>, <code>make_example_photos</code>,
+          the bean-pitch estimate) are listed in the plan and moved to the one read-back. A tool that skips it would
+          read linear light as if it had the curve: a much darker picture, caught by a test on a known photo.</td></tr>
+      <tr><td class="id">R8</td><td><strong>The new crops do not fit on this machine's disk.</strong></td>
+        <td>Closed 2026-11-25 by D10: the crops stay 8-bit, so the re-crop replaces today's 13.2 GB pool with one of the
+          same size. The 2026-11-23 research had found +85 to +150 GB for 16-bit crops against 62 GB free.</td></tr>
+      <tr><td class="id">R9</td><td><strong>Float patches and photos do not fit in memory.</strong></td>
+        <td>Closed 2026-11-25 by D3 and D10: patches and the segmenter's training photos stay uint8 (3.61 GB and
+          2.6 GB). The 2026-11-23 research had found float16 patches peaking at about 8.1 GB against about 7 GB
+          available.</td></tr>
+      <tr><td class="id">R10</td><td><strong>Making the preview's picture at the front (D15) breaks its memory limit or
+        delays the crossing.</strong></td>
+        <td>The read-back on a whole 17 MP photo peaks at 1,074 MB more; in strips of 256 rows, 101 MB, identical
+          output (&sect;2). The read-back is written in strips, and the front's peak is measured on ML-29 R6's photos with
+          R3. Its 0.7 s runs while the photo crosses the link, not before it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How is the canonical photo stored?</td>
+        <td>&mdash;</td>
+        <td>2026-11-25, the owner ("yes, integer linear 203"): lossy JPEG XL, Rec.2020 primaries, D65,
+          <strong>linear transfer, 16-bit integer</strong>, intensity target 203 (D8), values in [0, 1]. Light above
+          white tone-mapped by ML-29 D33's EETF before the encode, as today; negatives clipped at 0. In the store and on
+          the front alike, at today's settings. Replaces 2026-11-23's 16-bit half-float with light above white kept.
+          Amends ADR 0033 and ML-19 D7 (the BT.709 curve) and ML-19 D46 (the committed profile); ADR 0040 and 0041
+          stand.</td></tr>
+      <tr><td class="id">D2</td><td>How are both models' inputs made?</td>
+        <td>&mdash;</td>
+        <td>2026-11-25, the owner: the uint16 linear Rec.2020 &rarr; 3&times;3 matrix to linear sRGB &rarr; clip to
+          [0, 1] &rarr; sRGB curve &rarr; 8-bit sRGB. One read-back for DINOv3 and EfficientViT-SAM, in training and in
+          serving. Replaces 2026-11-23's float read-back with a tone map in it: the tone map stays at
+          canonicalization (D1).</td></tr>
+      <tr><td class="id">D3</td><td>The precision on the models' path?</td>
+        <td>&mdash;</td>
+        <td>2026-11-25, the owner ("let's keep 8-bits input for the model"): the read-back rounds to 8 bits once, and
+          the models read 8-bit sRGB. Reverses 2026-11-23's "no 8-bit step", on the research in &sect;2: no
+          measurable gain above 8 bits for either model.</td></tr>
+      <tr><td class="id">D4</td><td>What is the preview?</td>
+        <td>&mdash;</td>
+        <td>2026-11-23, the owner's request: the same picture as the models' input, so the visitor sees what the
+          model reads (OPS-7 D8's promise). Wide gamut is not adopted: OPS-25's trial, its tabs and its third part
+          go, and <code>preview_formats.py</code> with them. Since 2026-11-25 (D3): an untagged sRGB JPEG made from the
+          read-back's 8-bit picture, as <code>_preview_part</code> does today.</td></tr>
+      <tr><td class="id">D5</td><td>ML-34 and ML-29?</td>
+        <td>&mdash;</td>
+        <td>2026-11-23, the owner's request: ML-34 is superseded by this ticket and closed. Its HDR-brightness
+          preview is dropped, its open decisions answered in &sect;2. This ticket continues ML-29 (closed).</td></tr>
+      <tr><td class="id">D6</td><td>Light above white at the read-back: tone-map or clip?</td>
+        <td>(a) D33's EETF at the picture's own peak (b) clip at 1.0 (c) a fixed roll-off</td>
+        <td>Answered 2026-11-25 by D1: the tone map stays at canonicalization, so the read-back has nothing above white
+          and only clips. The research
+          (<a href="../analysis/ml37/research_d6_tone_map_or_clip.md">research_d6_tone_map_or_clip.md</a>) recommended
+          (a) with the gain from the Rec.2020 max, which is what canonicalization does today.</td></tr>
+      <tr><td class="id">D7</td><td>Colours outside Rec.2020 at canonicalization (negative values)?</td>
+        <td>(a) clipped at 0 as today (b) kept, clipped only by the read-back</td>
+        <td>Answered 2026-11-25 by D1: (a), since integers hold no negatives. The research
+          (<a href="../analysis/ml37/research_d7_out_of_gamut.md">research_d7_out_of_gamut.md</a>) had recommended (b)
+          for half-float; it found that the dataset reads the same either way (Display P3 sources reach &minus;0.0012 at
+          most).</td></tr>
+      <tr><td class="id">D8</td><td>The JPEG XL intensity target: how many cd/m² is 1.0?</td>
+        <td>(a) 203, BT.2408's reference white, the one D33 already gives PQ (b) libjxl's default, 255</td>
+        <td>(a), 2026-11-25, the owner ("integer linear 203"). For a linear file the target is the luminance of (1, 1,
+          1) (<a href="../analysis/ml37/research_d8_intensity_target.md">research_d8_intensity_target.md</a>). It acts
+          like about 1 quality point lower: files 4.5&ndash;6% smaller, block-mean error 6&ndash;10% higher, far inside
+          D27 (&sect;2). Decoded values do not depend on it. The strip encoder sets it; the header reader learns to read
+          it.</td></tr>
+      <tr><td class="id">D9</td><td>Who does the read-back's maths?</td>
+        <td>(a) numpy in float32: the matrix from the two sets of primaries, the sRGB curve in closed form, rounded to
+          uint8, tested against LittleCMS (b) LittleCMS, as ML-19 D31 has it, with a linear Rec.2020 profile in place
+          of <code>rec2020_bt709.icc</code></td>
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"). Research, 2026-11-23
+          (<a href="../analysis/ml37/research_d9_readback_maths.md">research_d9_readback_maths.md</a>), notes that (a)
+          <strong>reverses ML-19 D31</strong> and amends ADR 0033's "one library does all colour". On 20 photos,
+          LittleCMS is up to 0.15 of an 8-bit level off a float64 reference (its profiles' s15.16 values), numpy
+          0.0002. numpy takes 0.89 s at 15 MP against LittleCMS's 1.99 s and today's 1.85 s. Pin numpy exactly, and
+          test against independent references.</td></tr>
+      <tr><td class="id">D10</td><td>How are crops and patches kept?</td>
+        <td>(a) 16-bit integer crops (b) half-float crops (c) no crop store (d) as today: lossless 8-bit sRGB JPEG XL
+          crops, uint8 patches</td>
+        <td>(d), 2026-11-25, the owner, with D3. ML-19 D32 stands. The 2026-11-23 research
+          (<a href="../analysis/ml37/research_d10_crop_and_patch_storage.md">research_d10_crop_and_patch_storage.md</a>)
+          compared (a)&ndash;(c) for a float path; R8 and R9 close with it.</td></tr>
+      <tr><td class="id">D11</td><td>Do the resizes after the read-back (<code>sam_resize</code>,
+        <code>eval_resize</code>) round to 8 bits again?</td>
+        <td>(a) yes, as today: PIL bilinear on uint8 (b) no: PIL's bilinear in float mode ("F"), channel by channel,
+          on the 8-bit picture, so the model's input is rounded only at the read-back (and in the 448 px patch
+          store)</td>
+        <td>(b), 2026-11-26, the owner ("D11 answer (b)"), done in this ticket's re-crop. The resizes take the 8-bit
+          picture and give float, so the segmenter's input is rounded once and the classifier's twice (the 448 px
+          patch store, D10). Today's repeated roundings are the largest bit-depth
+          effect the research measured (130&times; one rounding for the classifier, 30&times; for the segmenter),
+          though they changed no accuracy (&sect;2). (b) is the same filter, within 2.02 levels of today's on 13 photos,
+          about 2&times; slower
+          (<a href="../analysis/ml37/research_d11_float_resize_and_augment.md">research_d11_float_resize_and_augment.md</a>).
+          It changes the masks slightly, so it needs the re-crop and refit this ticket does anyway (R5).</td></tr>
+      <tr><td class="id">D12</td><td>The front's colour path to linear uint16 (ADR 0036)?</td>
+        <td>(a) the store's float path for every upload (b) per-channel tables (the LUT path), within 0.14 of a level of
+          (a) (c) today's integer path, LittleCMS's optimized transform into linear uint16</td>
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"): the float path for every upload, as the store; amends ADR 0036's integer colour
+          on the front. Its time and memory measured on ML-29 R6's photos (R3). The research
+          (<a href="../analysis/ml37/research_d12_front_colour_path.md">research_d12_front_colour_path.md</a>), done for
+          half-float, recommended (a): gain-map photos faster (11.7 &rarr; 4.4 s, 15.5 &rarr; 7.1 s), plain photos about
+          2.4 s slower, worst 10.6 s and 433 MB. (b) is 7&ndash;10&times; faster than (a). (c) quantizes linear light to
+          1/16384, up to 0.8 levels off before the encode: not recommended.</td></tr>
+      <tr><td class="id">D13</td><td>What does the retrain have to show, fixed before the runs?</td>
+        <td>(a) no regression: the classifier refitted on seeds 42, 123 and 7, paired with today's
+          (<a href="adr/0002-paired-multi-seed-evidence.md">ADR 0002</a>), the overall test metric and no class's
+          F1 dropping beyond the seed range (b) an improvement beyond the seed range, as ML-29 D16</td>
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"), with the research's wording below. The aim is a correct pipeline with nothing lost; &sect;2's research expects no gain.
+          Research, 2026-11-23 (<a href="../analysis/ml37/research_d13_adoption_bar.md">research_d13_adoption_bar.md</a>),
+          rewords (a): the mean paired change in test macro-F1 over the three seeds, with its 95% photo-bootstrap lower
+          bound above &minus;0.010; no class's mean paired F1 change below &minus;0.02; the OOD probe still catching
+          every test negative and refusing at most 4 of the 295 bean photos; before the retrain, a median mask IoU of
+          at least 0.99 per camera against today's. (b) needs about +0.019, more than any change in the record. The
+          bootstrap is new code.</td></tr>
+      <tr><td class="id">D14</td><td>The segmenter, and <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a>'s
+        fine-tune?</td>
+        <td>(a) xl0_v7r_s123 kept and run on the new input; ML-33 fine-tunes after this ticket, on the new canonical
+          photos (b) ML-33 first, on today's input, then this ticket</td>
+        <td>(a), 2026-11-26, the owner ("D9 answer (a), D12 answer (a), D13 answer (a), D14 answer (a): first implement this ticket, all fine-tunning after that"): this ticket first, xl0_v7r_s123 kept on the new input; ML-33 and any other
+          fine-tune after it, on the new canonical photos. Against the research
+          (<a href="../analysis/ml37/research_d14_segmenter_and_ml33.md">research_d14_segmenter_and_ml33.md</a>), which
+          recommended (b): the masks barely move under the new input (median IoU 0.9999 against today's), nothing in a
+          fine-tune is keyed to the canonical photo's bytes, so ML-33 on today's input need not be redone. Since
+          2026-11-25 the input changes less still (8-bit, tone map unchanged), which strengthens (b).</td></tr>
+      <tr><td class="id">D15</td><td>Where is the preview's picture made?</td>
+        <td>(a) on the host, as today, in the one preview part with the mask and box (b) at the front, from its own
+          canonical photo by D2's read-back, the 1024 px JPEG sent to the browser first; the host's preview part keeps
+          the mask, the box and <code>seg_fallback</code> (c) as (b), but shrunk in linear light before the read-back</td>
+        <td>(b), 2026-11-26, the owner ("make this also a part of ML-37"; "D15 -- yes, make it answer (b) as
+          recommended"): the front makes the picture by D2's read-back, the same picture the host's makes. The visitor
+          sees the models' picture to the level, its 0.73 s overlaps the crossing, and (c)'s 0.47 s saved is not on the
+          visitor's wait (&sect;2). The picture reaches the
+          browser about 5 s sooner; the page shows it before the mask, and still shows it when the host is offline or
+          busy. Amends <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (the first
+          part is the thumbnail with the mask and box) and OPS-7 D8; the front's log line names when the picture went
+          out (OPS-3 D6). The read-back is one function the front and the host import (D9), in strips (R10).</td></tr>
+      <tr><td class="id">D16</td><td>The answer's lines once the front sends the picture first?</td>
+        <td>(a) a new first line from the front, <code>{"part": "picture"}</code>, then the host's <code>preview</code>
+          line without its thumbnail, then the classification or an error; a host refusal after the picture is an error
+          line carrying today's status (b) the same, the host's line keeping its thumbnail too</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). A refusal the front gives before the picture (too large, not an image, unreadable) stays an HTTP
+          status. Changes the public API's line order (<code>openapi.json</code>, <code>llms.txt</code>); amends
+          ADR 0023 with D15. The lines' names are D24's.</td></tr>
+      <tr><td class="id">D17</td><td>The head's augmented views under D11 (b): the <code>input</code> pipeline after the
+        224 px resize?</td>
+        <td>(a) on the float picture (b) on the picture rounded to uint8 first, as today</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3): the input the model sees when serving, augmented. JPEG compression and Downscale round to 8 bits
+          inside; a test holds each transform to float32 in [0, 1].</td></tr>
+      <tr><td class="id">D18</td><td>The segmenter's fine-tune code under D11 (b)?</td>
+        <td>(a) <code>seg_finetune.TrainSet</code> keeps a uint8 resize at the frame (about 2.6 GB) (b) float16 at the
+          frame (5.2 GB)</td>
+        <td>(a), 2026-11-26, the owner ("Q1 (a), Q2 (a), Q3 (a)"; the plan's Q1&ndash;Q3). No fine-tune runs here (D14); the difference from serving's float resize is recorded for
+          <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a> to settle.</td></tr>
+      <tr><td class="id">D19</td><td>Which ADRs record this ticket?</td>
+        <td>(a) one new ADR, the linear canonical photo and its read-back, with D15 an amendment note on ADR 0023 (b)
+          two new ADRs: that one, and one for the front drawing the preview</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended"). "<a href="adr/0042-the-canonical-photo-is-linear-light-read-back-once.md">The canonical photo
+          is linear light, read back once</a>" (ADR 0042, written in P3) amends ADR 0033 (ML-19 D7, D31, D46) and ADR 0036 (D12). "<a href="adr/0043-the-front-draws-the-preview.md">The front draws the preview</a>" (ADR 0043, written in P4) amends
+          ADR 0023 and also <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>, whose inference host
+          "streams the answer" and whose front only relays it: after D15 the front writes the answer's first line. D15
+          is hard to reverse (the public API's lines), surprising without context and a real trade-off, so it is not
+          left to amendment notes.</td></tr>
+      <tr><td class="id">D20</td><td>What does R1's comparison measure, and when does it stop the work?</td>
+        <td>(a) the new model picture against today's, under ML-29 D27's bar (b) each form against the uncoded float
+          reference, D27's bar on the new form</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended", then "Q6&ndash;Q9 as recommended", which
+          corrected Q3's (a)). D27's bar (32&times;32 block means: mean at most 1.0 level, no block over 6) measures one
+          lossy coding against an uncoded reference. New against today's adds two codings' errors, and the store's
+          largest block against the reference is already 3.60 on 20 photos (research_canonical_int_vs_half.md), so (a)
+          could stop P5 on noise. Per photo, per camera, gain-map photos apart: P5 stops for the owner if the new form
+          breaks D27 on a camera where today's form does not. The new form against today's is reported, with no
+          bar.</td></tr>
+      <tr><td class="id">D21</td><td>What happens if the refit misses D13's bar?</td>
+        <td>(a) one combined refit; on a miss, re-run without D11 (b), then close unadopted (b) two arms from the
+          start, with and without D11 (b) (c) a miss closes the ticket</td>
+        <td>(a), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended"). The refit changes the transfer, the intensity
+          target, the resizes (D11 (b)) and the lossy coding at once; D11 (b) is the one that can be taken out. On a
+          miss, the head is refitted with the 8-bit resizes (D11 (a)) and judged by the same bar; passing adopts that,
+          with D11 recorded as reversed. A second miss closes the ticket unadopted: the branch is never merged (nothing
+          reaches main before P8), and the reasons go into <code>.out-of-scope/</code>.</td></tr>
+      <tr><td class="id">D22</td><td>How is D15's promise, the front's model picture equal to the host's, checked on
+        the real machines?</td>
+        <td>(a) a test on this machine only (b) also in the release's <code>--verify</code>, over SSH (c) also in the
+          release, through a new endpoint on the host</td>
+        <td>(b), 2026-11-26, the owner ("Q2&ndash;Q5 as recommended", "Q6&ndash;Q9 as recommended"). Whether libjxl
+          decodes bit-identically on the two CPUs was not checked (&sect;2), and after D24 the host sends no picture
+          that would show it. The deploy runs a small script from each host's release on one fixture, over the SSH it
+          already uses, and compares the model picture's hash and largest difference: at most 1 level is accepted and
+          recorded, more stops for the owner. No endpoint: the API is open to any origin
+          (<a href="adr/0035-the-api-is-open-to-pages-on-any-origin.md">ADR 0035</a>).</td></tr>
+      <tr><td class="id">D23</td><td>The front fails to make the preview after its stream has opened?</td>
+        <td>(a) no preview line; the host's lines relayed; the failure in the front's log line (b) an error line, the
+          stream ended</td>
+        <td>(a), 2026-11-26, the owner ("Q6&ndash;Q9 as recommended, and more about Q8: we should see such errors in
+          the logs, do not forget to update whole logger system so it will match new scheme"; "Q11&ndash;Q14 as
+          recommended"). The classification is still valid, so the visitor gets the country without a picture. The
+          front's line gains <code>preview_error</code> (type and message, capped as <code>error</code> is), its
+          preview times absent and its <code>outcome</code> still <code>relayed</code>; the page's timeline has no
+          preview times and its outcome stays <code>answered</code>, with no new key; the reading script counts the
+          failures in its summary and shows the step as a gap. The rest of the logging follows D25&ndash;D27.</td></tr>
+      <tr><td class="id">D24</td><td>The answer's line names, against GLOSSARY.md's "Preview"?</td>
+        <td>(a) D16's: <code>picture</code> from the front, <code>preview</code> from the host with the mask and box
+          (b) <code>preview</code> from the front, carrying the JPEG, and <code>segmentation</code> from the host</td>
+        <td>(b), 2026-11-26, the owner ("Q10 as recommended, but remove "thumbnail" part, why we need it at all?";
+          "Q10&prime; (a)"). <code>{"part": "preview", "jpeg": "&lt;base64&gt;"}</code> from the front, then
+          <code>{"part": "segmentation"}</code> from the host with <code>mask</code>, <code>box</code>,
+          <code>cropped</code>, <code>seg_fallback</code> and <code>needs_review</code>, then the classification or an
+          error. The line called "preview" carries the preview, as the glossary defines it, and every log field named
+          for the preview keeps its meaning. The key <code>thumbnail</code> goes (the glossary avoids the word);
+          <code>jpeg</code> says how to read the bytes. Changes D16's names; its order and its refusals stand.</td></tr>
+      <tr><td class="id">D25</td><td>The page's timeline, now that its times mean something new?</td>
+        <td>(a) version 1, its keys re-read (b) version 2</td>
+        <td>(b), 2026-11-26, the owner ("Q11&ndash;Q14 as recommended"). <code>timeline_schema.VERSION</code> 2,
+          with the segmentation's arrival and drawing times beside the preview's; the check service accepts only 2
+          from the page. The reading script reads both, since the front's logs keep 30 days: a version-1 line's
+          preview times are the host-made preview's, as before. <code>timeline_check.py</code> sends 2.</td></tr>
+      <tr><td class="id">D26</td><td>How is a host refusal after the preview logged?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner ("Q11&ndash;Q14 as recommended"). The front's line keeps <code>status</code> 200,
+          the host's status in <code>upstream_status</code>, and the <code>outcome</code> it would give without a
+          preview: <code>busy</code>, <code>offline</code> or <code>failed</code>. The error line carries the same word,
+          and the page maps it to today's outcomes; the schema's list of outcomes does not change.</td></tr>
+      <tr><td class="id">D27</td><td>What does the logging work cover?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner ("do not forget to update whole logger system so it will match new scheme";
+          "Q11&ndash;Q14 as recommended"). One step of the plan's P4. The front's line: <code>preview_build_ms</code>,
+          <code>to_preview_ms</code> on its own clock, <code>to_segmentation_ms</code>, <code>preview_error</code>, its
+          peak memory with the preview in it. The host's line: <code>preview_build_ms</code> dropped,
+          <code>segmentation_build_ms</code> added, OPS-25's <code>previews_*</code> fields removed. The schema at
+          version 2 (D25). The reading script's step table rebuilt: the front's preview built, the preview's and the
+          segmentation's ways to the browser. <code>timeline_check.py</code>, the ops3_rig fixture,
+          <code>docs/logging_plan.html</code>, <code>docs/inference_path.html</code> and
+          <code>docs/agents/deploy.md</code>. A test runs one request's three lines (front, host, page) through the
+          reading script for an answer, an answer with no preview, and a refusal after the preview.</td></tr>
+      <tr><td class="id">D28</td><td>A host busy after the preview: does the page retry?</td>
+        <td>&mdash;</td>
+        <td>2026-11-26, the owner, after the code review of P1&ndash;P4 ("the main idea to show an error and do not
+          retry is okay"). No: the page shows the error line beside the preview and does not retry, as built in P4
+          and recorded in <a href="adr/0043-the-front-draws-the-preview.md">ADR 0043</a>. Before ML-37 a host busy 503
+          fed the page's retry loop. The words the page shows for it may change from "busy"; not decided.</td></tr>
+      <tr><td class="id">D29</td><td>Which runs are the refit's baseline?</td>
+        <td>(a) exp289&ndash;291, as the plan's P7 says (b) a baseline refitted on today's pool by today's live
+          pipeline</td>
+        <td>(b), 2026-11-27, the owner ("go with (b)"), before any of P7's runs. ML-35 and ML-36 grew the pool after
+          exp286&ndash;291 and redrew Ethiopia's, Brazil's and Peru's splits: at each seed only 199&ndash;205 of
+          exp289&ndash;291's 266 test photos are in today's 273, which widens the bootstrap and mixes three classes'
+          changes with other photos (the research's &sect;2 and &sect;10 had said no archived run was a paired
+          baseline). The baseline, exp295&ndash;297: <code>main</code>'s code at <code>617c944</code> (the 8-bit
+          resizes) on <code>main</code>'s pool (<code>95d5dbea&hellip;.dir</code>, the crops before P5), seeds 42, 123,
+          7; the candidate, exp292&ndash;294, this branch on P6's pool. Fully paired: the same photos, names and split.
+          About 10 h more of this machine. Written into <code>analysis/ml37/p7_bar.md</code>.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>ADR 0033 and the ML-19 decisions D1 and D9 amend (D7, D31, D46) amended, ADR 0036 for
+      D12, and two new ADRs (D19): the linear canonical photo and its read-back, and the front drawing the preview
+      (amending ADR 0023 and ADR 0031).</span></li>
+    <li><span class="box"></span><span>The canonical photo written as D1 says by both settings, the store's and the
+      front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
+      16-bit integer, lossy, intensity target 203) and by tests.</span></li>
+    <li><span class="box"></span><span>The read-back as D2 and D3 say, rounding to 8 bits once, the only way any
+      reader opens a canonical photo; <code>rec2020_bt709.icc</code> retired (R7).
+      <em>Note, 2026-11-26: the profile is kept, as <code>colour_declaration</code>'s source profile for a JPEG XL that
+      declares Rec.2020 with the BT.709 curve (the plan's finding 4); the canonical path no longer uses it.</em></span></li>
+    <li><span class="box"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, against
+      the uncoded reference under D20's stop, and the file sizes at both settings.</span></li>
+    <li><span class="box"></span><span>The front's and the host's time and memory on ML-29 R6's photos (R3,
+      R4).</span></li>
+    <li><span class="box"></span><span>The store re-canonicalized and the pool re-cropped through their DVC stages,
+      and pushed to the DVC remote.</span></li>
+    <li><span class="box"></span><span>The classifier's head and the OOD probe refitted, and the paired three-seed
+      comparison judged against D13's bar; on a miss, D21's second run. The owner's decision.</span></li>
+    <li><span class="box"></span><span>The preview is the models' input picture (D4). OPS-25's tabs, third part and
+      <code>preview_formats.py</code> removed. GLOSSARY.md's "Model picture", "Preview" and "Canonicalization" say so.</span></li>
+    <li><span class="box"></span><span>The front sends the preview line (<code>jpeg</code>, D24) before the photo
+      crosses to the host, made from the same model picture the host's read-back makes (a test on a known photo, and
+      D22's check on the live hosts); the host's <code>segmentation</code> line carries the mask and box; the page
+      shows the preview first and the mask when it comes, the preview alone when the host is offline, and the answer
+      without a preview when the front could not make one (D15, D23). The front's time and peak memory with it measured
+      on ML-29 R6's photos (R10).</span></li>
+    <li><span class="box"></span><span>The logs follow the new lines (D23, D25&ndash;D27): the front's and the host's
+      log lines, the timeline at version 2, the reading script's steps, <code>timeline_check.py</code> and the logging
+      docs; one request's three lines read back for an answer, no preview, and a refusal after the preview.</span></li>
+    <li><span class="box"></span><span>Adopted: one release of store, front, host and models, the examples re-made,
+      verified on the live site. Not adopted: the reasons recorded here and in .out-of-scope/.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>A preview with wide gamut or HDR brightness (OPS-25, ML-34). The canonical photo keeps wide gamut but not the
+      light above white, so an HDR preview would need a new canonical form.</li>
+    <li>Model input above 8 bits, light above white, PU21 or any other HDR encoding as the models' input (&sect;2;
+      ML-34 D4, experiment B).</li>
+    <li>A fine-tune on float input (&sect;2: not expected to gain).</li>
+    <li>Changes to what is read from an original: colour declarations, gain-map forms, second images (ML-29).</li>
+    <li>New models or a change of backbone; capture metadata (ML-30).</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-23</div>Ticket written from the owner's request, on 617c944, after reading
+      ML-19, ML-29, ML-34, OPS-25, ADRs 0033, 0036, 0040 and 0041, and the code of the three conversions. The jxlinfo
+      report was traced to ML-19 D7 (§2). Checked that the pinned imagecodecs writes and reads D1's form, on a
+      synthetic ramp. D1&ndash;D5 recorded from the request; D6&ndash;D14 open. ML-34 closed as superseded (D5). Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-11-23</div>D6&ndash;D14 researched at the owner's request, one note each in
+      <a href="../analysis/ml37/">analysis/ml37/</a>, with the scripts and their outputs. Each D-row records the
+      note's recommendation; every decision stays open. Against this ticket's recommendation: D7 (b), D10 (b), D14
+      (b). D9 (a) reverses ML-19 D31. R2 and R3 given measurements, R5 corrected, R8 (disk) and R9 (memory) added.
+      Measured on today's canonical photos converted to linear, on a loaded workstation, not on the front or the
+      host; nothing measured for accuracy. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-23</div>Researched at the owner's request: how many bits the classifier's input
+      needs, 8, 10, 12 or float16 (&sect;2,
+      <a href="../analysis/ml37/research_bits_classifier.md">research_bits_classifier.md</a>). No measurable gain
+      above 8 bits rounded once at the crop; from 10 bits up indistinguishable from float. The segmenter's study
+      follows. Decisions unchanged.</div>
+    <div><div class="when">2026-11-24</div>Researched at the owner's request: how many bits the segmenter's input
+      needs (&sect;2, <a href="../analysis/ml37/research_bits_segmenter.md">research_bits_segmenter.md</a>). No
+      measurable gain above 8 bits rounded once at the photo; from 10 bits up indistinguishable from float; against
+      the labels every arm scores the same. 360 of 472 test photos measured within the time budget. Decisions
+      unchanged.</div>
+    <div><div class="when">2026-11-25</div>Researched at the owner's request: linear 16-bit integer against
+      half-float (&sect;2,
+      <a href="../analysis/ml37/research_canonical_int_vs_half.md">research_canonical_int_vs_half.md</a>). Same size
+      and error, shadows included; neither distinguishable from today's file at the same intensity target. The owner
+      then decided: models keep 8-bit input (D3 reversed), the canonical photo is linear Rec.2020 in 16-bit integers at
+      intensity target 203 with the tone map at canonicalization (D1, D2 revised; D8 (a)), crops and patches stay
+      8-bit (D10). D6 and D7 answered by D1; R8 and R9 closed, R2&ndash;R7 rewritten. Title, summary and scope
+      rewritten to the new form. D9 and D11&ndash;D14 open. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-25</div>Researched at the owner's request: what the front sends to
+      <code>yappy</code>, A (the linear canonical photo), B (the 8-bit sRGB model input, lossy) or C (the same,
+      lossless) (&sect;2, <a href="../analysis/ml37/research_front_forms.md">research_front_forms.md</a>). C is ruled
+      out by the 2.1 Mbit/s link (about 45 s a photo); B is 0.9 s faster in total but worse on saturated colours and
+      sends no canonical photo. Recommended: keep A. Found on the way: libjxl's encode from Rec.2020 primaries costs
+      about 2 s a photo on the front, today's form included (for D12). Decisions unchanged.</div>
+    <div><div class="when">2026-11-26</div>The owner asked whether the front could make the preview, since it can make
+      the same picture from its canonical photo; measured (&sect;2,
+      <a href="../analysis/ml37/preview_front_measure.py">preview_front_measure.py</a>) and taken into this ticket at
+      the owner's word as D15: the front makes the preview's picture, the host the mask and box. The picture costs the
+      front 0.73 s, overlapping the crossing, and reaches the browser about 5 s sooner. Found on the way: the read-back
+      on a whole photo needs about 1 GB more on the front, so it runs in strips (R10). Not planned, not
+      implemented.</div>
+    <div><div class="when">2026-11-26</div>D15 decided by the owner: (b), the front's picture made by D2's read-back,
+      as recommended. Not planned, not implemented.</div>
+    <div><div class="when">2026-11-26</div>Decided by the owner: D9 (a), numpy read-back (reverses ML-19 D31); D12 (a),
+      the float colour path on the front (amends ADR 0036); D13 (a), no regression, the bar as worded; D14 (a), this
+      ticket first and every fine-tune, ML-33's included, after it, against the research's (b). Then D11 (b): the
+      resizes after the read-back give float, with no second 8-bit rounding. Every decision is now taken. Not
+      planned, not implemented.</div>
+    <div><div class="when">2026-11-26</div>Plan written
+      (<a href="ml-0037_plan_linear_canonical_photo.html">ml-0037_plan_linear_canonical_photo.html</a>), P1&ndash;P8,
+      from a read of the code at <code>8a81fd9</code>. Eight findings; three need the owner (the plan's Q1&ndash;Q3:
+      the answer's lines once the front sends the picture, the head's augmented views on float, the segmenter's
+      fine-tune resize). Not implemented.</div>
+    <div><div class="when">2026-11-26</div>The plan's Q1&ndash;Q3 answered by the owner, (a) each, recorded as
+      D16&ndash;D18. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>The plan grilled with the owner against the code and the docs. Decided:
+      D19, two new ADRs (D15's amends ADR 0031 too); D20, R1 measured against the uncoded reference with a stop
+      (correcting the session's first proposal, new against today's, which two codings' errors could trip); D21, the
+      refit's miss branch; D22, the front's and the host's model picture compared at the release; D23, a preview the
+      front fails to make is logged and skipped; D24, the lines renamed <code>preview</code> (key <code>jpeg</code>)
+      and <code>segmentation</code>, changing D16's names; D25&ndash;D27, the logging system to the new lines, the
+      timeline at version 2. GLOSSARY.md gains "Model picture" and a "Preview" saying who sees it, where and what
+      it is. The plan updated to match. Not implemented.</div>
+    <div><div class="when">2026-11-26</div>A note beside the read-back's acceptance item, after the code review of
+      P1&ndash;P4: <code>rec2020_bt709.icc</code> is not retired as the item says but kept, as
+      <code>colour_declaration</code>'s source profile for a JPEG XL declaring Rec.2020 with the BT.709 curve (the
+      plan's finding 4; ADR 0042). The canonical path, writing and reading, no longer uses it. The item's text is
+      left as decided.</div>
+    <div><div class="when">2026-11-26</div>D28 decided by the owner: a host busy after the preview is shown as
+      an error and not retried by the page (the code review's question). The words shown may change. The local
+      check's one error (an untracked sidecar in <code>dataset/ood_negatives/user_realworld</code>) gone: the owner
+      deleted the file. P1&ndash;P4 implemented and reviewed on <code>ml37-linear-canonical</code> (tip
+      <code>dfda7c4</code>); P5 waits for the owner.</div>
+    <div><div class="when">2026-11-27</div>D29 decided by the owner: P7's baseline is refitted on today's pool by
+      today's live pipeline (exp295&ndash;297), not read from exp289&ndash;291, whose test photos ML-35 and ML-36's
+      photos had partly redrawn. P5 and P6 done (the push skipped by the owner, the remote's disk). P7 started.</div>
+    <div><div class="when">2026-11-28</div>P7's refit met D13's bar on all three parts: mean paired test macro-F1
+      change &minus;0.0004, 95% photo-bootstrap lower bound &minus;0.0026 (bar &minus;0.010); worst class Guatemala
+      &minus;0.0030 (bar &minus;0.02); the probe on exp293 catches 164/164 test negatives and refuses 2 of 308 bean
+      photos (the bar's 295 counted before ML-35 and ML-36; the same two photos as ML-29 P11). Candidate
+      exp292&ndash;294, baseline exp295&ndash;297; <code>analysis/ml37/p7_compare_exp292_294.txt</code>. Waits for
+      the owner: adopt (P8's release) or not.</div>
+    <div><div class="when">2026-11-28</div>Adopted by the owner ("adopt, go ahead with P8"). Shipped as
+      <code>dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code> (exp293) with its probe and its LiteRT conversion
+      (D7 passed); the conversion env's numpy pinned to the read-back's 2.5.3 (it had 2.5.4, unchecked). Waits for the
+      owner's go-ahead to merge, push and deploy.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),
+    <a href="ml-0029_ticket_what_canonicalization_reads.html">ML-29</a> (D16, D26, D27, D33, R6; P10),
+    <a href="ops-0025_ticket_wide_gamut_preview.html">OPS-25</a> (its trial, ended here),
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D2, D7, D31, D32, D46, D52),
+    <a href="ops-0022_ticket_front_fast_canonicalization.html">OPS-22</a>,
+    <a href="ml-0021_ticket_canonical_decode_time.html">ML-21</a>,
+    <a href="ml-0033_ticket_segmenter_on_pass17.html">ML-33</a>,
+    <a href="ops-0007_ticket_photos_and_answers_optimization.html">OPS-7</a> (D8),
+    <a href="adr/0023-webapp-answers-a-photo-in-one-streamed-request.md">ADR 0023</a> (D15),
+    <a href="adr/0033-photos-are-canonicalized-once-at-the-front.md">ADR 0033</a>,
+    <a href="adr/0036-the-front-makes-its-own-canonical-photo.md">ADR 0036</a>,
+    <a href="adr/0040-a-colour-declaration-is-honoured-or-refused.md">ADR 0040</a>,
+    <a href="adr/0041-a-photos-gain-map-is-applied-at-canonicalization.md">ADR 0041</a>,
+    <a href="../analysis/ml34/research_hdr_pu21.md">the HDR and PU21 research</a>,
+    <a href="../analysis/ml29/research_browser_hdr_preview.md">the browser research</a>.</footer>
+</main>

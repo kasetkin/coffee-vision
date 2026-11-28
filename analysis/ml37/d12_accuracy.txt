@@ -1,0 +1,167 @@
+ML-37 D12 accuracy, 2026-11-23 17:12, load average 1.9, CPUs [0, 1]
+
+### Ultra HDR JPEG (Pixel, 12 MP)
+decoded 3072 x 4080 uint8 (jpeg), full 255, profile: Display P3; gain map applied; pixels above white (float path): 6.15%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 5 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.166 | - | - | - | - |
+| lcms16 | 0.016 | 0.444 | 0.0132 | 0.000% | 0.0000% |
+| lcmsf | 0.173 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.023 | 0.111 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| a_chunked32 | identical bytes | | | | 1,327,850 |
+| b_lcms16 | 19.614 | 0.0266 | 2.040% | 0.6640% | 1,327,954 |
+| b_lcmsf | identical bytes | | | | 1,327,850 |
+| b_lut | 1.142 | 0.0000 | 0.000% | 0.0001% | 1,327,850 |
+| today (load_canonical, uint8) | 48.000 | 1.8021 | 38.281% | 30.8653% | 1,247,489 |
+| a_chunked itself | | | | | 1,327,850 |
+
+### Ultra HDR JPEG (Pixel 9 Pro, 50 MP)
+decoded 3360 x 4463 uint8 (jpeg), full 255, profile: Display P3; gain map applied; pixels above white (float path): 5.04%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 5 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.188 | - | - | - | - |
+| lcms16 | 0.017 | 0.796 | 0.0115 | 0.000% | 0.0000% |
+| lcmsf | 0.176 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.022 | 0.139 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| a_chunked32 | identical bytes | | | | 1,842,549 |
+| b_lcms16 | 12.221 | 0.0337 | 2.569% | 0.9444% | 1,842,832 |
+| b_lcmsf | identical bytes | | | | 1,842,549 |
+| b_lut | 2.617 | 0.0000 | 0.003% | 0.0013% | 1,842,549 |
+| today (load_canonical, uint8) | 56.000 | 0.9648 | 16.485% | 11.7511% | 1,763,337 |
+| a_chunked itself | | | | | 1,842,549 |
+
+### ISO 21496-1 JPEG (Galaxy Z Fold8 Ultra, 50 MP)
+decoded 3354 x 4472 uint8 (jpeg), full 255, profile: DCI-P3 D65 Gamut with sRGB Transfer; gain map applied; pixels above white (float path): 22.62%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 7 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.170 | - | - | - | - |
+| lcms16 | 0.022 | 0.391 | 0.0175 | 0.000% | 0.0000% |
+| lcmsf | 0.176 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.021 | 0.130 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| a_chunked32 | identical bytes | | | | 1,130,398 |
+| b_lcms16 | 24.773 | 0.0430 | 3.093% | 1.0579% | 1,130,281 |
+| b_lcmsf | identical bytes | | | | 1,130,398 |
+| b_lut | 3.317 | 0.0000 | 0.002% | 0.0006% | 1,130,403 |
+| today (load_canonical, uint8) | 96.000 | 5.7377 | 40.907% | 38.2111% | 1,037,439 |
+| a_chunked itself | | | | | 1,130,398 |
+
+### ISO 21496-1 HEIC (iPhone, 48 MP)
+decoded 3354 x 4472 uint8 (heif8), full 255, profile: Display P3; gain map applied; pixels above white (float path): 13.29%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 6 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.169 | - | - | - | - |
+| lcms16 | 0.014 | 0.450 | 0.0161 | 0.000% | 0.0000% |
+| lcmsf | 0.167 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.017 | 0.140 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| a_chunked32 | identical bytes | | | | 2,297,106 |
+| b_lcms16 | 43.330 | 0.0504 | 3.977% | 1.5921% | 2,296,878 |
+| b_lcmsf | identical bytes | | | | 2,297,106 |
+| b_lut | 1.966 | 0.0000 | 0.003% | 0.0010% | 2,297,109 |
+| today (load_canonical, uint8) | 112.878 | 3.0087 | 22.746% | 19.4037% | 2,120,184 |
+| a_chunked itself | | | | | 2,297,106 |
+
+### Ultra HDR JPEG at the ceiling (made here, 60 MP)
+decoded 4000 x 3750 uint8 (jpeg), full 255, profile: Display P3 Gamut with sRGB Transfer; gain map none; pixels above white (float path): 0.00%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 5 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.161 | - | - | - | - |
+| lcms16 | 0.014 | 0.088 | 0.0066 | 0.000% | 0.0000% |
+| lcmsf | 0.160 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.016 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| b_lcms16 | 0.775 | 0.0012 | 0.150% | 0.0000% | 10,553 |
+| b_lcmsf | identical bytes | | | | 10,671 |
+| b_lut | identical bytes | | | | 10,671 |
+| today (load_canonical, uint8) | 1.089 | 0.1681 | 0.511% | 0.0166% | 10,644 |
+| a_chunked itself | | | | | 10,671 |
+
+### Plain JPEG, no gain map (48 MP, the dataset's largest)
+decoded 4472 x 3354 uint8 (jpeg), full 255, profile: none (sRGB, or the decoder's linear Rec.2020); gain map none; pixels above white (float path): 0.00%
+LUT additivity check, largest error in linear light: 6.0e-08
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 7 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.150 | - | - | - | - |
+| lcms16 | 0.013 | 0.259 | 0.0236 | 0.000% | 0.0000% |
+| lcmsf | 0.151 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.016 | 0.124 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| b_lcms16 | 41.427 | 0.0654 | 4.060% | 1.7749% | 1,785,863 |
+| b_lcmsf | identical bytes | | | | 1,785,533 |
+| b_lut | 2.540 | 0.0000 | 0.001% | 0.0005% | 1,785,533 |
+| today (load_canonical, uint8) | 40.620 | 0.2942 | 6.097% | 2.0212% | 1,785,765 |
+| a_chunked itself | | | | | 1,785,533 |
+
+### DNG (Pixel 9 Pro, 12.5 MP, the largest under the front's 16 MP RAW ceiling)
+decoded 3072 x 4080 uint16 (rawpy16), full 65535, profile: RGB built-in; gain map none; pixels above white (float path): 0.00%
+LUT additivity check, largest error in linear light: 0.0e+00
+LittleCMS uint16 linear output, optimized vs NOOPTIMIZE, first strip: largest 0 of 65535
+
+| Path | Colour step, s per MP (1 thread) | vs float path: max levels | mean | > 0.5 | > 1 |
+|---|---|---|---|---|---|
+| float (D12 a) | 0.125 | - | - | - | - |
+| lcms16 | 0.123 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lcmsf | 0.123 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+| lut | 0.018 | 0.000 | 0.0000 | 0.000% | 0.0000% |
+
+a_chunked header: RGB D65 BT2100 Linear Relative, 16-bit float, lossy (XYB)
+a_whole bytes == a_chunked bytes: True
+
+| After the encode, against a_chunked | max levels | mean | > 0.5 | > 1 | size |
+|---|---|---|---|---|---|
+| b_lcms16 | identical bytes | | | | 1,305,694 |
+| b_lcmsf | identical bytes | | | | 1,305,694 |
+| b_lut | identical bytes | | | | 1,305,694 |
+| today (load_canonical, uint8) | 10.176 | 0.2739 | 4.625% | 1.3365% | 1,305,647 |
+| a_chunked itself | | | | | 1,305,694 |
+
