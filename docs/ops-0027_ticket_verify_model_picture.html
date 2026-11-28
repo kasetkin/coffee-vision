@@ -1,0 +1,144 @@
+<title>The release's --verify compares the front's and the host's model picture (ML-37 D22)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-27 · coffee-vision · deploy and release checks</div>
+  <h1>Every release's <code>--verify</code> checks that the front and the host make the same model picture</h1>
+  <p class="lede">ML-37 D22 decided that the release checks, over SSH, that the front's model picture of a photo is
+    the host's: its hash and its largest difference, at most 1 level accepted and recorded. No phase of ML-37 built
+    it; P8's release checked it by hand once. This ticket puts it into <code>scripts/deploy_webapp.sh --verify</code>.
+    Written, not planned.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-28; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Deploy: a release check</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>scripts/deploy_webapp.sh</code> (<code>verify</code>), a new script in <code>webapp/deploy/</code>, <code>docs/agents/deploy.md</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-28</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-28.</strong> "write both follow-up tickets", after ML-37's release, where D22
+      was found missing from <code>--verify</code> and checked by hand.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>Since ML-37 (D15, ADR 0043) the front makes the page's preview from its own model picture of the photo, and
+    the host's models read the host's model picture of the same canonical JPEG XL. D15 promises the two are the same
+    picture; D22 (answer (b)) checks it at every release: a small script, run from each host's own release over the
+    SSH the deploy already uses, reads one fixture back to its model picture
+    (<code>coffeecv.canonical.load_canonical</code>), and the deploy compares the hashes and the largest difference.
+    Today <code>--verify</code> has no such step. The work: the script, the step in <code>verify</code>, its line in
+    the deploy's output, and the runbook.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li>ML-37 D22, 2026-11-26: "The deploy runs a small script from each host's release on one fixture, over the SSH
+      it already uses, and compares the model picture's hash and largest difference: at most 1 level is accepted and
+      recorded, more stops for the owner. No endpoint: the API is open to any origin (ADR 0035)." Only the plan's P8
+      names it; no phase's code added it (<code>git grep</code> finds no model-picture check in
+      <code>scripts/</code> or <code>webapp/deploy/</code>).</li>
+    <li>The by-hand check at P8's release, <code>20261128T1411Z-75d5dd9</code> (the ML-37 plan's P8 Activity): the
+      smoke photo (<code>PXL_20260825_193325070.jpg</code>, 12 MP) canonicalized on the front with
+      <code>FRONT_SETTINGS</code> by its release, that JPEG XL read back on the front, on <code>yappy</code> and on the
+      training machine. The three hashes all differ; every pair at most 1 level apart: front and host on 431 of 12 M
+      pixels, front and here on 74, host and here on 357. So an exact-hash check would fail every release; the
+      largest difference is the check, the hashes are recorded beside it.</li>
+    <li>The front's release holds <code>coffeecv/</code> (canonical, readback, preview and their imports) and a
+      <code>.venv</code> with numpy and imagecodecs, but not <code>webapp/deploy/</code>; the host's release holds the
+      whole tree, and its fixtures live in <code>/opt/coffee-cv/fixtures/</code>. <code>verify</code> already runs
+      commands on both (<code>vm</code>, <code>fe</code>) and copies files to both (<code>to_vm</code>,
+      <code>to_fe</code>).</li>
+    <li>A model picture is 36 MB at 12 MP: the comparison needs both pictures in one place, or a per-row digest
+      from each host compared row by row, or the front's picture sent to the host.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>--verify</code> checks the preview is a JPEG at the mask's size, not that it was made from the
+          host's picture.</li>
+        <li>A libjxl, numpy or CPU change on one host that moves the model picture goes unseen until an answer
+          changes.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li><code>--verify</code> prints both hashes and the largest difference, and fails over 1 level (D1).</li>
+        <li><code>docs/agents/deploy.md</code> names the check.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>No endpoint.</strong> D22 ruled one out: the API is open to any origin (ADR 0035).</li>
+    <li><strong>The read-back.</strong> A difference over the bar is reported, not fixed here.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>The front's memory.</strong></td>
+        <td>The front runs under <code>MemoryMax=600M</code> and its photos peak at 537 MB (ML-37 P4). The check runs
+          outside the check service, as the deploy user, on a 12 MP photo (the by-hand run did, without trouble); it
+          must not run while the service holds a photo, or should use the smallest fixture that still has a gain map
+          or wide gamut.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>A difference over 1 level at a full deploy's verify, after the flip?</td>
+        <td>(a) a failed check: the deploy rolls both hosts back, as a wrong example answer does (OPS-16 D14)
+          (b) a warning: the release stays live, the owner decides</td>
+        <td>Open. Recommended (a): D22's "stops for the owner" read as the deploy's own stop.</td></tr>
+      <tr><td class="id">D2</td><td>Which fixture?</td>
+        <td>(a) the smoke photo, already on the host (b) a fixture with a gain map or wide gamut, which exercises more
+          of the read-back</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>A script in <code>webapp/deploy/</code>, run from each host's release, that
+      prints a fixture's model picture hash (and whatever the comparison needs), with a test here.</span></li>
+    <li><span class="box"></span><span><code>verify</code> runs it on both hosts and checks the largest difference
+      against D1's rule; the hashes and the difference in its output.</span></li>
+    <li><span class="box"></span><span>Rehearsed with <code>scripts/rehearse_deploy_local.sh</code>, then one
+      <code>--verify</code> on the live release.</span></li>
+    <li><span class="box"></span><span><code>docs/agents/deploy.md</code>'s "Deployed" paragraph names the
+      check.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Making the three CPUs agree bit for bit.</li>
+    <li>Checking every fixture, or the store's settings.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-28</div>Ticket written from ML-37 D22 and P8's by-hand check at release
+      <code>20261128T1411Z-75d5dd9</code> (<code>a92d49d</code>). Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a> (D15, D22, P8),
+    <a href="ml-0037_plan_linear_canonical_photo.html">ML-37's plan</a>,
+    <a href="adr/0043-the-front-draws-the-preview.md">ADR 0043</a>,
+    <a href="ops-0016_ticket_example_photos.html">OPS-16</a> (D14),
+    <code>scripts/deploy_webapp.sh</code>, <code>docs/agents/deploy.md</code>.</footer>
+</main>

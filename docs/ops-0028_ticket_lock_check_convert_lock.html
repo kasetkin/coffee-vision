@@ -1,0 +1,138 @@
+<title>lock_check reads the conversion lock too</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-28 · coffee-vision · environments and locks</div>
+  <h1><code>coffeecv.lock_check</code> holds <code>convert/uv.lock</code> to the photo stack's versions</h1>
+  <p class="lede"><code>lock_check</code> keeps the training, webapp and front locks at one version of every package
+    they share, but does not read <code>convert/uv.lock</code>, the LiteRT conversion env's. Twice a pin the photo path
+    enforces at import time broke the conversion only when a model was exported (ML-27: imagecodecs; ML-37 P8:
+    numpy), and today it holds Pillow and pillow-heif at versions the other three moved away from. Written, not
+    planned.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-28; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Infrastructure: a check</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>coffeecv/lock_check.py</code>, <code>convert/pyproject.toml</code>, <code>convert/uv.lock</code>, the <code>litert_export</code> stages</span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-28</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-28.</strong> "write both follow-up tickets", after ML-37 P8's export stopped on
+      the conversion env's numpy.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>The conversion env imports the photo path: <code>coffeecv.export_litert</code> builds the models through
+    <code>coffeecv.infer</code>, which imports <code>photo_io</code>, <code>canonical</code> and, since ML-37,
+    <code>readback</code>. <code>canonical</code> refuses any imagecodecs but its own, and <code>readback</code> any
+    numpy but its own, at import. <code>lock_check</code> compares only three locks (<code>LOCKS</code> in
+    <code>coffeecv/lock_check.py</code>), so a pin moved in those three, or a pin added to the code, is caught in the
+    conversion env only by the next export. After: <code>lock_check</code> reads the conversion lock as well, for the
+    packages it must share with the others (D1), and the conversion lock is brought to them.</p>
+
+  <h2>2. Background</h2>
+  <ul>
+    <li><strong>ML-27</strong> (<code>3576b92</code>): imagecodecs, which <code>canonical</code> pins, was missing from
+      <code>convert/pyproject.toml</code>; declared at the pinned version.</li>
+    <li><strong>ML-37 P8</strong> (<code>3861fbd</code>): <code>litert_export</code> stopped on
+      <code>readback</code>'s numpy pin, 2.5.3 against the conversion lock's 2.5.4; numpy pinned. The live model's
+      export rerun on the new lock gave byte-identical graphs and head.</li>
+    <li><strong>The conversion lock today</strong>, against the other three (2026-11-28): of the 41 packages it shares
+      with the training lock, 8 differ. Deliberately: <code>torch</code> 2.13 against 2.14 and
+      <code>torchvision</code> (litert-torch needs torch below 2.14, <code>convert/pyproject.toml</code>'s header) and
+      <code>ai-edge-litert</code> 2.2.0 against 2.3.0 (litert-torch brings its own). Not deliberately:
+      <code>pillow</code> 12.3.0 against 13.0.0 in all three, which OPS-26 moved for 43 advisories and did not carry
+      here; <code>pillow-heif</code> 1.8.1 against 1.8.0; and <code>typing-extensions</code>, <code>markupsafe</code>,
+      <code>filelock</code>.</li>
+    <li>The D7 check (<code>export_litert finish</code>) runs in the training env, not the conversion env, so the
+      fixtures it reads are decoded by training's libraries; whether the conversion step decodes any photo, and so
+      whether Pillow's version there reaches a graph, is not known.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li><code>lock_check</code>: three locks.</li>
+        <li>The conversion env: Pillow 12.3.0, pillow-heif 1.8.1; found broken only at an export.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li><code>lock_check</code> reads <code>convert/uv.lock</code> too, under D1's rule; the pre-commit hook
+          and <code>scripts/check.sh</code> refuse a mismatch.</li>
+        <li>The conversion lock at the others' versions where D1 says so; one export rerun to show the graphs
+          unchanged, as ML-37 P8 did.</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The conversion env's own torch and ai-edge-litert.</strong> litert-torch needs them (ML-7 D6).</li>
+    <li><strong>The three locks' rule.</strong> They stay at one version of everything they share (ML-19 D40,
+      D41).</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Pillow 13 in the conversion env changes a graph.</strong></td>
+        <td>Unknown (§2). Mitigation: rerun the live model's <code>litert_export</code> after the move and compare
+          its files with the committed ones byte for byte; a changed graph stops for the owner.</td></tr>
+      <tr><td class="id">R2</td><td><strong>litert-torch refuses a package version the others hold.</strong></td>
+        <td>Its resolver would say so at <code>uv lock</code>; such a package joins D1's exceptions with its reason.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>Which shared packages must the conversion lock hold at the others' versions?</td>
+        <td>(a) every shared package but a named list of exceptions, each with its reason (torch, torchvision,
+          ai-edge-litert) (b) only a named list: the photo stack (numpy, imagecodecs, pillow, pillow-heif, rawpy and
+          the Pillow plugins)</td>
+        <td>Open. Recommended (a): a package the photo path starts to import is covered without anyone adding it.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span><code>lock_check</code> reads <code>convert/uv.lock</code> under D1's rule,
+      with a test that a mismatch in it fails.</span></li>
+    <li><span class="box"></span><span><code>convert/pyproject.toml</code> and its lock at the others' versions;
+      <code>convert/.venv</code> synced.</span></li>
+    <li><span class="box"></span><span>The live model's <code>litert_export</code> rerun: graphs and head
+      byte-identical, or the owner told; the other export stages committed on the new lock.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Moving the conversion env to training's torch (blocked on litert-torch).</li>
+    <li>Upgrading any package beyond the versions the other three locks hold.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-28</div>Ticket written from ML-37 P8's export failure (<code>3861fbd</code>),
+      ML-27's (<code>3576b92</code>) and the four locks compared. Decisions open. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a> (D9, P8),
+    <a href="ml-0027_ticket_classifier_on_new_photos.html">ML-27</a>,
+    <a href="ops-0026_ticket_photo_stack_security_upgrade.html">OPS-26</a>,
+    <a href="ml-0019_ticket_canonicalization.html">ML-19</a> (D40, D41),
+    <code>coffeecv/lock_check.py</code>, <code>convert/pyproject.toml</code>.</footer>
+</main>
