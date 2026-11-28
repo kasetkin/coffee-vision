@@ -297,7 +297,7 @@
 
   <h2>9. P7 &mdash; the head and the OOD probe refitted, judged against D13 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-28: D13&rsquo;s bar met on its three parts (<code>analysis/ml37/p7_compare_exp292_294.txt</code>); stopped for the owner: adopt or not</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-28: <code>a19d4c8</code>; D13&rsquo;s bar met on its three parts; adopted by the owner</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
   </div>
   <ol class="tasks">
@@ -319,7 +319,7 @@
 
   <h2>10. P8 &mdash; one release, or the ticket closed unadopted <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">not started</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-28: the model shipped, converted and documented; waits for the owner&rsquo;s go-ahead to merge, push and deploy</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4, P7</span></div>
   </div>
   <ol class="tasks">
@@ -523,6 +523,22 @@
       segmenter's test split after the research counted them (P11: 215 pool photos, now 228); 2 is within 4 on either
       count. No photo's answer changed on any seed; 0.6&ndash;1.0% of test patches changed prediction. Val beside it:
       &minus;0.0013. D21's second run not needed. Stopped for the owner: adopt (P8's release) or not.</div>
+    <div><div class="when">2026-11-28</div>Adopted by the owner ("adopt, go ahead with P8"). P7 done; P8 started.
+      exp293 (seed 123, the best val of exp292&ndash;294, as ML-29 picked) shipped as
+      <code>dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code>; its OOD reference built and its probe refitted from the
+      card (<code>analysis/ml37/p8_ood_reference.txt</code>, <code>p8_ood_probe.txt</code>): the probe's weights are
+      P7's (<code>tmp/ml37/p7/probe_exp293.json</code>) but for its time and path, so P7's 164/164 and 2/308 stand.
+      <code>litert_export</code>: D7's check passed on 13 fixtures. It first stopped on
+      <code>coffeecv.readback</code>'s numpy pin: <code>convert/uv.lock</code> held numpy 2.5.4, which no check
+      compares (<code>lock_check</code> reads the other three locks), so P3's import of the read-back by
+      <code>canonical</code> had broken the conversion env; numpy pinned at 2.5.3 in <code>convert/pyproject.toml</code>,
+      the lock changing numpy alone, as ML-27 did for imagecodecs. The live model's export rerun on the new lock: its
+      graphs and head byte-identical, only <code>check.json</code> (D7's measured numbers, moved at 1e-7 by P2 and
+      P3's reading of the fixtures) changed; the other seven export stages committed with outputs unchanged. The four
+      examples re-made in the new form (<code>make_example_photos.py</code>); the deploy re-makes its expected answers
+      itself. <code>webapp/app.py</code>, the four tests that name the live model, <code>docs/status.md</code> and
+      <code>docs/inference_path.html</code> name the new model. No change to the front's unit. Stopped for the owner:
+      the go-ahead to merge, push and deploy.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
