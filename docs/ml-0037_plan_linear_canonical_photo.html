@@ -297,7 +297,7 @@
 
   <h2>9. P7 &mdash; the head and the OOD probe refitted, judged against D13 <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-27: the bar and its script written; baseline exp295&ndash;297 by ML-37 D29</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-28: D13&rsquo;s bar met on its three parts (<code>analysis/ml37/p7_compare_exp292_294.txt</code>); stopped for the owner: adopt or not</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P6</span></div>
   </div>
   <ol class="tasks">
@@ -513,6 +513,16 @@
       ML-37 D29: exp295&ndash;297, <code>main</code>'s code and pool refitted, in place of exp289&ndash;291 (only
       199&ndash;205 of their 266 test photos per seed are in today's split). The candidate exp292&ndash;294 first,
       then the baseline; each seed about 3.3 h.</div>
+    <div><div class="when">2026-11-28</div>P7's runs done: the candidate exp292&ndash;294 (this branch, the pool P6
+      re-cropped) and the baseline exp295&ndash;297 (<code>main</code> at <code>617c944</code>, its pool), 273 test
+      photos per seed, all shared. D13's bar met on all three parts (<code>analysis/ml37/p7_compare_exp292_294.txt</code>):
+      mean paired test macro-F1 change &minus;0.0004 (seeds +0.0026, &minus;0.0031, &minus;0.0007), 95% photo-bootstrap
+      interval [&minus;0.0026, +0.0017], its lower bound above &minus;0.010; the worst class Guatemala &minus;0.0030,
+      above &minus;0.02; the probe refitted on exp293 catches 164/164 test negatives and refuses 2 bean photos, the
+      same two as ML-29 P11's. The bean photos are 308, not the bar's 295: ML-35 and ML-36 added 13 pool photos to the
+      segmenter's test split after the research counted them (P11: 215 pool photos, now 228); 2 is within 4 on either
+      count. No photo's answer changed on any seed; 0.6&ndash;1.0% of test patches changed prediction. Val beside it:
+      &minus;0.0013. D21's second run not needed. Stopped for the owner: adopt (P8's release) or not.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
