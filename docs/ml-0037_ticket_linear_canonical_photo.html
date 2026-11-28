@@ -18,7 +18,7 @@
     (<a href="ml-0037_plan_linear_canonical_photo.html">P1&ndash;P8</a>); not implemented.</p>
 
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; D28 decided 2026-11-26 after the code review, D29 2026-11-27 before P7&rsquo;s runs; P1&ndash;P4 implemented on <code>ml37-linear-canonical</code> (<code>dfda7c4</code>), P5&ndash;P6 done, P7&rsquo;s refit met D13&rsquo;s bar and was adopted by the owner 2026-11-28; P8&rsquo;s model shipped, waiting for the go-ahead to release</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-23; D1&ndash;D5 from the owner's request, D1&ndash;D3, D8 and D10 decided or revised 2026-11-25; D9, D11&ndash;D15 decided 2026-11-26; planned 2026-11-26, the plan's Q1&ndash;Q3 answered as D16&ndash;D18; D19&ndash;D27 decided 2026-11-26 in a grilling of the plan; D28 decided 2026-11-26 after the code review, D29 2026-11-27 before P7&rsquo;s runs; P1&ndash;P4 implemented on <code>ml37-linear-canonical</code> (<code>dfda7c4</code>), P5&ndash;P6 done, P7&rsquo;s refit met D13&rsquo;s bar and was adopted by the owner 2026-11-28; live 2026-11-28 (release <code>20261128T1411Z-75d5dd9</code>), P1&ndash;P8 done; the owner closes it</span></span></div>
     <div class="field"><span class="k">Triage</span><span class="v mono">enhancement, needs-triage</span></div>
     <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
     <div class="field"><span class="k">Type</span><span class="v">Pipeline: the canonical photo, the models' input and the preview</span></div>
@@ -623,36 +623,36 @@
 
   <h2>7. Scope and acceptance</h2>
   <ul class="checks">
-    <li><span class="box"></span><span>ADR 0033 and the ML-19 decisions D1 and D9 amend (D7, D31, D46) amended, ADR 0036 for
+    <li><span class="box done"></span><span>ADR 0033 and the ML-19 decisions D1 and D9 amend (D7, D31, D46) amended, ADR 0036 for
       D12, and two new ADRs (D19): the linear canonical photo and its read-back, and the front drawing the preview
       (amending ADR 0023 and ADR 0031).</span></li>
-    <li><span class="box"></span><span>The canonical photo written as D1 says by both settings, the store's and the
+    <li><span class="box done"></span><span>The canonical photo written as D1 says by both settings, the store's and the
       front's, and refused in any other form by the host. Shown by jxlinfo (linear transfer, Rec.2100 primaries,
       16-bit integer, lossy, intensity target 203) and by tests.</span></li>
-    <li><span class="box"></span><span>The read-back as D2 and D3 say, rounding to 8 bits once, the only way any
+    <li><span class="box done"></span><span>The read-back as D2 and D3 say, rounding to 8 bits once, the only way any
       reader opens a canonical photo; <code>rec2020_bt709.icc</code> retired (R7).
       <em>Note, 2026-11-26: the profile is kept, as <code>colour_declaration</code>'s source profile for a JPEG XL that
       declares Rec.2020 with the BT.709 curve (the plan's finding 4); the canonical path no longer uses it.</em></span></li>
-    <li><span class="box"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, against
+    <li><span class="box done"></span><span>R1's comparison on every dataset photo, per camera, before any retrain, against
       the uncoded reference under D20's stop, and the file sizes at both settings.</span></li>
-    <li><span class="box"></span><span>The front's and the host's time and memory on ML-29 R6's photos (R3,
+    <li><span class="box done"></span><span>The front's and the host's time and memory on ML-29 R6's photos (R3,
       R4).</span></li>
     <li><span class="box"></span><span>The store re-canonicalized and the pool re-cropped through their DVC stages,
-      and pushed to the DVC remote.</span></li>
-    <li><span class="box"></span><span>The classifier's head and the OOD probe refitted, and the paired three-seed
+      and pushed to the DVC remote. <em>Not pushed: the owner skipped the push (2026-11-27, the remote&rsquo;s disk); the objects are in this machine&rsquo;s DVC cache only (ADR 0028).</em></span></li>
+    <li><span class="box done"></span><span>The classifier's head and the OOD probe refitted, and the paired three-seed
       comparison judged against D13's bar; on a miss, D21's second run. The owner's decision.</span></li>
-    <li><span class="box"></span><span>The preview is the models' input picture (D4). OPS-25's tabs, third part and
+    <li><span class="box done"></span><span>The preview is the models' input picture (D4). OPS-25's tabs, third part and
       <code>preview_formats.py</code> removed. GLOSSARY.md's "Model picture", "Preview" and "Canonicalization" say so.</span></li>
-    <li><span class="box"></span><span>The front sends the preview line (<code>jpeg</code>, D24) before the photo
+    <li><span class="box done"></span><span>The front sends the preview line (<code>jpeg</code>, D24) before the photo
       crosses to the host, made from the same model picture the host's read-back makes (a test on a known photo, and
       D22's check on the live hosts); the host's <code>segmentation</code> line carries the mask and box; the page
       shows the preview first and the mask when it comes, the preview alone when the host is offline, and the answer
       without a preview when the front could not make one (D15, D23). The front's time and peak memory with it measured
-      on ML-29 R6's photos (R10).</span></li>
-    <li><span class="box"></span><span>The logs follow the new lines (D23, D25&ndash;D27): the front's and the host's
+      on ML-29 R6's photos (R10). <em>D22 checked by hand at P8&rsquo;s release, not by <code>--verify</code>: at most 1 level, on 431 of 12 M pixels.</em></span></li>
+    <li><span class="box done"></span><span>The logs follow the new lines (D23, D25&ndash;D27): the front's and the host's
       log lines, the timeline at version 2, the reading script's steps, <code>timeline_check.py</code> and the logging
       docs; one request's three lines read back for an answer, no preview, and a refusal after the preview.</span></li>
-    <li><span class="box"></span><span>Adopted: one release of store, front, host and models, the examples re-made,
+    <li><span class="box done"></span><span>Adopted: one release of store, front, host and models, the examples re-made,
       verified on the live site. Not adopted: the reasons recorded here and in .out-of-scope/.</span></li>
   </ul>
 
@@ -756,6 +756,11 @@
       <code>dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code> (exp293) with its probe and its LiteRT conversion
       (D7 passed); the conversion env's numpy pinned to the read-back's 2.5.3 (it had 2.5.4, unchecked). Waits for the
       owner's go-ahead to merge, push and deploy.</div>
+    <div><div class="when">2026-11-28</div>Live: release <code>20261128T1411Z-75d5dd9-dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code>, <code>main</code> at
+      <code>75d5dd9</code>, deployed and verified on both hosts (the plan's P8 Activity); only the model's two files
+      pushed to the DVC remote, by the owner's word. D22's check done by hand, not built into <code>--verify</code>: the
+      front's and the host's model picture of one photo at most 1 level apart. Every acceptance item ticked but the
+      push of the store and the pool, which the owner skipped. Waits for the owner to close.</div>
   </div>
 
   <footer>Related: <a href="ml-0034_ticket_hdr_canonical_photo.html">ML-34</a> (superseded),

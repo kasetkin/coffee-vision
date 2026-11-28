@@ -319,7 +319,7 @@
 
   <h2>10. P8 &mdash; one release, or the ticket closed unadopted <span class="pill sm open">stop</span></h2>
   <div class="fields">
-    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">In progress</span> <span class="tag">2026-11-28: the model shipped, converted and documented; waits for the owner&rsquo;s go-ahead to merge, push and deploy</span></span></div>
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill ok">Done</span> <span class="tag">2026-11-28: <code>3861fbd</code>, merged as <code>75d5dd9</code>; release <code>20261128T1411Z-75d5dd9-dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code> deployed and verified; D22 checked by hand (not in <code>--verify</code>); the ticket waits for the owner to close it</span></span></div>
     <div class="field"><span class="k">Blocked by</span><span class="v">P4, P7</span></div>
   </div>
   <ol class="tasks">
@@ -539,6 +539,24 @@
       itself. <code>webapp/app.py</code>, the four tests that name the live model, <code>docs/status.md</code> and
       <code>docs/inference_path.html</code> name the new model. No change to the front's unit. Stopped for the owner:
       the go-ahead to merge, push and deploy.</div>
+    <div><div class="when">2026-11-28</div>The owner's go-ahead ("go, push the two model files. Push only models to
+      the DVC"). The model's <code>.pt</code> and <code>.litert</code> pushed (5 objects; the graphs already there) and
+      in sync with the remote; nothing else pushed. Merged <code>--no-ff</code> into <code>main</code> as
+      <code>75d5dd9</code> and pushed. The three graphs byte-identical to the live release's copied on
+      <code>yappy</code> first into <code>releases/seed-ml37-graphs</code> (ML-16's way, OPS-13 not done): the upload took
+      6 s, and the prune removed it. Release <code>20261128T1411Z-75d5dd9-dino3b16_segxl0v7r_country_aug8_ml37lin_s123</code>: <code>check.sh --full</code> passed; the four
+      examples their answers here (Brazil, Ethiopia, Indonesia, the cappuccino refused); the smoke on the host's GPU
+      top-1 Colombia, mask IoU 1.0, score 0.0084 from local; photo answers down 45 s; <code>--verify</code> every check
+      ok: the lines in order (preview, segmentation, classification; at 11.2, 15.6 and 21.9 s from this container), the
+      preview a 768 &times; 1024 JPEG at the mask's size, top-1 Colombia, the timeline in the front's log, each example
+      its answer. The verify requests in the logs: the front canonicalized in 3.0&ndash;8.2 s at most 437 MB (19 MB
+      swap), its preview 0.3&ndash;1.4 s after; the host 8.7&ndash;9.7 s, segmentation 2.3&ndash;2.5 s.
+      D22 is not in <code>--verify</code>: no phase built it (only P8 named it). Checked by hand instead
+      (<code>tmp/ml37/p8/d22_picture.py</code>, not kept): the smoke photo canonicalized on the front with its
+      settings, that JPEG XL read back by each host's release: the model pictures' hashes differ, at most 1 level,
+      on 431 of 12 M pixels (front against this machine 74, the host against this machine 357, each at most 1).
+      Accepted and recorded, as D22 says; the three CPUs round a few pixels differently, which &sect;2 left
+      unchecked.</div>
   </div>
 
   <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37 ticket</a>,
