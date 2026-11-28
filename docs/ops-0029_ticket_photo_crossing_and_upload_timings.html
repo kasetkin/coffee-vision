@@ -1,0 +1,165 @@
+<title>The photo's crossing to the host measured as it is, and the slow link between the hosts found</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="tickets.css">
+
+<main>
+  <div class="eyebrow">Ticket OPS-29 · coffee-vision · logs, timelines and the link between the hosts</div>
+  <h1>The logs measure the photo's crossing and the visitor's upload as they are, and the slow front-to-host link is explained</h1>
+  <p class="lede">Reading the logs of ML-37's release showed two timings that do not measure what their names say: the
+    front's <code>crossing_ms</code> ends while most of the photo is still on its way to the host, and the page's
+    <code>upload_ms</code> ends when the answer's headers arrive, after the front has canonicalized. Behind the first
+    is a link that moves 0.25&ndash;0.30 MB/s, for 1&ndash;16 s of every photo's wait. Written, not planned; the
+    measurements are part of the work.</p>
+
+  <div class="fields">
+    <div class="field"><span class="k">Status</span><span class="v"><span class="pill open">Open</span> <span class="tag">written 2026-11-28; not planned, not implemented</span></span></div>
+    <div class="field"><span class="k">Triage</span><span class="v mono">bug, needs-triage</span></div>
+    <div class="field"><span class="k">Priority</span><span class="v">Medium</span></div>
+    <div class="field"><span class="k">Type</span><span class="v">Observability, then infrastructure</span></div>
+    <div class="field"><span class="k">Component</span><span class="v"><code>webapp/front/check_service.py</code> (<code>forward</code>), <code>webapp/static/index.html</code> (the attempt's times), <code>coffeecv/timeline_schema.py</code>, <code>coffeecv/timelines.py</code>, the tailnet between <code>webproxy</code> and <code>yappy</code></span></div>
+    <div class="field"><span class="k">Reporter</span><span class="v">Alex Kasatkin</span></div>
+    <div class="field"><span class="k">Assignee</span><span class="v">Claude (implementation), Alex (decisions)</span></div>
+    <div class="field"><span class="k">Created</span><span class="v mono">2026-11-28</span></div>
+    <div class="field"><span class="k">Production impact</span><span class="v">The front's log line and the page's timeline change at a release; a fix to the link, if D2 finds one, changes every photo's wait</span></div>
+    <div class="field"><span class="k">Blocked by</span><span class="v"><span class="pill ok">None</span></span></div>
+  </div>
+
+  <div class="callout info">
+    <p><strong>Owner request, 2026-11-28.</strong> "Just write the ticket, we will measure later when we will
+      implement this new ticket", after the read of the release's logs below.</p>
+  </div>
+
+  <h2>1. Summary</h2>
+  <p>A photo's wait is the visitor's upload, the front's canonicalization and preview, the photo's crossing to the
+    inference host, and the host's work. The logs time every step but two correctly. The work: (1) measure the link
+    between the hosts and find why it is slow (D2); (2) log the crossing as the time until the host has the whole
+    photo; (3) make the page's attempt times say what they measure; (4) the schema, the reading script and the docs
+    follow.</p>
+
+  <h2>2. Background</h2>
+  <p>From the logs of release <code>20261128T1411Z-75d5dd9</code> on both hosts, 14:10&ndash;15:20 UTC on
+    2026-11-28 (the front's <code>requests.jsonl</code> and nginx access log, the host's <code>app.jsonl</code> and
+    nginx access log), 11 answered photos: the deploy's 5 and 6 from Firefox. Every other timing adds up: the front's
+    <code>total_ms</code> is <code>read_ms + check_ms + canonicalize_ms + crossing_ms + to_end_ms</code> within 15 ms;
+    its nginx's request time is that plus the visitor's upload; the host's nginx's request time is the front's
+    <code>crossing_ms + to_end_ms</code>; the host's <code>latency_ms</code> is decode + crop detection + the mask's
+    build + inference, plus about 0.5 s.</p>
+  <ul>
+    <li><strong>The crossing.</strong> <code>forward</code> sets <code>crossing_ms</code> when
+      <code>conn.endheaders(body)</code> returns, and counts the answer's <code>to_headers_ms</code>,
+      <code>to_segmentation_ms</code> and <code>to_end_ms</code> from then; its docstring says "crossing_ms is the
+      connection and the whole upload". The call returns when the bytes are in the kernel's send buffer. The host
+      starts its clock (<code>g.t0</code>) only when its nginx has the whole body (<code>proxy_request_buffering
+      on</code>), so the front's <code>to_end_ms</code> exceeds the host's <code>latency_ms</code> by 0.6&ndash;5.2 s,
+      growing with the canonical photo's size: the rest of the crossing. Crossing plus that gap: 0.69 MB in 1.5 s,
+      1.0&ndash;1.5 MB in 2.8&ndash;5.1 s, 2.0 MB in 7.1&ndash;7.5 s, 3.98 MB in 15.7 s.</li>
+    <li><strong>The link.</strong> That is 0.23&ndash;0.47 MB/s, median 0.30; ping from the front to the host's
+      tailnet address, 75 ms. The rotated logs give the same since OPS-22 (median 0.25&ndash;0.31 MB/s on most days
+      from 2026-11-09), except 2026-11-12 and 2026-11-13 (0.75 and 0.64): it is not ML-37's, and it once was faster.
+      The cause is not known: a tailnet relay (DERP) instead of a direct path, either host's uplink, or TCP's window
+      over 75 ms. On 2026-11-02 (<code>docs/agents/deploy.md</code>) a photo took about 14 s end to end.</li>
+    <li><strong>The page's upload.</strong> The page ends an attempt's <code>upload_ms</code> at
+      <code>xhr.upload</code>'s <code>load</code> event (<code>onSent</code> in <code>index.html</code>), and
+      <code>timeline_schema.py</code> calls it "until the upload had left the browser". In all six Firefox timelines
+      <code>headers_ms</code> is 0&ndash;1 ms: the event fired as the headers came, and the front sends its headers when
+      its stream opens, after canonicalizing. So <code>upload_ms</code> (6.2&ndash;15.8 s) held the upload (0.9&ndash;3.1
+      s by the two nginx logs) and the canonicalization (2.9&ndash;11.4 s), and <code>to_preview_ms</code>,
+      <code>to_segmentation_ms</code> and <code>to_answer_ms</code>, counted from it, start late. Other browsers are
+      not measured.</li>
+  </ul>
+
+  <h2>3. Before and after</h2>
+  <div class="compare">
+    <div>
+      <h3>Now</h3>
+      <ul>
+        <li>The front's <code>crossing_ms</code>: until the bytes were handed to the kernel; the rest of the crossing
+          hides in the answer's times.</li>
+        <li>The page's <code>upload_ms</code>: in Firefox, the upload and the front's canonicalization.</li>
+        <li>The link moves about 0.3 MB/s, for a reason not known.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>After</h3>
+      <ul>
+        <li>A crossing time that ends when the host has the whole photo (D1), the answer's times from then.</li>
+        <li>The page's attempt times named for what the browser can see, the schema's text with them.</li>
+        <li>The link measured, its cause found, and fixed or recorded (D2).</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>4. What does not change</h2>
+  <ul>
+    <li><strong>The order of the lines and the work on either host.</strong> Only what is timed, and the link.</li>
+    <li><strong>The logs' privacy.</strong> No IP, as OPS-3 has it.</li>
+  </ul>
+
+  <h2>5. Risks</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Risk</th><th>Evidence and mitigation</th></tr></thead>
+    <tbody>
+      <tr><td class="id">R1</td><td><strong>Counts across a change of meaning.</strong></td>
+        <td>A field that keeps its name and changes its meaning splits the record at the release. A new name, or the
+          timeline's version, keeps the old lines readable (<code>timelines.py</code> reads both versions today).</td></tr>
+      <tr><td class="id">R2</td><td><strong>The link is the provider's.</strong></td>
+        <td>A slow uplink cannot be fixed here; then the ticket records it, and a smaller photo crossing (the front's
+          settings) is a ticket of its own.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>6. Decisions</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>ID</th><th>Question</th><th>Options</th><th>Owner decision</th></tr></thead>
+    <tbody>
+      <tr><td class="id">D1</td><td>How is the end of the crossing known?</td>
+        <td>(a) the host logs when it had the body (its nginx's <code>$request_time</code> beside the app's, or a
+          time on the answer's first line) and the reading script joins the two by request ID (b) the front waits for
+          the send buffer to empty (<code>SIOCOUTQ</code>) before it stops the clock (c) only the docs say what
+          <code>crossing_ms</code> is</td>
+        <td>Open.</td></tr>
+      <tr><td class="id">D2</td><td>What is measured of the link, and when?</td>
+        <td>(a) <code>tailscale ping</code> and <code>tailscale status</code> (direct or relayed), and a timed copy of
+          a few MB each way, at the start of the work (b) (a), then repeated after any change, and a line in
+          <code>docs/agents/deploy.md</code></td>
+        <td>Open. The owner: measured when the ticket is implemented (2026-11-28).</td></tr>
+      <tr><td class="id">D3</td><td>The page's upload time?</td>
+        <td>(a) renamed for what it is, until the headers, and the schema's text with it (b) measured another way, if
+          a browser gives the upload's end (c) left, the docs explain it</td>
+        <td>Open.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>7. Scope and acceptance</h2>
+  <ul class="checks">
+    <li><span class="box"></span><span>The link measured per D2: throughput each way, the path (direct or relayed),
+      and the cause of 0.3 MB/s; fixed, or recorded with the reason it stays.</span></li>
+    <li><span class="box"></span><span>The crossing timed per D1, with tests; the reading script shows it.</span></li>
+    <li><span class="box"></span><span>The page's attempt times per D3, the schema's text and its tests with
+      them.</span></li>
+    <li><span class="box"></span><span>One release, and a photo's lines from both hosts and the page read back:
+      the crossing and the host's time adding up to the front's wait.</span></li>
+  </ul>
+
+  <h2>Out of scope</h2>
+  <ul>
+    <li>Making the front's canonicalization faster or the canonical photo smaller.</li>
+    <li>The host's own times, which add up.</li>
+  </ul>
+
+  <h2>Activity</h2>
+  <div class="log">
+    <div><div class="when">2026-11-28</div>Ticket written from the logs of ML-37's release
+      <code>20261128T1411Z-75d5dd9</code> on both hosts and their rotated logs back to 2026-11-09. Decisions open; the
+      owner chose to measure the link when the ticket is implemented. Not planned, not implemented.</div>
+  </div>
+
+  <footer>Related: <a href="ml-0037_ticket_linear_canonical_photo.html">ML-37</a> (D25&ndash;D27, its release),
+    <a href="ops-0003_ticket_visitor_analytics.html">OPS-3</a> (D6, D9),
+    <a href="ops-0015_ticket_front_and_inference_host.html">OPS-15</a>,
+    <a href="ops-0022_ticket_front_fast_canonicalization.html">OPS-22</a>,
+    <a href="adr/0031-the-front-and-the-inference-host.md">ADR 0031</a>,
+    <code>webapp/front/check_service.py</code>, <code>webapp/static/index.html</code>,
+    <code>coffeecv/timeline_schema.py</code>, <code>docs/agents/deploy.md</code>.</footer>
+</main>
